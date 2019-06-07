@@ -4,12 +4,13 @@
   "description": "A service that Payhawk uses to integrate with Xero",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "lint": "tslint --project .",
     "fix": "tslint --project . --fix",
     "compile": "tsc -p .",
     "pretest": "npm run compile",
-    "start": "tsc && node build/index"
+    "start": "tsc && node build/index",
+    "snap": "jest --updateSnapshot"
   },
   "repository": {
     "type": "git",
@@ -19,7 +20,10 @@
   "license": "MIT",
   "homepage": "https://github.com/payhawk/xero-integration#readme",
   "devDependencies": {
+    "@types/jest": "^24.0.13",
     "@types/node": "^12.0.7",
+    "jest": "^24.8.0",
+    "ts-jest": "^24.0.2",
     "tslint": "^5.17.0",
     "typescript": "^3.5.1"
   }
