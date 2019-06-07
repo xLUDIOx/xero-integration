@@ -1,0 +1,28 @@
+{
+    "extends": "tslint:recommended",
+    "rules": {
+      "no-floating-promises": true,
+      "no-any": false,
+      "interface-name": [
+        true,
+        "always-prefix"
+      ],
+      "quotemark": [
+        true,
+        "single"
+      ],
+      "max-line-length": false,
+      "member-access": [
+        true,
+        "no-public"
+      ],
+      "object-literal-sort-keys": false,
+      "member-ordering": false,
+      "arrow-parens": false,
+      "no-console": false,
+      "no-unused-expression": {
+        "options": "allow-tagged-template"
+      }
+    }
+  }
+  
