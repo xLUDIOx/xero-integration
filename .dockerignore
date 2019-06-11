@@ -1,4 +1,5 @@
 .vscode
 build
+config.json
 coverage
 node_modules
