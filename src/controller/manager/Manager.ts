@@ -4,16 +4,24 @@ import { AccessToken, IOAuth1HttpClient, RequestToken } from 'xero-node/lib/inte
 
 import { IManager } from '.';
 import { IAccount } from './IAccount';
+import { IServiceConfig } from './IServiceConfig';
 
 const savedRequestTokens: { [accountId: string]: RequestToken } = {};
 const savedAccessTokens: { [accountId: string]: AccessToken } = {};
 
 export class Manager implements IManager {
     constructor(
-        private readonly baseConfig: XeroClientConfiguration,
+        private readonly xeroBaseConfig: XeroClientConfiguration,
+        private readonly serviceConfig: IServiceConfig,
         private readonly accountId: string) { }
 
-    async getAuthorizationUrl(): Promise<string> {
+    isXeroAuthenticated(): boolean {
+        return !!savedAccessTokens[this.accountId]
+            && !!savedAccessTokens[this.accountId].oauth_expires_at
+            && savedAccessTokens[this.accountId].oauth_expires_at! > new Date();
+    }
+
+    async getXeroAuthorizationUrl(): Promise<string> {
         const authClient = this.getAuthClient();
         const requestToken = await authClient.getRequestToken();
         savedRequestTokens[this.accountId] = requestToken;
@@ -21,20 +29,30 @@ export class Manager implements IManager {
         return this.getAuthClient().buildAuthoriseUrl(requestToken);
     }
 
-    async authenticate(verifier: string): Promise<void> {
+    async xeroAuthenticate(verifier: string): Promise<boolean> {
         if (!verifier) {
             throw Error('Missing verifier argument');
         }
 
         if (!savedRequestTokens[this.accountId]) {
-            throw Error('Missing request token. Did you call getAuthorizationUrl()?');
+            return false;
         }
 
-        const accessToken = await this.getAuthClient().swapRequestTokenforAccessToken(savedRequestTokens[this.accountId], verifier);
-        savedAccessTokens[this.accountId] = accessToken;
+        try {
+            const accessToken = await this.getAuthClient().swapRequestTokenforAccessToken(savedRequestTokens[this.accountId], verifier);
+            savedAccessTokens[this.accountId] = accessToken;
+        } catch (e) {
+            if (e && e.name === 'XeroError') {
+                return false;
+            } else {
+                throw e;
+            }
+        }
+
+        return true;
     }
 
-    async getChartOfAccounts(): Promise<IAccount[]> {
+    async synchronizeChartOfAccounts(payhawkApiKey: string): Promise<void> {
         if (!savedAccessTokens[this.accountId]) {
             throw Error('You are not authenticated');
         }
@@ -42,10 +60,13 @@ export class Manager implements IManager {
         const accessToken = savedAccessTokens[this.accountId];
         const xeroClient = new XeroClient(this.getConfig(), accessToken);
         const accountsResponse = await xeroClient.accounts.get({ where: 'Class=="EXPENSE"' });
-        return accountsResponse.Accounts.map(a => ({
+        const xeroAccounts = accountsResponse.Accounts.map(a => ({
             code: a.Code,
             name: a.Name,
         }));
+
+        // Request to payhawk goes here
+        console.log(JSON.stringify(xeroAccounts, undefined, 2));
     }
 
     private getAuthClient(): IOAuth1HttpClient {
@@ -54,8 +75,8 @@ export class Manager implements IManager {
 
     private getConfig(): XeroClientConfiguration {
         return {
-            ...this.baseConfig,
-            callbackUrl: `http://localhost:8080/accounts/${encodeURIComponent(this.accountId)}/callback`,
+            ...this.xeroBaseConfig,
+            callbackUrl: `${this.serviceConfig.serviceUrl}/callback?accountId=${encodeURIComponent(this.accountId)}`,
         };
     }
 }

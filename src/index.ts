@@ -18,8 +18,10 @@ const SERVICE_NAME = 'Xero Integration';
     // Endpoint used to check whether the service is up and running
     server.get('/status', (req, res) => res.send(200, 'OK'));
 
-    server.get('/accounts/:accountId/connect', controller.connect.bind(controller));
-    server.get('/accounts/:accountId/callback', controller.callback.bind(controller));
+    server.get('/connect', controller.connect.bind(controller));
+    server.get('/callback', controller.callback.bind(controller));
+
+    server.post('/payhawk', controller.payhawk.bind(controller));
 
     server.listen(8080, () => console.log('%s listening at %s', server.name, server.url));
 })().catch(err => console.error(err));

@@ -1,5 +1,7 @@
+
 export interface IManager {
-    getAuthorizationUrl(): Promise<string>;
-    authenticate(verifier: string): Promise<void>;
-    getChartOfAccounts(): Promise<any[]>;
+    isXeroAuthenticated(): boolean;
+    getXeroAuthorizationUrl(): Promise<string>;
+    xeroAuthenticate(verifier: string): Promise<boolean>;
+    synchronizeChartOfAccounts(payhawkApiKey: string): Promise<void>;
 }
