@@ -1,17 +1,17 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { XeroClientConfiguration } from 'xero-node/lib/internals/BaseAPIClient';
 import { AccessToken, IOAuth1HttpClient, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+
 import { IManager } from '.';
 import { IAccount } from './IAccount';
-
-// tslint:disable-next-line: no-var-requires
-const baseConfig: XeroClientConfiguration = require('../../../config.json');
 
 const savedRequestTokens: { [accountId: string]: RequestToken } = {};
 const savedAccessTokens: { [accountId: string]: AccessToken } = {};
 
 export class Manager implements IManager {
-    constructor(private readonly accountId: string) { }
+    constructor(
+        private readonly baseConfig: XeroClientConfiguration,
+        private readonly accountId: string) { }
 
     async getAuthorizationUrl(): Promise<string> {
         const authClient = this.getAuthClient();
@@ -54,7 +54,7 @@ export class Manager implements IManager {
 
     private getConfig(): XeroClientConfiguration {
         return {
-            ...baseConfig as XeroClientConfiguration,
+            ...this.baseConfig,
             callbackUrl: `http://localhost:8080/accounts/${encodeURIComponent(this.accountId)}/callback`,
         };
     }
