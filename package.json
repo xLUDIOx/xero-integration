@@ -9,7 +9,7 @@
     "fix": "tslint --project . --fix",
     "compile": "tsc -p .",
     "pretest": "npm run compile",
-    "start": "tsc && node build/index",
+    "start": "nodemon --watch build -e js --inspect=0.0.0.0:9230 build/index.js",
     "snap": "jest --updateSnapshot"
   },
   "repository": {
@@ -25,6 +25,7 @@
     "@types/oauth": "^0.9.1",
     "@types/restify": "^7.2.11",
     "jest": "^24.8.0",
+    "nodemon": "^1.19.1",
     "ts-jest": "^24.0.2",
     "tslint": "^5.18.0",
     "typemoq": "^2.1.0",
@@ -32,6 +33,7 @@
   },
   "dependencies": {
     "restify": "^8.3.3",
+    "source-map-support": "^0.5.12",
     "xero-node": "^3.0.21"
   }
 }

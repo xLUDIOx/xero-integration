@@ -2,6 +2,9 @@ import * as restify from 'restify';
 
 import { create as createController } from './controller';
 
+// tslint:disable-next-line:no-var-requires
+require('source-map-support').install();
+
 const SERVICE_NAME = 'Xero Integration';
 
 (async () => {

@@ -13,6 +13,21 @@
             "outFiles": [
                 "${workspaceFolder}/build/**/*.js"
             ]
+        },
+        {
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to Remote",
+            "address": "127.0.0.1",
+            "port": 9230,
+            "localRoot": "${workspaceFolder}",
+            "remoteRoot": "/app",
+            "smartStep": true,
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js"
+            ]
         }
     ]
 }
