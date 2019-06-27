@@ -8,6 +8,7 @@ const SERVICE_NAME = 'Xero Integration';
     const server = restify.createServer({ name: SERVICE_NAME });
     const controller = createController();
 
+    server.use(restify.plugins.jsonBodyParser());
     server.use(restify.plugins.queryParser());
 
     const stop = async () => await server.close();
