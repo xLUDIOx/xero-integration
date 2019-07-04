@@ -59,15 +59,19 @@ export class Controller {
             return;
         }
 
-        switch (payload.event) {
-            case PayhawkEvent.SynchronizeChartOfAccount:
-                await manager.synchronizeChartOfAccounts(payload.apiKey);
-                break;
-            default:
-                res.send(400, 'Unknown event');
-                return;
-        }
+        try {
+            switch (payload.event) {
+                case PayhawkEvent.SynchronizeChartOfAccount:
+                    await manager.synchronizeChartOfAccounts(payload.apiKey);
+                    break;
+                default:
+                    res.send(400, 'Unknown event');
+                    return;
+            }
 
-        res.send(204);
+            res.send(204);
+        } catch {
+            res.send(500);
+        }
     }
 }

@@ -1,9 +1,10 @@
+import * as request from 'request-promise';
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { XeroClientConfiguration } from 'xero-node/lib/internals/BaseAPIClient';
 import { AccessToken, IOAuth1HttpClient, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { IManager } from '.';
-import { IAccount } from './IAccount';
+import { IAccountCode } from './IAccountCode';
 import { IServiceConfig } from './IServiceConfig';
 
 const savedRequestTokens: { [accountId: string]: RequestToken } = {};
@@ -60,13 +61,16 @@ export class Manager implements IManager {
         const accessToken = savedAccessTokens[this.accountId];
         const xeroClient = new XeroClient(this.getConfig(), accessToken);
         const accountsResponse = await xeroClient.accounts.get({ where: 'Class=="EXPENSE"' });
-        const xeroAccounts = accountsResponse.Accounts.map(a => ({
+        const xeroAccountCodes: IAccountCode[] = accountsResponse.Accounts.map(a => ({
             code: a.Code,
             name: a.Name,
         }));
 
-        // Request to payhawk goes here
-        console.log(JSON.stringify(xeroAccounts, undefined, 2));
+        await request(`${this.serviceConfig.payhawkUrl}/api/v1/accounts/${encodeURIComponent(this.accountId)}/accounting-codes`, {
+            method: 'PUT', json: xeroAccountCodes, headers: {
+                'X-Payhawk-ApiKey': payhawkApiKey,
+            },
+        });
     }
 
     private getAuthClient(): IOAuth1HttpClient {
