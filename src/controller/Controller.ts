@@ -1,11 +1,12 @@
 import * as restify from 'restify';
 
+import { Integration, XeroConnection } from '../managers';
 import { IPayhawkPayload } from './IPayhawkPayload';
-import { IManagerFactory } from './manager';
 import { PayhawkEvent } from './PayhawkEvent';
 
 export class Controller {
-    constructor(private readonly managerFactory: IManagerFactory,
+    constructor(private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
+                private readonly integrationManagerFactory: Integration.IManagerFactory,
                 private readonly callbackHtmlHandler: restify.RequestHandler) {
     }
 
@@ -17,7 +18,7 @@ export class Controller {
 
         try {
             const accountId = req.query.accountId;
-            const authoriseUrl = await this.managerFactory(accountId).getXeroAuthorizationUrl();
+            const authoriseUrl = await this.connectionManagerFactory(accountId).getAuthorizationUrl();
 
             res.redirect(authoriseUrl, next);
         } catch (e) {
@@ -40,8 +41,8 @@ export class Controller {
         const oauthVerifier = req.query.oauth_verifier;
 
         try {
-            const manager = this.managerFactory(accountId);
-            if (await manager.xeroAuthenticate(oauthVerifier)) {
+            const manager = this.connectionManagerFactory(accountId);
+            if (await manager.authenticate(oauthVerifier)) {
                 this.callbackHtmlHandler(req, res, next);
             } else {
                 res.send(401);
@@ -53,16 +54,22 @@ export class Controller {
 
     async payhawk(req: restify.Request, res: restify.Response) {
         const payload = req.body as IPayhawkPayload;
-        const manager = this.managerFactory(payload.accountId);
-        if (!manager.isXeroAuthenticated()) {
+        const connectionManager = this.connectionManagerFactory(payload.accountId);
+        if (!connectionManager.isAuthenticated()) {
             res.send(400, 'Unable to execute request because you do not have a valid Xero auth session');
             return;
         }
 
+        const accessToken = connectionManager.getAccessToken();
+        const integrationManager = this.integrationManagerFactory(accessToken, payload.accountId, payload.apiKey);
+
         try {
             switch (payload.event) {
+                case PayhawkEvent.ExportExpense:
+                    await integrationManager.exportExpense(payload.data.expenseId);
+                    break;
                 case PayhawkEvent.SynchronizeChartOfAccount:
-                    await manager.synchronizeChartOfAccounts(payload.apiKey);
+                    await integrationManager.synchronizeChartOfAccounts();
                     break;
                 default:
                     res.send(400, 'Unknown event');

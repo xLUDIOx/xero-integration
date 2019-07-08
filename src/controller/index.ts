@@ -1,7 +1,7 @@
 import * as restify from 'restify';
 
+import { Integration, XeroConnection } from '../managers';
 import { Controller } from './Controller';
-import { managerFactory } from './manager';
 
 export { Controller };
 export const create = () => {
@@ -10,5 +10,5 @@ export const create = () => {
         file: 'callback.html',
     });
 
-    return new Controller(managerFactory, callbackHrmlHandler);
+    return new Controller(XeroConnection.createManager, Integration.createManager, callbackHrmlHandler);
 };

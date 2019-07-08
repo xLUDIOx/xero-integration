@@ -4,4 +4,5 @@ export interface IPayhawkPayload {
     accountId: string;
     apiKey: string;
     event: PayhawkEvent;
+    data?: any;
 }
