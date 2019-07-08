@@ -23,5 +23,6 @@ EXPOSE 8080
 
 ENTRYPOINT [ "node", "build/index" ]
 
+ADD ./assets ./assets
 COPY --from=build-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
