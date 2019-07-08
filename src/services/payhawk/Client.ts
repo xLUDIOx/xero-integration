@@ -1,7 +1,7 @@
 import * as request from 'request-promise';
 
 import { config } from '../../Config';
-import { IAccountCode } from '../xero/IAccountCode';
+import { IAccountCode } from './IAccountCode';
 import { IClient } from './IClient';
 
 export class Client implements IClient {

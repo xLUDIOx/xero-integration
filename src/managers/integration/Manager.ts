@@ -8,7 +8,10 @@ export class Manager implements IManager {
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroClient.getExpenseAccounts();
-        await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes);
+        await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes.map(a => ({
+            code: a.Code,
+            name: a.Name,
+        })));
     }
 
     async exportExpense(expenseId: string): Promise<void> {

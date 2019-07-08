@@ -1,4 +1,4 @@
 export interface IAccountCode {
-    code: string;
-    name: string;
+    Code: string;
+    Name: string;
 }

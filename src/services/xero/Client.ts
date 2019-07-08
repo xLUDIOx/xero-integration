@@ -15,10 +15,7 @@ export class Client implements IClient {
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         const accountsResponse = await this.xeroClient.accounts.get({ where: 'Class=="EXPENSE"' });
-        const xeroAccountCodes: IAccountCode[] = accountsResponse.Accounts.map(a => ({
-            code: a.Code,
-            name: a.Name,
-        }));
+        const xeroAccountCodes: IAccountCode[] = accountsResponse.Accounts;
 
         return xeroAccountCodes;
     }
