@@ -21,7 +21,8 @@ export class Controller {
             const authoriseUrl = await this.connectionManagerFactory(accountId).getAuthorizationUrl();
 
             res.redirect(authoriseUrl, next);
-        } catch (e) {
+        } catch (err) {
+            console.log(err);
             res.send(500);
         }
     }
@@ -47,7 +48,8 @@ export class Controller {
             } else {
                 res.send(401);
             }
-        } catch {
+        } catch (err) {
+            console.log(err);
             res.send(500);
         }
     }
@@ -77,7 +79,8 @@ export class Controller {
             }
 
             res.send(204);
-        } catch {
+        } catch (err) {
+            console.error(err);
             res.send(500);
         }
     }

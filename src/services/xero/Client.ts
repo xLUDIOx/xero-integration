@@ -1,5 +1,6 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { BankTransaction } from 'xero-node/lib/AccountingAPI-models';
+import { BankAccount, BankTransaction, Contact } from 'xero-node/lib/AccountingAPI-models';
+import { ContactsResponse } from 'xero-node/lib/AccountingAPI-responses';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { getXeroConfig } from './Config';
@@ -13,6 +14,55 @@ export class Client implements IClient {
         this.xeroClient = new XeroClient(getXeroConfig(accountId), accessToken);
     }
 
+    async findContact(name: string, vat?: string): Promise<Contact|undefined> {
+        let contactsResponse: ContactsResponse;
+        if (vat) {
+            contactsResponse = await this.xeroClient.contacts.get({ where: `TaxNumber=="${this.escape(vat)}"` });
+        } else {
+            contactsResponse = await this.xeroClient.contacts.get({ where: `Name=="${this.escape(name)}"` });
+        }
+
+        return contactsResponse.Contacts.length > 0 ? contactsResponse.Contacts[0] : undefined;
+    }
+
+    async createContact(name: string, vat?: string): Promise<Contact> {
+        const payload: Contact = {
+            Name: name,
+        };
+
+        if (vat) {
+            payload.TaxNumber = vat;
+        }
+
+        const contactsResponse = await this.xeroClient.contacts.create(payload);
+        return contactsResponse.Contacts[0];
+    }
+
+    async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<BankAccount> {
+        const currenciesResponse = await this.xeroClient.currencies.get({ where: `Code=="${this.escape(currencyCode)}"` });
+        if (currenciesResponse.Currencies.length === 0) {
+            await this.xeroClient.currencies.create({
+                Code: currencyCode,
+            });
+        }
+
+        const bankAccountsResponse = await this.xeroClient.accounts.create({
+            Name: name,
+            Code: code,
+            Type: 'BANK',
+            BankAccountNumber: accountNumber,
+            BankAccountType: 'CREDITCARD',
+            CurrencyCode: currencyCode,
+        });
+
+        return bankAccountsResponse.Accounts[0];
+    }
+
+    async getBankAccountByCode(code: string): Promise<BankAccount|undefined> {
+        const bankAccountsResponse = await this.xeroClient.accounts.get({ where: `Type=="BANK" && Code=="${this.escape(code)}"` });
+        return bankAccountsResponse.Accounts.length > 0 ? bankAccountsResponse.Accounts[0] : undefined;
+    }
+
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         const accountsResponse = await this.xeroClient.accounts.get({ where: 'Class=="EXPENSE"' });
         const xeroAccountCodes: IAccountCode[] = accountsResponse.Accounts;
@@ -20,25 +70,55 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
-    async createTransaction(): Promise<void> {
+    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode?: string): Promise<void> {
         const transaction: BankTransaction = {
             Type: 'SPEND',
             BankAccount: {
-                AccountID: 'DF1AA4CC-8290-4FE3-9534-76E0AA77DE1B',
+                AccountID: bankAccountId,
             },
             Contact: {
-                ContactID: '122737a5-004c-4f71-b9cb-68ae7b15a5df',
+                ContactID: contactId,
             },
+            Reference: reference,
             LineItems: [
                 {
-                    Description: 'Some fixed thing',
-                    AccountCode: '400',
+                    Description: description,
+                    AccountCode: accountCode || '429',
                     Quantity: 1,
-                    UnitAmount: 20,
+                    UnitAmount: amount,
                 },
             ],
         };
 
-        await this.xeroClient.bankTransactions.create(transaction);
+        const bankTrResponse = await this.xeroClient.bankTransactions.create(transaction);
+        if (bankTrResponse.BankTransactions[0].StatusAttributeString === 'ERROR') {
+            throw Error(JSON.stringify(bankTrResponse.BankTransactions[0].ValidationErrors, undefined, 2));
+        }
+    }
+
+    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode?: string) {
+        const result = await this.xeroClient.invoices.create({
+            Type: 'ACCPAY',
+            Contact: {
+                ContactID: contactId,
+            },
+            CurrencyCode: currency,
+            LineItems: [
+                {
+                    Description: description,
+                    AccountCode: accountCode || '429',
+                    Quantity: 1,
+                    UnitAmount: amount,
+                },
+            ],
+        });
+
+        if (result.Invoices[0].StatusAttributeString === 'ERROR') {
+            throw Error(JSON.stringify(result.Invoices[0].ValidationErrors, undefined, 2));
+        }
+    }
+
+    private escape(val: string): string {
+        return val.replace(/[\\$'"]/g, '\\$&');
     }
 }

@@ -9,7 +9,6 @@ require('source-map-support').install();
 const SERVICE_NAME = 'Xero Integration';
 
 (async () => {
-    console.log(config);
     const server = restify.createServer({ name: SERVICE_NAME });
     const controller = createController();
 
