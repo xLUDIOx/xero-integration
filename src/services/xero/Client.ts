@@ -1,10 +1,11 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { BankAccount, BankTransaction, Contact } from 'xero-node/lib/AccountingAPI-models';
+import { BankTransaction, Contact } from 'xero-node/lib/AccountingAPI-models';
 import { ContactsResponse } from 'xero-node/lib/AccountingAPI-responses';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { getXeroConfig } from './Config';
 import { IAccountCode } from './IAccountCode';
+import { IBankAccount } from './IBankAccount';
 import { IClient } from './IClient';
 
 export class Client implements IClient {
@@ -38,7 +39,12 @@ export class Client implements IClient {
         return contactsResponse.Contacts[0];
     }
 
-    async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<BankAccount> {
+    async activateBankAccount(bankAccount: IBankAccount): Promise<IBankAccount> {
+        const bankAccountsResponse = await this.xeroClient.accounts.update({ Status: 'ACTIVE' }, { AccountID: bankAccount.AccountID });
+        return bankAccountsResponse.Accounts[0];
+    }
+
+    async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount> {
         const currenciesResponse = await this.xeroClient.currencies.get({ where: `Code=="${this.escape(currencyCode)}"` });
         if (currenciesResponse.Currencies.length === 0) {
             await this.xeroClient.currencies.create({
@@ -58,7 +64,7 @@ export class Client implements IClient {
         return bankAccountsResponse.Accounts[0];
     }
 
-    async getBankAccountByCode(code: string): Promise<BankAccount|undefined> {
+    async getBankAccountByCode(code: string): Promise<IBankAccount|undefined> {
         const bankAccountsResponse = await this.xeroClient.accounts.get({ where: `Type=="BANK" && Code=="${this.escape(code)}"` });
         return bankAccountsResponse.Accounts.length > 0 ? bankAccountsResponse.Accounts[0] : undefined;
     }

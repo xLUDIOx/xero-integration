@@ -30,7 +30,11 @@ export class Manager implements IManager {
         const bankAccountNumber = defBankAccountNumber(currency);
         const bankAccountName = defBankAccountName(currency);
         const contactName = expense.supplier.name || 'Payhawk Transaction';
-        const bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode) || await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
+        let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode) || await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
+        if (bankAccount.Status === 'ARCHIVED') {
+            bankAccount = await this.xeroClient.activateBankAccount(bankAccount);
+        }
+
         const contact = await this.xeroClient.findContact(contactName, expense.supplier.vat) ||
             await this.xeroClient.createContact(contactName, expense.supplier.name ? expense.supplier.vat : undefined);
 
