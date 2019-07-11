@@ -45,7 +45,7 @@ export class Controller {
         const oauthVerifier = req.query.oauth_verifier;
 
         const logger = this.baseLogger.child({ accountId }, req);
-        logger.info('yoyoy');
+
         try {
             const manager = this.connectionManagerFactory(accountId);
             if (await manager.authenticate(oauthVerifier)) {
