@@ -1,11 +1,13 @@
 import * as restify from 'restify';
 
 import { Integration, XeroConnection } from '../managers';
+import { ILogger } from '../utils/logger';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
 
 export class Controller {
-    constructor(private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
+    constructor(private readonly baseLogger: ILogger,
+                private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
                 private readonly integrationManagerFactory: Integration.IManagerFactory,
                 private readonly callbackHtmlHandler: restify.RequestHandler) {
     }
@@ -16,13 +18,14 @@ export class Controller {
             return;
         }
 
-        try {
-            const accountId = req.query.accountId;
-            const authoriseUrl = await this.connectionManagerFactory(accountId).getAuthorizationUrl();
+        const accountId = req.query.accountId;
+        const logger = this.baseLogger.child({ accountId }, req);
 
+        try {
+            const authoriseUrl = await this.connectionManagerFactory(accountId).getAuthorizationUrl();
             res.redirect(authoriseUrl, next);
         } catch (err) {
-            console.log(err);
+            logger.error(err);
             res.send(500);
         }
     }
@@ -41,6 +44,8 @@ export class Controller {
         const accountId = req.query.accountId;
         const oauthVerifier = req.query.oauth_verifier;
 
+        const logger = this.baseLogger.child({ accountId }, req);
+
         try {
             const manager = this.connectionManagerFactory(accountId);
             if (await manager.authenticate(oauthVerifier)) {
@@ -49,7 +54,7 @@ export class Controller {
                 res.send(401);
             }
         } catch (err) {
-            console.log(err);
+            logger.error(err);
             res.send(500);
         }
     }
@@ -62,6 +67,7 @@ export class Controller {
             return;
         }
 
+        const logger = this.baseLogger.child({ accountId: payload.accountId }, req);
         const accessToken = connectionManager.getAccessToken();
         const integrationManager = this.integrationManagerFactory(accessToken, payload.accountId, payload.apiKey);
 
@@ -80,7 +86,7 @@ export class Controller {
 
             res.send(204);
         } catch (err) {
-            console.error(err);
+            logger.error(err);
             res.send(500);
         }
     }

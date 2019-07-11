@@ -1,7 +1,8 @@
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
-import { Integration, XeroConnection } from 'src/managers';
+import { Integration, XeroConnection } from '../managers';
+import { ILogger } from '../utils/logger';
 import { Controller } from './Controller';
 import { PayhawkEvent } from './PayhawkEvent';
 
@@ -12,6 +13,7 @@ describe('Controller', () => {
     let callbackHtmlHandlerMock: TypeMoq.IMock<restify.RequestHandler>;
     let responseMock: TypeMoq.IMock<restify.Response>;
     let nextMock: TypeMoq.IMock<restify.Next>;
+    let loggerMock: TypeMoq.IMock<ILogger>;
 
     let controller: Controller;
 
@@ -22,7 +24,13 @@ describe('Controller', () => {
         responseMock = TypeMoq.Mock.ofType<restify.Response>();
         nextMock = TypeMoq.Mock.ofType<restify.Next>();
 
-        controller = new Controller(() => connectionManagerMock.object, () => integrationManagerMock.object, callbackHtmlHandlerMock.object);
+        loggerMock = TypeMoq.Mock.ofType<ILogger>();
+        loggerMock.setup(l => l.child(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => loggerMock.object);
+
+        controller = new Controller(loggerMock.object,
+            () => connectionManagerMock.object,
+            () => integrationManagerMock.object,
+            callbackHtmlHandlerMock.object);
     });
 
     afterEach(() => {
@@ -31,6 +39,7 @@ describe('Controller', () => {
         callbackHtmlHandlerMock.verifyAll();
         responseMock.verifyAll();
         nextMock.verifyAll();
+        loggerMock.verifyAll();
     });
 
     describe('connect()', () => {
