@@ -1,6 +1,8 @@
 import * as restify from 'restify';
 
+import { config } from '../Config';
 import { Integration, XeroConnection } from '../managers';
+import { createLogger } from '../utils/logger';
 import { Controller } from './Controller';
 
 export { Controller };
@@ -10,5 +12,6 @@ export const create = () => {
         file: 'callback.html',
     });
 
-    return new Controller(XeroConnection.createManager, Integration.createManager, callbackHrmlHandler);
+    const logger = createLogger(config.serviceName);
+    return new Controller(logger, XeroConnection.createManager, Integration.createManager, callbackHrmlHandler);
 };

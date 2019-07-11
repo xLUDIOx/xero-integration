@@ -8,5 +8,8 @@ if (process.env.TELEPRESENCE_MOUNT_PATH) {
     serviceConfigPath = process.env.TELEPRESENCE_MOUNT_PATH + serviceConfigPath;
 }
 
-// tslint:disable-next-line: no-var-requires
-export const config = require(serviceConfigPath);
+export const config = {
+    serviceName: 'Xero Integration',
+    // tslint:disable-next-line: no-var-requires
+    ...require(serviceConfigPath),
+};
