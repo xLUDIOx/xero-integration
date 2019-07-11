@@ -7,11 +7,11 @@ import { Controller } from './Controller';
 
 export { Controller };
 export const create = () => {
-    const callbackHrmlHandler = restify.plugins.serveStatic({
+    const callbackHtmlHandler = restify.plugins.serveStatic({
         directory: './assets',
         file: 'callback.html',
     });
 
     const logger = createLogger(config.serviceName);
-    return new Controller(logger, XeroConnection.createManager, Integration.createManager, callbackHrmlHandler);
+    return new Controller(logger, XeroConnection.createManager, Integration.createManager, callbackHtmlHandler);
 };

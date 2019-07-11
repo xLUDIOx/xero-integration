@@ -21,7 +21,7 @@ export class PinoStackDriverLogger implements ILogger {
         const params = this.build(obj, msg);
         this.pino.info({
             ...params,
-            ...{ severity: StackdriverSeverity.Info },
+            severity: StackdriverSeverity.Info,
         });
     }
 
@@ -29,7 +29,7 @@ export class PinoStackDriverLogger implements ILogger {
         const params = this.build(obj, msg);
         this.pino.debug({
             ...params,
-            ...{ severity: StackdriverSeverity.Debug },
+            severity: StackdriverSeverity.Debug,
         });
     }
 
@@ -37,7 +37,7 @@ export class PinoStackDriverLogger implements ILogger {
         const params = this.build(obj, msg);
         this.pino.warn({
             ...params,
-            ...{ severity: StackdriverSeverity.Warning },
+            severity: StackdriverSeverity.Warning,
         });
     }
 
@@ -46,7 +46,7 @@ export class PinoStackDriverLogger implements ILogger {
         this.pino.trace({
             ...params,
             // There is no Trace in Stackdriver
-            ...{ severity: StackdriverSeverity.Debug },
+            severity: StackdriverSeverity.Debug,
         });
     }
 
@@ -57,14 +57,14 @@ export class PinoStackDriverLogger implements ILogger {
         const payload = this.build(typeof obj === 'undefined' ? {} : obj, error.stack);
         this.pino.error({
             text: error.message,
-            ...{ error },
+            error,
             ...payload,
             severity: StackdriverSeverity.Error,
         });
     }
 
     child(indexes: Record<string, any>, currentRequest?: restify.Request): ILogger {
-        return new PinoStackDriverLogger(this.serviceName, this.pino.child(indexes), currentRequest ? currentRequest : this.currentRequest);
+        return new PinoStackDriverLogger(this.serviceName, this.pino.child(indexes), currentRequest || this.currentRequest);
     }
 
     private build(obj: string | object, msg?: string): object {

@@ -1,4 +1,5 @@
 export interface IConfig {
+    serviceName: string;
     serviceUrl: string;
     payhawkUrl: string;
 }
@@ -8,7 +9,7 @@ if (process.env.TELEPRESENCE_MOUNT_PATH) {
     serviceConfigPath = process.env.TELEPRESENCE_MOUNT_PATH + serviceConfigPath;
 }
 
-export const config = {
+export const config: IConfig = {
     serviceName: 'Xero Integration',
     // tslint:disable-next-line: no-var-requires
     ...require(serviceConfigPath),
