@@ -62,14 +62,14 @@ export class Controller {
     async payhawk(req: restify.Request, res: restify.Response) {
         const payload = req.body as IPayhawkPayload;
         const connectionManager = this.connectionManagerFactory(payload.accountId);
-        if (!connectionManager.isAuthenticated()) {
+        const xeroAccessToken = await connectionManager.getAccessToken();
+        if (!xeroAccessToken || (xeroAccessToken.oauth_expires_at && xeroAccessToken.oauth_expires_at < new Date())) {
             res.send(400, 'Unable to execute request because you do not have a valid Xero auth session');
             return;
         }
 
         const logger = this.baseLogger.child({ accountId: payload.accountId }, req);
-        const accessToken = connectionManager.getAccessToken();
-        const integrationManager = this.integrationManagerFactory(accessToken, payload.accountId, payload.apiKey);
+        const integrationManager = this.integrationManagerFactory(xeroAccessToken, payload.accountId, payload.apiKey);
 
         try {
             switch (payload.event) {

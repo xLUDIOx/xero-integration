@@ -1,6 +1,7 @@
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
+import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils/logger';
 import { Controller } from './Controller';
@@ -80,6 +81,15 @@ describe('Controller', () => {
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
+        test('sends status 400 when missing oauth_verifier query parameter', async () => {
+            responseMock
+                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+            await controller.callback(req, responseMock.object, nextMock.object);
+        });
+
         test('sends 500 when the manager throws error', async () => {
             const verifier = 'verifier query param';
             responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
@@ -116,8 +126,8 @@ describe('Controller', () => {
     describe('payhawk()', () => {
         test('sends 400 if manager is not authenticated', async () => {
             connectionManagerMock
-                .setup(m => m.isAuthenticated())
-                .returns(() => false);
+                .setup(m => m.getAccessToken())
+                .returns(async () => undefined);
 
             responseMock
                 .setup(r => r.send(400, TypeMoq.It.isAnyString()))
@@ -130,18 +140,38 @@ describe('Controller', () => {
 
         test('sends 400 for unknown event', async () => {
             connectionManagerMock
-                .setup(m => m.isAuthenticated())
-                .returns(() => true);
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({} as AccessToken));
 
             const req = { body: { accountId, event: 'some unknown event' } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('send 204 and call exportExpense for that event', async () => {
+            const apiKey = 'payhawk api key';
+            const expenseId = 'expId';
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({} as AccessToken));
+
+            integrationManagerMock
+                .setup(m => m.exportExpense(expenseId))
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(204))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 204 and call synchronizeChartOfAccounts for that event', async () => {
             const apiKey = 'payhawk api key';
             connectionManagerMock
-                .setup(m => m.isAuthenticated())
-                .returns(() => true);
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({} as AccessToken));
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
@@ -150,6 +180,28 @@ describe('Controller', () => {
 
             responseMock
                 .setup(r => r.send(204))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('send 500 and logs error if manager throws', async () => {
+            const apiKey = 'payhawk api key';
+            const err = new Error('expected error');
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({} as AccessToken));
+
+            integrationManagerMock
+                .setup(m => m.synchronizeChartOfAccounts())
+                .returns(() => Promise.reject(err))
+                .verifiable(TypeMoq.Times.once());
+
+            loggerMock.setup(l => l.error(err)).verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
             const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
