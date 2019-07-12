@@ -138,6 +138,23 @@ describe('Controller', () => {
             await controller.payhawk(req, responseMock.object);
         });
 
+        test('sends 400 if current access token is expired', async () => {
+            const oldExpiry = new Date();
+            oldExpiry.setHours(oldExpiry.getHours() - 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: oldExpiry };
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => accessToken);
+
+            responseMock
+                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId } } as restify.Request;
+
+            await controller.payhawk(req, responseMock.object);
+        });
+
         test('sends 400 for unknown event', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -148,11 +165,14 @@ describe('Controller', () => {
         });
 
         test('send 204 and call exportExpense for that event', async () => {
+            const expire = new Date();
+            expire.setHours(expire.getHours() + 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
             const apiKey = 'payhawk api key';
             const expenseId = 'expId';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessToken));
+                .returns(async () => accessToken);
 
             integrationManagerMock
                 .setup(m => m.exportExpense(expenseId))
