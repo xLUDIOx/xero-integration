@@ -1,25 +1,18 @@
-import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { Xero } from '../../services';
 import { IManager } from './IManager';
-
-const savedRequestTokens: { [accountId: string]: RequestToken } = {};
-const savedAccessTokens: { [accountId: string]: AccessToken } = {};
+import { IStore } from './store/IStore';
 
 export class Manager implements IManager {
     constructor(
+        private readonly store: IStore,
         private readonly authClient: Xero.IAuth,
         private readonly accountId: string) { }
 
-    isAuthenticated(): boolean {
-        return !!savedAccessTokens[this.accountId]
-            && !!savedAccessTokens[this.accountId].oauth_expires_at
-            && savedAccessTokens[this.accountId].oauth_expires_at! > new Date();
-    }
-
     async getAuthorizationUrl(): Promise<string> {
         const { url, requestToken } = await this.authClient.getAuthUrl();
-        savedRequestTokens[this.accountId] = requestToken;
+        await this.store.saveRequestToken(this.accountId, requestToken);
 
         return url;
     }
@@ -29,13 +22,14 @@ export class Manager implements IManager {
             throw Error('Missing verifier argument');
         }
 
-        if (!savedRequestTokens[this.accountId]) {
+        const requestToken = await this.store.getRequestTokenByAccountId(this.accountId);
+        if (!requestToken) {
             return false;
         }
 
         try {
-            const accessToken = await this.authClient.getAccessToken(savedRequestTokens[this.accountId], verifier);
-            savedAccessTokens[this.accountId] = accessToken;
+            const accessToken = await this.authClient.getAccessToken(requestToken, verifier);
+            await this.store.saveAccessToken(this.accountId, accessToken);
         } catch (e) {
             if (e && e.name === 'XeroError') {
                 return false;
@@ -47,7 +41,7 @@ export class Manager implements IManager {
         return true;
     }
 
-    getAccessToken(): AccessToken {
-        return savedAccessTokens[this.accountId];
+    async getAccessToken(): Promise<AccessToken|undefined> {
+        return this.store.getAccessTokenByAccountId(this.accountId);
     }
 }
