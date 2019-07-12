@@ -1,4 +1,4 @@
-import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { Xero } from '../../services';
 import { IManager } from './IManager';

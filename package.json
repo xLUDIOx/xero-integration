@@ -23,6 +23,7 @@
     "@types/jest": "^24.0.15",
     "@types/node": "^10.14.10",
     "@types/oauth": "^0.9.1",
+    "@types/pg": "^7.4.14",
     "@types/pino": "^5.8.8",
     "@types/request-promise": "^4.1.44",
     "@types/restify": "^7.2.11",
@@ -35,6 +36,7 @@
     "typescript": "^3.5.2"
   },
   "dependencies": {
+    "pg": "^7.11.0",
     "pino": "^5.12.6",
     "request": "^2.88.0",
     "request-promise": "^4.2.4",
