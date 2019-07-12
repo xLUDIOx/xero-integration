@@ -1,10 +1,12 @@
 import { Payhawk, Xero } from '../../services';
+import * as XeroContacts from '../xero-contacts';
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
         private readonly xeroClient: Xero.IClient,
-        private readonly payhawkClient: Payhawk.IClient) { }
+        private readonly payhawkClient: Payhawk.IClient,
+        private readonly xeroContacts: XeroContacts.IManager) { }
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroClient.getExpenseAccounts();
@@ -29,14 +31,12 @@ export class Manager implements IManager {
         const bankAccountCode = defBankAccountCode(currency);
         const bankAccountNumber = defBankAccountNumber(currency);
         const bankAccountName = defBankAccountName(currency);
-        const contactName = expense.supplier.name || 'Payhawk Transaction';
         let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode) || await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
         if (bankAccount.Status === 'ARCHIVED') {
             bankAccount = await this.xeroClient.activateBankAccount(bankAccount);
         }
 
-        const contact = await this.xeroClient.findContact(contactName, expense.supplier.vat) ||
-            await this.xeroClient.createContact(contactName, expense.supplier.name ? expense.supplier.vat : undefined);
+        const contact = await this.xeroContacts.getContactForSupplier(expense.supplier);
 
         const total = expense.transactions.reduce((a, b) => a + b.cardAmount, 0);
         await this.xeroClient.createTransaction(bankAccount.AccountID!, contact.ContactID!, expense.note || '(no note)', expense.transactions[0].description, total, expense.reconciliation.accountCode);
@@ -44,9 +44,7 @@ export class Manager implements IManager {
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense) {
         const currency = expense.reconciliation.expenseCurrency;
-        const contactName = expense.supplier.name || 'Payhawk Transaction';
-        const contact = await this.xeroClient.findContact(contactName, expense.supplier.vat) ||
-            await this.xeroClient.createContact(contactName, expense.supplier.name ? expense.supplier.vat : undefined);
+        const contact = await this.xeroContacts.getContactForSupplier(expense.supplier);
 
         const total = expense.reconciliation.expenseTotalAmount;
         await this.xeroClient.createBill(contact.ContactID!, expense.note || '(no note)', currency, total, expense.reconciliation.accountCode);
