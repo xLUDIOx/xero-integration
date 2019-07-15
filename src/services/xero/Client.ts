@@ -76,7 +76,7 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
-    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode?: string): Promise<void> {
+    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string): Promise<void> {
         const transaction: BankTransaction = {
             Type: 'SPEND',
             BankAccount: {
@@ -89,7 +89,7 @@ export class Client implements IClient {
             LineItems: [
                 {
                     Description: description,
-                    AccountCode: accountCode || '429',
+                    AccountCode: accountCode,
                     Quantity: 1,
                     UnitAmount: amount,
                 },

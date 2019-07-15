@@ -10,6 +10,6 @@ export interface IClient {
     activateBankAccount(bankAccount: IBankAccount): Promise<IBankAccount>;
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
-    createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode?: string): Promise<void>;
-    createBill(contactId: string, description: string, currency: string, amount: number, accountCode?: string): Promise<void>;
+    createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string): Promise<void>;
+    createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string): Promise<void>;
 }

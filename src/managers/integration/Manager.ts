@@ -1,15 +1,15 @@
-import { Payhawk, Xero } from '../../services';
-import * as XeroContacts from '../xero-contacts';
+import { Payhawk } from '../../services';
+import * as XeroEntities from '../xero-entities';
+import { INewAccountTransaction, INewBill } from '../xero-entities';
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
-        private readonly xeroClient: Xero.IClient,
         private readonly payhawkClient: Payhawk.IClient,
-        private readonly xeroContacts: XeroContacts.IManager) { }
+        private readonly xeroEntities: XeroEntities.IManager) { }
 
     async synchronizeChartOfAccounts(): Promise<void> {
-        const xeroAccountCodes = await this.xeroClient.getExpenseAccounts();
+        const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
         await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes.map(a => ({
             code: a.Code,
             name: a.Name,
@@ -28,29 +28,35 @@ export class Manager implements IManager {
 
     private async exportExpenseAsTransaction(expense: Payhawk.IExpense) {
         const currency = expense.transactions[0].cardCurrency;
-        const bankAccountCode = defBankAccountCode(currency);
-        const bankAccountNumber = defBankAccountNumber(currency);
-        const bankAccountName = defBankAccountName(currency);
-        let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode) || await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
-        if (bankAccount.Status === 'ARCHIVED') {
-            bankAccount = await this.xeroClient.activateBankAccount(bankAccount);
-        }
+        const bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(currency);
+        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
-        const contact = await this.xeroContacts.getContactForSupplier(expense.supplier);
+        const totalAmount = expense.transactions.reduce((a, b) => a + b.cardAmount, 0);
+        const newAccountTransaction: INewAccountTransaction = {
+            bankAccountId,
+            contactId,
+            description: expense.note,
+            reference: expense.transactions[0].description,
+            totalAmount,
+            accountCode: expense.reconciliation.accountCode,
+        };
 
-        const total = expense.transactions.reduce((a, b) => a + b.cardAmount, 0);
-        await this.xeroClient.createTransaction(bankAccount.AccountID!, contact.ContactID!, expense.note || '(no note)', expense.transactions[0].description, total, expense.reconciliation.accountCode);
+        await this.xeroEntities.createAccountTransaction(newAccountTransaction);
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense) {
         const currency = expense.reconciliation.expenseCurrency;
-        const contact = await this.xeroContacts.getContactForSupplier(expense.supplier);
+        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
-        const total = expense.reconciliation.expenseTotalAmount;
-        await this.xeroClient.createBill(contact.ContactID!, expense.note || '(no note)', currency, total, expense.reconciliation.accountCode);
+        const totalAmount = expense.reconciliation.expenseTotalAmount;
+        const newBill: INewBill = {
+            contactId,
+            description: expense.note,
+            currency,
+            totalAmount,
+            accountCode: expense.reconciliation.accountCode,
+        };
+
+        await this.xeroEntities.createBill(newBill);
     }
 }
-
-const defBankAccountNumber = (currency: string) => `PAYHAWK-${currency}`;
-const defBankAccountCode = (currency: string) => `PHWK-${currency}`;
-const defBankAccountName = (currency: string) => `Payhawk ${currency}`;
