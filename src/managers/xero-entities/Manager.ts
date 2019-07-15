@@ -1,5 +1,3 @@
-import { Contact } from 'xero-node/lib/AccountingAPI-models';
-
 import { Payhawk, Xero } from '../../services';
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -8,16 +6,17 @@ import { INewBill } from './INewBill';
 
 const DEFAULT_ACCOUNT_CODE = '429';
 const DEFAULT_DESCRIPTION = '(no note)';
+const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
 export class Manager implements IManager {
-    constructor(private readonly xeroClient: Xero.IClient, private readonly defaultContactName: string) { }
+    constructor(private readonly xeroClient: Xero.IClient) { }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         return await this.xeroClient.getExpenseAccounts();
     }
 
     async getContactIdForSupplier(supplier: Payhawk.ISupplier): Promise<string> {
-        const contactName = supplier.name || this.defaultContactName;
+        const contactName = supplier.name || DEFAULT_SUPPLIER_NAME;
         const contact = await this.xeroClient.findContact(contactName, supplier.vat) ||
             await this.xeroClient.createContact(contactName, supplier.name ? supplier.vat : undefined);
 
@@ -28,9 +27,13 @@ export class Manager implements IManager {
         const bankAccountCode = defBankAccountCode(currency);
         const bankAccountNumber = defBankAccountNumber(currency);
         const bankAccountName = defBankAccountName(currency);
-        let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode) || await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
-        if (bankAccount.Status === 'ARCHIVED') {
-            bankAccount = await this.xeroClient.activateBankAccount(bankAccount);
+        let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode);
+        if (bankAccount) {
+            if (bankAccount.Status === 'ARCHIVED') {
+                bankAccount = await this.xeroClient.activateBankAccount(bankAccount);
+            }
+        } else {
+            bankAccount = await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
         }
 
         return bankAccount.AccountID!;
