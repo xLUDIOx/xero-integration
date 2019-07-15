@@ -102,7 +102,7 @@ export class Client implements IClient {
         }
     }
 
-    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode?: string) {
+    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string) {
         const result = await this.xeroClient.invoices.create({
             Type: 'ACCPAY',
             Contact: {
@@ -112,7 +112,7 @@ export class Client implements IClient {
             LineItems: [
                 {
                     Description: description,
-                    AccountCode: accountCode || '429',
+                    AccountCode: accountCode,
                     Quantity: 1,
                     UnitAmount: amount,
                 },
