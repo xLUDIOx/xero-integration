@@ -46,8 +46,14 @@ export class Manager implements IManager {
         reference,
         totalAmount,
         accountCode,
+        files,
     }: INewAccountTransaction): Promise<void> {
-        await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+        const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+
+        // They should be uploaded in the right order so Promise.all is no good
+        for (const f of files) {
+            await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
+        }
     }
 
     async createBill({
@@ -56,8 +62,14 @@ export class Manager implements IManager {
         currency,
         totalAmount,
         accountCode,
+        files,
     }: INewBill): Promise<void> {
-        await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+
+        // They should be uploaded in the right order so Promise.all is no good
+        for (const f of files) {
+            await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
+        }
     }
 }
 

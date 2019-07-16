@@ -182,6 +182,7 @@ describe('XeroEntities.Manager', () => {
 
     describe('createAccountTransaction', () => {
         test('create account transaction', async () => {
+            const newTxId = 'new-tx-id';
             const newAccountTx: INewAccountTransaction = {
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
@@ -189,27 +190,30 @@ describe('XeroEntities.Manager', () => {
                 reference: 'tx description',
                 totalAmount: 12.05,
                 accountCode: '310',
+                files: [],
             };
 
             xeroClientMock
                 .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, newAccountTx.description!, newAccountTx.reference, newAccountTx.totalAmount, newAccountTx.accountCode!))
-                .returns(() => Promise.resolve())
+                .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
             await manager.createAccountTransaction(newAccountTx);
         });
 
         test('create account transaction with default description and account code', async () => {
+            const newTxId = 'new-tx-id';
             const newAccountTx: INewAccountTransaction = {
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 reference: 'tx description',
                 totalAmount: 12.05,
+                files: [],
             };
 
             xeroClientMock
                 .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, '(no note)', newAccountTx.reference, newAccountTx.totalAmount, '429'))
-                .returns(() => Promise.resolve())
+                .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
             await manager.createAccountTransaction(newAccountTx);
@@ -218,32 +222,36 @@ describe('XeroEntities.Manager', () => {
 
     describe('createBill', () => {
         test('creates a bill', async () => {
+            const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
                 totalAmount: 12.05,
                 accountCode: '310',
+                files: [],
             };
 
             xeroClientMock
                 .setup(x => x.createBill(newBill.contactId, newBill.description!, newBill.currency, newBill.totalAmount, newBill.accountCode!))
-                .returns(() => Promise.resolve())
+                .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
             await manager.createBill(newBill);
         });
 
         test('creates a bill with default description and account code', async () => {
+            const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 currency: 'EUR',
                 contactId: 'contact-id',
                 totalAmount: 12.05,
+                files: [],
             };
 
             xeroClientMock
                 .setup(x => x.createBill(newBill.contactId, '(no note)', newBill.currency, newBill.totalAmount, '429'))
-                .returns(() => Promise.resolve())
+                .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
             await manager.createBill(newBill);
