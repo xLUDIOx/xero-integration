@@ -7,19 +7,22 @@ import { Manager } from './Manager';
 describe('integrations/Manager', () => {
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
+    let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
 
     let manager: Manager;
 
     beforeEach(() => {
         payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
+        deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
 
-        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object);
+        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, deleteFilesMock.object);
     });
 
     afterEach(() => {
         payhawkClientMock.verifyAll();
         xeroEntitiesMock.verifyAll();
+        deleteFilesMock.verifyAll();
     });
 
     describe('synchronizeChartOfAccounts', () => {
@@ -77,6 +80,17 @@ describe('integrations/Manager', () => {
             countryCode: 'UK',
         };
 
+        const files: Payhawk.IDownloadedFile[] = [
+            {
+                contentType: 'image/jpeg',
+                path: 'tmp/file.jpg',
+            },
+            {
+                contentType: 'image/png',
+                path: 'tmp/file.png',
+            },
+        ];
+
         describe('as an account transaction', () => {
             test('creates an account transaction when expense has transactions', async () => {
                 const expenseId = 'expenseId';
@@ -119,6 +133,10 @@ describe('integrations/Manager', () => {
                     .setup(p => p.getExpense(expenseId))
                     .returns(async () => expense);
 
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
                 xeroEntitiesMock
                     .setup(x => x.getBankAccountIdForCurrency(expense.transactions[0].cardCurrency))
                     .returns(async () => bankAccountId);
@@ -135,9 +153,13 @@ describe('integrations/Manager', () => {
                         description: expense.note,
                         reference: expense.transactions[0].description,
                         totalAmount: 10,
+                        files,
                     }))
                     .returns(() => Promise.resolve())
                     .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
                 await manager.exportExpense(expenseId);
             });
@@ -162,6 +184,10 @@ describe('integrations/Manager', () => {
                     .setup(p => p.getExpense(expenseId))
                     .returns(async () => expense);
 
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
                 xeroEntitiesMock
                     .setup(x => x.getContactIdForSupplier(supplier))
                     .returns(async () => contactId);
@@ -173,11 +199,64 @@ describe('integrations/Manager', () => {
                         contactId,
                         description: expense.note,
                         totalAmount: 11.28,
+                        files,
                     }))
                     .returns(() => Promise.resolve())
                     .verifiable(TypeMoq.Times.once());
 
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
                 await manager.exportExpense(expenseId);
+            });
+
+            test('deletes files even when create bill fails', async () => {
+                const expenseId = 'expenseId';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation,
+                    supplier,
+                    title: 'My Cash Expense',
+                    transactions: [ ],
+                };
+
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createBill({
+                        accountCode: reconciliation.accountCode,
+                        currency: reconciliation.expenseCurrency,
+                        contactId,
+                        description: expense.note,
+                        totalAmount: 11.28,
+                        files,
+                    }))
+                    .returns(() => Promise.reject())
+                    .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                try {
+                    await manager.exportExpense(expenseId);
+                    fail();
+                } catch {
+                    //
+                }
             });
         });
     });

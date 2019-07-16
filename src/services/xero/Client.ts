@@ -1,8 +1,10 @@
+import * as path from 'path';
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { BankTransaction, Contact } from 'xero-node/lib/AccountingAPI-models';
 import { ContactsResponse } from 'xero-node/lib/AccountingAPI-responses';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
+import { AttachmentsEndpoint } from 'xero-node/lib/AccountingAPIClient';
 import { getXeroConfig } from './Config';
 import { IAccountCode } from './IAccountCode';
 import { IBankAccount } from './IBankAccount';
@@ -76,7 +78,7 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
-    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string): Promise<void> {
+    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string): Promise<string> {
         const transaction: BankTransaction = {
             Type: 'SPEND',
             BankAccount: {
@@ -100,9 +102,11 @@ export class Client implements IClient {
         if (bankTrResponse.BankTransactions[0].StatusAttributeString === 'ERROR') {
             throw Error(JSON.stringify(bankTrResponse.BankTransactions[0].ValidationErrors, undefined, 2));
         }
+
+        return bankTrResponse.BankTransactions[0].BankTransactionID!;
     }
 
-    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string) {
+    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string): Promise<string> {
         const result = await this.xeroClient.invoices.create({
             Type: 'ACCPAY',
             Contact: {
@@ -122,6 +126,26 @@ export class Client implements IClient {
         if (result.Invoices[0].StatusAttributeString === 'ERROR') {
             throw Error(JSON.stringify(result.Invoices[0].ValidationErrors, undefined, 2));
         }
+
+        return result.Invoices[0].InvoiceID!;
+    }
+
+    async uploadTransactionAttachment(transactionId: string, filePath: string, contentType: string) {
+        await this.uploadAttachment(this.xeroClient.bankTransactions.attachments, transactionId, filePath, contentType);
+    }
+
+    async uploadBillAttachment(billId: string, filePath: string, contentType: string) {
+        await this.uploadAttachment(this.xeroClient.invoices.attachments, billId, filePath, contentType);
+    }
+
+    private async uploadAttachment(attachmentsEndpoint: AttachmentsEndpoint, entityId: string, filePath: string, contentType: string) {
+        const fileName = path.basename(filePath);
+        await attachmentsEndpoint.uploadAttachment({
+            entityId,
+            fileName,
+            mimeType: contentType,
+            pathToUpload: filePath,
+        });
     }
 
     private escape(val: string): string {

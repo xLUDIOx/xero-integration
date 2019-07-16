@@ -1,3 +1,5 @@
+import { Payhawk } from '../../services';
+
 export interface INewAccountTransaction {
     bankAccountId: string;
     contactId: string;
@@ -5,4 +7,5 @@ export interface INewAccountTransaction {
     reference: string;
     totalAmount: number;
     accountCode?: string;
+    files: Payhawk.IDownloadedFile[];
 }

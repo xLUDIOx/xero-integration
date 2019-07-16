@@ -4,6 +4,7 @@ import { IClient } from './IClient';
 export { IClient };
 export * from './Expense';
 export * from './IAccountCode';
+export * from './IDownloadedFile';
 export const createPayhawkClient = (accountId: string, apiKey: string): IClient => {
     return new Client(accountId, apiKey);
 };
