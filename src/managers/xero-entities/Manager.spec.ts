@@ -14,6 +14,17 @@ describe('XeroEntities.Manager', () => {
 
     let manager: IManager;
 
+    const files: Payhawk.IDownloadedFile[] = [
+        {
+            contentType: 'image/jpeg',
+            path: 'tmp/file.jpg',
+        },
+        {
+            contentType: 'image/png',
+            path: 'tmp/file.png',
+        },
+    ];
+
     beforeEach(() => {
         xeroClientMock = TypeMoq.Mock.ofType<Xero.IClient>();
 
@@ -190,13 +201,20 @@ describe('XeroEntities.Manager', () => {
                 reference: 'tx description',
                 totalAmount: 12.05,
                 accountCode: '310',
-                files: [],
+                files,
             };
 
             xeroClientMock
                 .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, newAccountTx.description!, newAccountTx.reference, newAccountTx.totalAmount, newAccountTx.accountCode!))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
+
+            for (const file of files) {
+                xeroClientMock
+                    .setup(x => x.uploadTransactionAttachment(newTxId, file.path, file.contentType))
+                    .returns(() => Promise.resolve())
+                    .verifiable(TypeMoq.Times.once());
+            }
 
             await manager.createAccountTransaction(newAccountTx);
         });
@@ -208,13 +226,20 @@ describe('XeroEntities.Manager', () => {
                 contactId: 'contact-id',
                 reference: 'tx description',
                 totalAmount: 12.05,
-                files: [],
+                files,
             };
 
             xeroClientMock
                 .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, '(no note)', newAccountTx.reference, newAccountTx.totalAmount, '429'))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
+
+            for (const file of files) {
+                xeroClientMock
+                    .setup(x => x.uploadTransactionAttachment(newTxId, file.path, file.contentType))
+                    .returns(() => Promise.resolve())
+                    .verifiable(TypeMoq.Times.once());
+            }
 
             await manager.createAccountTransaction(newAccountTx);
         });
@@ -229,13 +254,20 @@ describe('XeroEntities.Manager', () => {
                 description: 'expense note',
                 totalAmount: 12.05,
                 accountCode: '310',
-                files: [],
+                files,
             };
 
             xeroClientMock
                 .setup(x => x.createBill(newBill.contactId, newBill.description!, newBill.currency, newBill.totalAmount, newBill.accountCode!))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
+
+            for (const file of files) {
+                xeroClientMock
+                    .setup(x => x.uploadBillAttachment(newBillId, file.path, file.contentType))
+                    .returns(() => Promise.resolve())
+                    .verifiable(TypeMoq.Times.once());
+            }
 
             await manager.createBill(newBill);
         });
@@ -246,13 +278,20 @@ describe('XeroEntities.Manager', () => {
                 currency: 'EUR',
                 contactId: 'contact-id',
                 totalAmount: 12.05,
-                files: [],
+                files,
             };
 
             xeroClientMock
                 .setup(x => x.createBill(newBill.contactId, '(no note)', newBill.currency, newBill.totalAmount, '429'))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
+
+            for (const file of files) {
+                xeroClientMock
+                    .setup(x => x.uploadBillAttachment(newBillId, file.path, file.contentType))
+                    .returns(() => Promise.resolve())
+                    .verifiable(TypeMoq.Times.once());
+            }
 
             await manager.createBill(newBill);
         });

@@ -68,7 +68,7 @@ export class Manager implements IManager {
 
         // They should be uploaded in the right order so Promise.all is no good
         for (const f of files) {
-            await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
+            await this.xeroClient.uploadBillAttachment(id, f.path, f.contentType);
         }
     }
 }
