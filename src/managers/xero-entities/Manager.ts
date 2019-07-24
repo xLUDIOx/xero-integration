@@ -8,6 +8,8 @@ const DEFAULT_ACCOUNT_CODE = '429';
 const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
+const DEFAULT_CURRENCY = 'GBP';
+
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
@@ -64,7 +66,7 @@ export class Manager implements IManager {
         accountCode,
         files,
     }: INewBill): Promise<void> {
-        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE);
 
         // They should be uploaded in the right order so Promise.all is no good
         for (const f of files) {

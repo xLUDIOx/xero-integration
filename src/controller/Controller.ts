@@ -68,12 +68,14 @@ export class Controller {
             return;
         }
 
-        const logger = this.baseLogger.child({ accountId: payload.accountId }, req);
+        let logger = this.baseLogger.child({ accountId: payload.accountId }, req);
         const integrationManager = this.integrationManagerFactory(xeroAccessToken, payload.accountId, payload.apiKey);
 
         try {
+            logger = logger.child({ event: payload.event });
             switch (payload.event) {
                 case PayhawkEvent.ExportExpense:
+                    logger = logger.child({ expenseId: payload.data.expenseId });
                     await integrationManager.exportExpense(payload.data.expenseId);
                     break;
                 case PayhawkEvent.SynchronizeChartOfAccount:

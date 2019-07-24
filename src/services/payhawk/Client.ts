@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as mime from 'mime-types';
 import * as os from 'os';
 import * as path from 'path';
+import * as requestNative from 'request';
 import * as request from 'request-promise';
 import * as uuid from 'uuid/v4';
 
@@ -45,12 +46,12 @@ export class Client implements IClient {
             const file = fs.createWriteStream(filePath);
 
             await new Promise((resolve, reject) => {
-                request({
+                requestNative({
                     uri: f.url,
                 })
-                .pipe(file)
-                .on('finish', () => resolve())
-                .on('error', (error) => reject(error));
+                    .on('error', (error) => reject(error))
+                    .on('finish', () => resolve())
+                    .pipe(file);
             });
 
             return {

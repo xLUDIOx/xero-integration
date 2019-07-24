@@ -47,13 +47,7 @@ export class Client implements IClient {
     }
 
     async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount> {
-        const currenciesResponse = await this.xeroClient.currencies.get({ where: `Code=="${this.escape(currencyCode)}"` });
-        if (currenciesResponse.Currencies.length === 0) {
-            await this.xeroClient.currencies.create({
-                Code: currencyCode,
-            });
-        }
-
+        await this.ensureCurrency(currencyCode);
         const bankAccountsResponse = await this.xeroClient.accounts.create({
             Name: name,
             Code: code,
@@ -107,6 +101,7 @@ export class Client implements IClient {
     }
 
     async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string): Promise<string> {
+        await this.ensureCurrency(currency);
         const result = await this.xeroClient.invoices.create({
             Type: 'ACCPAY',
             Contact: {
@@ -150,5 +145,14 @@ export class Client implements IClient {
 
     private escape(val: string): string {
         return val.replace(/[\\$'"]/g, '\\$&');
+    }
+
+    private async ensureCurrency(currencyCode: string): Promise<void> {
+        const currenciesResponse = await this.xeroClient.currencies.get({ where: `Code=="${this.escape(currencyCode)}"` });
+        if (currenciesResponse.Currencies.length === 0) {
+            await this.xeroClient.currencies.create({
+                Code: currencyCode,
+            });
+        }
     }
 }
