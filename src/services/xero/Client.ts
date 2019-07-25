@@ -72,6 +72,11 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
+    async transactionWithUrlExists(url: string): Promise<boolean> {
+        const transactionsResponse = await this.xeroClient.bankTransactions.get({ where: `Url="${this.escape(url)}"` });
+        return transactionsResponse.BankTransactions.length > 0;
+    }
+
     async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
         const transaction: BankTransaction = {
             Type: 'SPEND',
@@ -99,6 +104,11 @@ export class Client implements IClient {
         }
 
         return bankTrResponse.BankTransactions[0].BankTransactionID!;
+    }
+
+    async billWithUrlExists(url: string): Promise<boolean> {
+        const billsResponse = await this.xeroClient.invoices.get({ where: `Url="${this.escape(url)}"` });
+        return billsResponse.Invoices.length > 0;
     }
 
     async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string> {

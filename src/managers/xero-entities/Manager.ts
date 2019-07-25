@@ -51,11 +51,13 @@ export class Manager implements IManager {
         files,
         url,
     }: INewAccountTransaction): Promise<void> {
-        const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE, url);
+        if (!await this.xeroClient.transactionWithUrlExists(url)) {
+            const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE, url);
 
-        // They should be uploaded in the right order so Promise.all is no good
-        for (const f of files) {
-            await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
+            // They should be uploaded in the right order so Promise.all is no good
+            for (const f of files) {
+                await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
+            }
         }
     }
 
@@ -68,11 +70,13 @@ export class Manager implements IManager {
         files,
         url,
     }: INewBill): Promise<void> {
-        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE, url);
+        if (!await this.xeroClient.billWithUrlExists(url)) {
+            const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE, url);
 
-        // They should be uploaded in the right order so Promise.all is no good
-        for (const f of files) {
-            await this.xeroClient.uploadBillAttachment(id, f.path, f.contentType);
+            // They should be uploaded in the right order so Promise.all is no good
+            for (const f of files) {
+                await this.xeroClient.uploadBillAttachment(id, f.path, f.contentType);
+            }
         }
     }
 }
