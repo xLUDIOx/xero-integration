@@ -72,9 +72,10 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
-    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string): Promise<string> {
+    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
         const transaction: BankTransaction = {
             Type: 'SPEND',
+            Url: url,
             BankAccount: {
                 AccountID: bankAccountId,
             },
@@ -100,10 +101,11 @@ export class Client implements IClient {
         return bankTrResponse.BankTransactions[0].BankTransactionID!;
     }
 
-    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string): Promise<string> {
+    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string> {
         await this.ensureCurrency(currency);
         const result = await this.xeroClient.invoices.create({
             Type: 'ACCPAY',
+            Url: url,
             Contact: {
                 ContactID: contactId,
             },

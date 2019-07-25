@@ -7,7 +7,9 @@ export class Manager implements IManager {
     constructor(
         private readonly payhawkClient: Payhawk.IClient,
         private readonly xeroEntities: XeroEntities.IManager,
-        private readonly deleteFile: (filePath: string) => Promise<void>) { }
+        private readonly deleteFile: (filePath: string) => Promise<void>,
+        private readonly accountId: string,
+        private readonly portalUrl: string) { }
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
@@ -46,6 +48,7 @@ export class Manager implements IManager {
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,
+            url: this.expenseUrl(expense.id),
         };
 
         await this.xeroEntities.createAccountTransaction(newAccountTransaction);
@@ -63,8 +66,13 @@ export class Manager implements IManager {
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,
+            url: this.expenseUrl(expense.id),
         };
 
         await this.xeroEntities.createBill(newBill);
+    }
+
+    private expenseUrl(expenseId: string): string {
+        return `${this.portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(this.accountId)}`;
     }
 }

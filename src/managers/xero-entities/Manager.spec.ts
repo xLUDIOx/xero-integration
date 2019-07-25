@@ -202,10 +202,11 @@ describe('XeroEntities.Manager', () => {
                 totalAmount: 12.05,
                 accountCode: '310',
                 files,
+                url: 'expense url',
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, newAccountTx.description!, newAccountTx.reference, newAccountTx.totalAmount, newAccountTx.accountCode!))
+                .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, newAccountTx.description!, newAccountTx.reference, newAccountTx.totalAmount, newAccountTx.accountCode!, newAccountTx.url))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -227,10 +228,11 @@ describe('XeroEntities.Manager', () => {
                 reference: 'tx description',
                 totalAmount: 12.05,
                 files,
+                url: 'expense url',
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, '(no note)', newAccountTx.reference, newAccountTx.totalAmount, '429'))
+                .setup(x => x.createTransaction(newAccountTx.bankAccountId, newAccountTx.contactId, '(no note)', newAccountTx.reference, newAccountTx.totalAmount, '429', newAccountTx.url))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -255,10 +257,11 @@ describe('XeroEntities.Manager', () => {
                 totalAmount: 12.05,
                 accountCode: '310',
                 files,
+                url: 'expense url',
             };
 
             xeroClientMock
-                .setup(x => x.createBill(newBill.contactId, newBill.description!, newBill.currency, newBill.totalAmount, newBill.accountCode!))
+                .setup(x => x.createBill(newBill.contactId, newBill.description!, newBill.currency, newBill.totalAmount, newBill.accountCode!, newBill.url))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -279,10 +282,11 @@ describe('XeroEntities.Manager', () => {
                 contactId: 'contact-id',
                 totalAmount: 12.05,
                 files,
+                url: 'expense url',
             };
 
             xeroClientMock
-                .setup(x => x.createBill(newBill.contactId, '(no note)', newBill.currency, newBill.totalAmount, '429'))
+                .setup(x => x.createBill(newBill.contactId, '(no note)', newBill.currency, newBill.totalAmount, '429', newBill.url))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 

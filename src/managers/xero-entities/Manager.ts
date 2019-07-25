@@ -49,8 +49,9 @@ export class Manager implements IManager {
         totalAmount,
         accountCode,
         files,
+        url,
     }: INewAccountTransaction): Promise<void> {
-        const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE);
+        const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE, url);
 
         // They should be uploaded in the right order so Promise.all is no good
         for (const f of files) {
@@ -65,8 +66,9 @@ export class Manager implements IManager {
         totalAmount,
         accountCode,
         files,
+        url,
     }: INewBill): Promise<void> {
-        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE);
+        const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE, url);
 
         // They should be uploaded in the right order so Promise.all is no good
         for (const f of files) {

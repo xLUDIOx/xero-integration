@@ -5,6 +5,8 @@ import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
 
 describe('integrations/Manager', () => {
+    const accountId = 'account_id';
+    const portalUrl = 'https://portal.payhawk.io';
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
@@ -16,7 +18,7 @@ describe('integrations/Manager', () => {
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
 
-        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, deleteFilesMock.object);
+        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, deleteFilesMock.object, accountId, portalUrl);
     });
 
     afterEach(() => {
@@ -154,6 +156,7 @@ describe('integrations/Manager', () => {
                         reference: expense.transactions[0].description,
                         totalAmount: 10,
                         files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     }))
                     .returns(() => Promise.resolve())
                     .verifiable(TypeMoq.Times.once());
@@ -200,6 +203,7 @@ describe('integrations/Manager', () => {
                         description: expense.note,
                         totalAmount: 11.28,
                         files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     }))
                     .returns(() => Promise.resolve())
                     .verifiable(TypeMoq.Times.once());
@@ -244,6 +248,7 @@ describe('integrations/Manager', () => {
                         description: expense.note,
                         totalAmount: 11.28,
                         files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     }))
                     .returns(() => Promise.reject())
                     .verifiable(TypeMoq.Times.once());

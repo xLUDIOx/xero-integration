@@ -2,6 +2,7 @@ export interface IConfig {
     serviceName: string;
     serviceUrl: string;
     payhawkUrl: string;
+    portalUrl: string;
 }
 
 let serviceConfigPath = process.env.CONFIG_PATH ? `${process.env.CONFIG_PATH}/xero-adapter-config.json` : '../../config.json';

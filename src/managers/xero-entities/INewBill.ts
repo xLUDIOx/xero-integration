@@ -7,4 +7,5 @@ export interface INewBill {
     totalAmount: number;
     accountCode?: string;
     files: Payhawk.IDownloadedFile[];
+    url: string;
 }
