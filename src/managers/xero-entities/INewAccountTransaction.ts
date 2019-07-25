@@ -8,4 +8,5 @@ export interface INewAccountTransaction {
     totalAmount: number;
     accountCode?: string;
     files: Payhawk.IDownloadedFile[];
+    url: string;
 }
