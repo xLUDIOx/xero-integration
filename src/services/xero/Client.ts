@@ -79,7 +79,7 @@ export class Client implements IClient {
 
     async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
         const transaction: BankTransaction = {
-            Type: 'SPEND',
+            Type: amount >= 0 ? 'SPEND' : 'RECEIVE',
             Url: url,
             BankAccount: {
                 AccountID: bankAccountId,
@@ -93,7 +93,7 @@ export class Client implements IClient {
                     Description: description,
                     AccountCode: accountCode,
                     Quantity: 1,
-                    UnitAmount: amount,
+                    UnitAmount: Math.abs(amount),
                 },
             ],
         };
