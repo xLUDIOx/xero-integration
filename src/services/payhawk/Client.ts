@@ -45,14 +45,7 @@ export class Client implements IClient {
             const filePath = path.join(os.tmpdir(), uuid() + '.' + extension);
             const file = fs.createWriteStream(filePath);
 
-            await new Promise((resolve, reject) => {
-                requestNative({
-                    uri: f.url,
-                })
-                    .on('error', (error) => reject(error))
-                    .on('finish', () => resolve())
-                    .pipe(file);
-            });
+            await requestNative({ uri: f.url }).pipe(file);
 
             return {
                 contentType: f.contentType,

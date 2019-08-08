@@ -73,7 +73,7 @@ export class Client implements IClient {
     }
 
     async transactionWithUrlExists(url: string): Promise<boolean> {
-        const transactionsResponse = await this.xeroClient.bankTransactions.get({ where: `Url="${this.escape(url)}"` });
+        const transactionsResponse = await this.xeroClient.bankTransactions.get({ where: `Url="${this.escape(url)}" && Status!="DELETED"` });
         return transactionsResponse.BankTransactions.length > 0;
     }
 
@@ -107,7 +107,7 @@ export class Client implements IClient {
     }
 
     async billWithUrlExists(url: string): Promise<boolean> {
-        const billsResponse = await this.xeroClient.invoices.get({ where: `Url="${this.escape(url)}"` });
+        const billsResponse = await this.xeroClient.invoices.get({ where: `Url="${this.escape(url)}" && Status!="DELETED"` });
         return billsResponse.Invoices.length > 0;
     }
 
