@@ -35,23 +35,26 @@ export class Manager implements IManager {
     }
 
     private async exportExpenseAsTransaction(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
+        // common data for all transactions linked to the expense
         const currency = expense.transactions[0].cardCurrency;
         const bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(currency);
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
-        const totalAmount = expense.transactions.reduce((a, b) => a + b.cardAmount, 0);
-        const newAccountTransaction: INewAccountTransaction = {
-            bankAccountId,
-            contactId,
-            description: expense.note,
-            reference: expense.transactions[0].description,
-            totalAmount,
-            accountCode: expense.reconciliation.accountCode,
-            files,
-            url: this.expenseUrl(expense.id),
-        };
+        for (const t of expense.transactions) {
+            const totalAmount = t.cardAmount;
+            const newAccountTransaction: INewAccountTransaction = {
+                bankAccountId,
+                contactId,
+                description: expense.note,
+                reference: t.description,
+                totalAmount,
+                accountCode: expense.reconciliation.accountCode,
+                files,
+                url: this.transactionUrl(t.id),
+            };
 
-        await this.xeroEntities.createAccountTransaction(newAccountTransaction);
+            await this.xeroEntities.createAccountTransaction(newAccountTransaction);
+        }
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
@@ -74,5 +77,9 @@ export class Manager implements IManager {
 
     private expenseUrl(expenseId: string): string {
         return `${this.portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(this.accountId)}`;
+    }
+
+    private transactionUrl(transactionId: string): string {
+        return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&accountId=${encodeURIComponent(this.accountId)}`;
     }
 }

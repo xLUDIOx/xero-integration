@@ -147,19 +147,25 @@ describe('integrations/Manager', () => {
                     .setup(x => x.getContactIdForSupplier(supplier))
                     .returns(async () => contactId);
 
+                expense.transactions.forEach(t =>
+                    xeroEntitiesMock
+                        .setup(x => x.createAccountTransaction({
+                            accountCode: reconciliation.accountCode,
+                            bankAccountId,
+                            contactId,
+                            description: expense.note,
+                            reference: t.description,
+                            totalAmount: t.cardAmount,
+                            files,
+                            url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
+                        }))
+                        .returns(() => Promise.resolve())
+                        .verifiable(TypeMoq.Times.once()),
+                );
+
                 xeroEntitiesMock
-                    .setup(x => x.createAccountTransaction({
-                        accountCode: reconciliation.accountCode,
-                        bankAccountId,
-                        contactId,
-                        description: expense.note,
-                        reference: expense.transactions[0].description,
-                        totalAmount: 10,
-                        files,
-                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    }))
-                    .returns(() => Promise.resolve())
-                    .verifiable(TypeMoq.Times.once());
+                    .setup(x => x.createAccountTransaction(TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.exactly(expense.transactions.length));
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
