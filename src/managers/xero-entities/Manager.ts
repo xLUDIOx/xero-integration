@@ -1,3 +1,5 @@
+import * as path from 'path';
+
 import { Payhawk, Xero } from '../../services';
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -41,7 +43,7 @@ export class Manager implements IManager {
         return bankAccount.AccountID!;
     }
 
-    async createAccountTransaction({
+    async createOrUpdateAccountTransaction({
         bankAccountId,
         contactId,
         description,
@@ -51,17 +53,44 @@ export class Manager implements IManager {
         files,
         url,
     }: INewAccountTransaction): Promise<void> {
-        if (!await this.xeroClient.transactionWithUrlExists(url)) {
-            const id = await this.xeroClient.createTransaction(bankAccountId, contactId, description || DEFAULT_DESCRIPTION, reference, totalAmount, accountCode || DEFAULT_ACCOUNT_CODE, url);
+        let transactionId = await this.xeroClient.getTransactionIdByUrl(url);
+        let filesToUpload = files;
 
-            // They should be uploaded in the right order so Promise.all is no good
-            for (const f of files) {
-                await this.xeroClient.uploadTransactionAttachment(id, f.path, f.contentType);
-            }
+        if (!transactionId) {
+            transactionId = await this.xeroClient.createTransaction(
+                bankAccountId,
+                contactId,
+                description || DEFAULT_DESCRIPTION,
+                reference,
+                totalAmount,
+                accountCode || DEFAULT_ACCOUNT_CODE,
+                url,
+            );
+        } else {
+            await this.xeroClient.updateTransaction(
+                transactionId,
+                bankAccountId,
+                contactId,
+                description || DEFAULT_DESCRIPTION,
+                reference,
+                totalAmount,
+                accountCode || DEFAULT_ACCOUNT_CODE,
+                url,
+            );
+
+            const existingFileNames = (await this.xeroClient.getTransactionAttachments(transactionId)).map(f => f.FileName);
+
+            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(convertPathToFileName(f.path)));
+        }
+
+        // Files should be uploaded in the right order so Promise.all is no good
+        for (const f of filesToUpload) {
+            const fileName = convertPathToFileName(f.path);
+            await this.xeroClient.uploadTransactionAttachment(transactionId, fileName, f.path, f.contentType);
         }
     }
 
-    async createBill({
+    async createOrUpdateBill({
         contactId,
         description,
         currency,
@@ -70,15 +99,44 @@ export class Manager implements IManager {
         files,
         url,
     }: INewBill): Promise<void> {
-        if (!await this.xeroClient.billWithUrlExists(url)) {
-            const id = await this.xeroClient.createBill(contactId, description || DEFAULT_DESCRIPTION, currency || DEFAULT_CURRENCY, totalAmount || 0, accountCode || DEFAULT_ACCOUNT_CODE, url);
+        let billId = await this.xeroClient.getBillIdByUrl(url);
+        let filesToUpload = files;
 
-            // They should be uploaded in the right order so Promise.all is no good
-            for (const f of files) {
-                await this.xeroClient.uploadBillAttachment(id, f.path, f.contentType);
-            }
+        if (!billId) {
+            billId = await this.xeroClient.createBill(
+                contactId,
+                description || DEFAULT_DESCRIPTION,
+                currency || DEFAULT_CURRENCY,
+                totalAmount || 0,
+                accountCode || DEFAULT_ACCOUNT_CODE,
+                url,
+            );
+        } else {
+            await this.xeroClient.updateBill(
+                billId,
+                contactId,
+                description || DEFAULT_DESCRIPTION,
+                currency || DEFAULT_CURRENCY,
+                totalAmount || 0,
+                accountCode || DEFAULT_ACCOUNT_CODE,
+                url,
+            );
+
+            const existingFileNames = (await this.xeroClient.getBillAttachments(billId)).map(f => f.FileName);
+
+            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(convertPathToFileName(f.path)));
+        }
+
+        // Files should be uploaded in the right order so Promise.all is no good
+        for (const f of filesToUpload) {
+            const fileName = convertPathToFileName(f.path);
+            await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
         }
     }
+}
+
+function convertPathToFileName(filePath: string): string {
+    return path.basename(filePath);
 }
 
 const defBankAccountNumber = (currency: string) => `PAYHAWK-${currency}`;

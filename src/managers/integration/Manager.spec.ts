@@ -149,7 +149,7 @@ describe('integrations/Manager', () => {
 
                 expense.transactions.forEach(t =>
                     xeroEntitiesMock
-                        .setup(x => x.createAccountTransaction({
+                        .setup(x => x.createOrUpdateAccountTransaction({
                             accountCode: reconciliation.accountCode,
                             bankAccountId,
                             contactId,
@@ -164,7 +164,7 @@ describe('integrations/Manager', () => {
                 );
 
                 xeroEntitiesMock
-                    .setup(x => x.createAccountTransaction(TypeMoq.It.isAny()))
+                    .setup(x => x.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
                     .verifiable(TypeMoq.Times.exactly(expense.transactions.length));
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
@@ -202,7 +202,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createBill({
+                    .setup(x => x.createOrUpdateBill({
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,
@@ -247,7 +247,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createBill({
+                    .setup(x => x.createOrUpdateBill({
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,

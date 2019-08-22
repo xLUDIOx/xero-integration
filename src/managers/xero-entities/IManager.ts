@@ -7,6 +7,6 @@ export interface IManager {
     getContactIdForSupplier(supplier: Payhawk.ISupplier): Promise<string>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getBankAccountIdForCurrency(currency: string): Promise<string>;
-    createAccountTransaction(input: INewAccountTransaction): Promise<void>;
-    createBill(input: INewBill): Promise<void>;
+    createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<void>;
+    createOrUpdateBill(input: INewBill): Promise<void>;
 }

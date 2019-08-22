@@ -53,7 +53,7 @@ export class Manager implements IManager {
                 url: this.transactionUrl(t.id),
             };
 
-            await this.xeroEntities.createAccountTransaction(newAccountTransaction);
+            await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
         }
     }
 
@@ -72,7 +72,7 @@ export class Manager implements IManager {
             url: this.expenseUrl(expense.id),
         };
 
-        await this.xeroEntities.createBill(newBill);
+        await this.xeroEntities.createOrUpdateBill(newBill);
     }
 
     private expenseUrl(expenseId: string): string {

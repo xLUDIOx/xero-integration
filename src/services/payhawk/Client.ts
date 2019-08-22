@@ -4,7 +4,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as requestNative from 'request';
 import * as request from 'request-promise';
-import * as uuid from 'uuid/v4';
 
 import { config } from '../../Config';
 import { IExpense, IFile } from './Expense';
@@ -42,7 +41,7 @@ export class Client implements IClient {
 
         return await Promise.all(expense.document.files.map(async (f: IFile): Promise<IDownloadedFile> => {
             const extension = mime.extension(f.contentType) || 'jpg';
-            const filePath = path.join(os.tmpdir(), uuid() + '.' + extension);
+            const filePath = path.join(os.tmpdir(), path.basename(f.url) + '.' + extension);
             const file = fs.createWriteStream(filePath);
 
             await requestNative({ uri: f.url }).pipe(file);

@@ -8,6 +8,7 @@ import { IClient } from './IClient';
 export { IClient, IAuth };
 export { IAccountCode } from './IAccountCode';
 export { IBankAccount } from './IBankAccount';
+export { IAttachment } from './IAttachment';
 
 export const createAuth = (accountId: string): IAuth => {
     return new Auth(accountId);
