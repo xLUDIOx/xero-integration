@@ -19,7 +19,7 @@ export class Manager implements IManager {
         return await this.xeroClient.getExpenseAccounts();
     }
 
-    async getContactIdForSupplier(supplier: Payhawk.ISupplier): Promise<string> {
+    async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {
         const contactName = supplier.name || DEFAULT_SUPPLIER_NAME;
         const contact = await this.xeroClient.findContact(contactName, supplier.vat) ||
             await this.xeroClient.createContact(contactName, supplier.name ? supplier.vat : undefined);

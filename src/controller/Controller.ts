@@ -75,8 +75,40 @@ export class Controller {
             logger = logger.child({ event: payload.event });
             switch (payload.event) {
                 case PayhawkEvent.ExportExpense:
-                    logger = logger.child({ expenseId: payload.data.expenseId });
-                    await integrationManager.exportExpense(payload.data.expenseId);
+                    if (!payload.data) {
+                        const error = new Error('No payload provided for ExportExpense event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    const expenseId = payload.data.expenseId;
+                    if (!expenseId) {
+                        const error = new Error('No expense ID provided in payload for ExportExpense event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    logger = logger.child({ expenseId });
+                    await integrationManager.exportExpense(expenseId);
+                    break;
+                case PayhawkEvent.ExportTransfers:
+                    if (!payload.data) {
+                        const error = new Error('No payload provided for ExportTransfers event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    if (!payload.data.startDate || !payload.data.endDate) {
+                        const error = new Error('No start or end date provided in payload for ExportTransfers event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    await integrationManager.exportTransfers(payload.data.startDate, payload.data.endDate);
                     break;
                 case PayhawkEvent.SynchronizeChartOfAccount:
                     await integrationManager.synchronizeChartOfAccounts();

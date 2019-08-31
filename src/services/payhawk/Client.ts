@@ -8,6 +8,7 @@ import * as request from 'request-promise';
 import { config } from '../../Config';
 import { IExpense, IFile } from './Expense';
 import { IAccountCode } from './IAccountCode';
+import { IBalanceTransfer } from './IBalanceTransfer';
 import { IClient } from './IClient';
 import { IDownloadedFile } from './IDownloadedFile';
 
@@ -23,6 +24,18 @@ export class Client implements IClient {
     async getExpense(expenseId: string): Promise<IExpense> {
         const result = await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/expenses/${encodeURIComponent(expenseId)}`, {
             method: 'GET', json: true, headers: this.headers,
+        });
+
+        return result;
+    }
+
+    async getTransfers(startDate: string, endDate: string): Promise<IBalanceTransfer[]> {
+        const queryString = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
+        const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/transfers?${queryString}`;
+        const result = await request(url, {
+            method: 'GET',
+            json: true,
+            headers: this.headers,
         });
 
         return result;

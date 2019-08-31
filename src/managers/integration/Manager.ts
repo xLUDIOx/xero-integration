@@ -34,6 +34,23 @@ export class Manager implements IManager {
         }
     }
 
+    async exportTransfers(startDate: string, endDate: string): Promise<void> {
+        const transfers = await this.payhawkClient.getTransfers(startDate, endDate);
+        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: 'New Deposit' });
+
+        const bankAccountIdMap = new Map<string, string>();
+
+        for (const transfer of transfers) {
+            let bankAccountId = bankAccountIdMap.get(transfer.currency);
+            if (!bankAccountId) {
+                bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(transfer.currency);
+                bankAccountIdMap.set(transfer.currency, bankAccountId);
+            }
+
+            await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
+        }
+    }
+
     private async exportExpenseAsTransaction(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
         // common data for all transactions linked to the expense
         const currency = expense.transactions[0].cardCurrency;
@@ -55,6 +72,19 @@ export class Manager implements IManager {
 
             await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
         }
+    }
+
+    private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
+        const newAccountTransaction: INewAccountTransaction = {
+            bankAccountId,
+            contactId,
+            reference: `Bank wire received on ${new Date(transfer.date).toUTCString()}`,
+            totalAmount: -Math.abs(transfer.amount),
+            files: [],
+            url: this.transferUrl(transfer.id),
+        };
+
+        await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
@@ -81,5 +111,9 @@ export class Manager implements IManager {
 
     private transactionUrl(transactionId: string): string {
         return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&accountId=${encodeURIComponent(this.accountId)}`;
+    }
+
+    private transferUrl(transferId: string): string {
+        return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&accountId=${encodeURIComponent(this.accountId)}`;
     }
 }

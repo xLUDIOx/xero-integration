@@ -4,7 +4,7 @@ import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 
 export interface IManager {
-    getContactIdForSupplier(supplier: Payhawk.ISupplier): Promise<string>;
+    getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getBankAccountIdForCurrency(currency: string): Promise<string>;
     createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<void>;

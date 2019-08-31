@@ -187,6 +187,71 @@ describe('Controller', () => {
             await controller.payhawk(req, responseMock.object);
         });
 
+        test('send 204 and call exportTransfers for that event', async () => {
+            const expire = new Date();
+            expire.setHours(expire.getHours() + 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const apiKey = 'payhawk api key';
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => accessToken);
+
+            const exportData = {
+                startDate: new Date().toISOString(),
+                endDate: new Date().toISOString(),
+            };
+
+            integrationManagerMock
+                .setup(m => m.exportTransfers(exportData.startDate, exportData.endDate))
+                .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(204))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: exportData } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('send 500 if payload does not contain payload data for exportExpense', async () => {
+            const expire = new Date();
+            expire.setHours(expire.getHours() + 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const apiKey = 'payhawk api key';
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => accessToken);
+
+            loggerMock.setup(l => l.error(TypeMoq.It.isAny())).verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(500))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: undefined } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('send 500 if payload does not contain payload data for exportTransfers', async () => {
+            const expire = new Date();
+            expire.setHours(expire.getHours() + 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const apiKey = 'payhawk api key';
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => accessToken);
+
+            loggerMock.setup(l => l.error(TypeMoq.It.isAny())).verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(500))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: undefined } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
         test('send 204 and call synchronizeChartOfAccounts for that event', async () => {
             const apiKey = 'payhawk api key';
             connectionManagerMock

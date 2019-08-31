@@ -271,4 +271,79 @@ describe('integrations/Manager', () => {
             });
         });
     });
+
+    describe('export transfers', () => {
+        const startDate = new Date().toISOString();
+        const endDate = new Date().toISOString();
+
+        test('creates an account transaction for each transfer', async () => {
+            const bankAccountId = 'bank-account-id';
+            const contactId = 'contact-id';
+            const transfers = [{
+                id: '1',
+                amount: 1000,
+                currency: 'BGN',
+                date: new Date().toISOString(),
+            }, {
+                id: '2',
+                amount: 2000,
+                currency: 'EUR',
+                date: new Date().toISOString(),
+            }, {
+                id: '3',
+                amount: 3000,
+                currency: 'EUR',
+                date: new Date().toISOString(),
+            }];
+
+            payhawkClientMock
+                .setup(c => c.getTransfers(startDate, endDate))
+                .returns(async () => transfers)
+                .verifiable(TypeMoq.Times.once());
+
+            payhawkClientMock
+                .setup(c => c.getTransfers(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            const uniqueCurrencies = new Set(transfers.map(t => t.currency));
+            uniqueCurrencies.forEach(t => {
+                xeroEntitiesMock
+                    .setup(e => e.getBankAccountIdForCurrency(t))
+                    .returns(async () => bankAccountId)
+                    .verifiable(TypeMoq.Times.once());
+            });
+
+            xeroEntitiesMock
+                .setup(e => e.getBankAccountIdForCurrency(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.exactly(uniqueCurrencies.size));
+
+            xeroEntitiesMock
+                .setup(e => e.getContactIdForSupplier({ name: 'New Deposit' }))
+                .returns(async () => contactId)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroEntitiesMock
+                .setup(e => e.getContactIdForSupplier(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            transfers.forEach(t => {
+                xeroEntitiesMock
+                    .setup(e => e.createOrUpdateAccountTransaction({
+                        bankAccountId,
+                        contactId,
+                        reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,
+                        totalAmount: -t.amount,
+                        files: [],
+                        url: `${portalUrl}/funds?transferId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
+                    }))
+                    .verifiable(TypeMoq.Times.once());
+            });
+
+            xeroEntitiesMock
+                .setup(e => e.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.exactly(transfers.length));
+
+            await manager.exportTransfers(startDate, endDate);
+        });
+    });
 });
