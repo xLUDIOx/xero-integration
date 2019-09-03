@@ -3,7 +3,7 @@ import * as TypeMoq from 'typemoq';
 
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger } from '../utils/logger';
+import { ILogger } from '../utils';
 import { Controller } from './Controller';
 import { PayhawkEvent } from './PayhawkEvent';
 

@@ -1,21 +1,29 @@
-import * as path from 'path';
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { BankTransaction, Contact, Invoice } from 'xero-node/lib/AccountingAPI-models';
 import { ContactsResponse } from 'xero-node/lib/AccountingAPI-responses';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { AttachmentsEndpoint } from 'xero-node/lib/AccountingAPIClient';
+import { Throttler } from '../../utils';
 import { getXeroConfig } from './Config';
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IClient } from './IClient';
 
+const XERO_MAX_REQUESTS_COUNT = 50;
+const THROTTLER_PERIOD_IN_SECONDS = 60;
+
+const throttler = new Throttler(XERO_MAX_REQUESTS_COUNT, THROTTLER_PERIOD_IN_SECONDS);
+
 export class Client implements IClient {
     private readonly xeroClient: XeroClient;
 
     constructor(accountId: string, accessToken: AccessToken) {
-        this.xeroClient = new XeroClient(getXeroConfig(accountId), accessToken);
+        const originalClient = new XeroClient(getXeroConfig(accountId), accessToken);
+        const wrappedClient = throttler.getThrottledWrap(accountId, originalClient);
+
+        this.xeroClient = wrappedClient;
     }
 
     async findContact(name: string, vat?: string): Promise<Contact|undefined> {

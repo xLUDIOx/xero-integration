@@ -1,7 +1,7 @@
 import * as restify from 'restify';
 
 import { Integration, XeroConnection } from '../managers';
-import { ILogger } from '../utils/logger';
+import { ILogger } from '../utils';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
 
