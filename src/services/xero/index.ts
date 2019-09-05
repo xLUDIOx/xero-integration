@@ -10,8 +10,8 @@ export { IAccountCode } from './IAccountCode';
 export { IBankAccount } from './IBankAccount';
 export { IAttachment } from './IAttachment';
 
-export const createAuth = (accountId: string): IAuth => {
-    return new Auth(accountId);
+export const createAuth = (accountId: string, returnUrl?: string): IAuth => {
+    return new Auth(accountId, returnUrl);
 };
 
 export const createClient = (accountId: string, accessToken: AccessToken): IClient => {

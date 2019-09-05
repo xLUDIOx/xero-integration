@@ -1,5 +1,7 @@
 import * as restify from 'restify';
 
+import { URL } from 'url';
+import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils';
 import { IPayhawkPayload } from './IPayhawkPayload';
@@ -9,7 +11,7 @@ export class Controller {
     constructor(private readonly baseLogger: ILogger,
                 private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
                 private readonly integrationManagerFactory: Integration.IManagerFactory,
-                private readonly callbackHtmlHandler: restify.RequestHandler) {
+                private readonly config: IConfig) {
     }
 
     async connect(req: restify.Request, res: restify.Response, next: restify.Next) {
@@ -18,11 +20,13 @@ export class Controller {
             return;
         }
 
+        const returnUrl = req.query.returnUrl || '/';
+
         const accountId = req.query.accountId;
         const logger = this.baseLogger.child({ accountId }, req);
 
         try {
-            const authoriseUrl = await this.connectionManagerFactory(accountId).getAuthorizationUrl();
+            const authoriseUrl = await this.connectionManagerFactory(accountId, returnUrl).getAuthorizationUrl();
             res.redirect(authoriseUrl, next);
         } catch (err) {
             logger.error(err);
@@ -41,15 +45,25 @@ export class Controller {
             return;
         }
 
-        const accountId = req.query.accountId;
-        const oauthVerifier = req.query.oauth_verifier;
+        if (!req.query.returnUrl) {
+            res.send(400, 'Missing returnUrl query parameter');
+            return;
+        }
+
+        const accountId: string = req.query.accountId;
+        const oauthVerifier: string = req.query.oauth_verifier;
+        const returnUrl: string = req.query.returnUrl;
 
         const logger = this.baseLogger.child({ accountId }, req);
 
         try {
             const manager = this.connectionManagerFactory(accountId);
             if (await manager.authenticate(oauthVerifier)) {
-                this.callbackHtmlHandler(req, res, next);
+                const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
+                const url = new URL(absoluteReturnUrl);
+                url.searchParams.append('connection', 'xero');
+
+                res.redirect(url.toString(), next);
             } else {
                 res.send(401);
             }

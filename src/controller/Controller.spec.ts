@@ -2,6 +2,7 @@ import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils';
 import { Controller } from './Controller';
@@ -11,7 +12,7 @@ describe('Controller', () => {
     const accountId = 'accountId';
     let connectionManagerMock: TypeMoq.IMock<XeroConnection.IManager>;
     let integrationManagerMock: TypeMoq.IMock<Integration.IManager>;
-    let callbackHtmlHandlerMock: TypeMoq.IMock<restify.RequestHandler>;
+    let configMock: TypeMoq.IMock<IConfig>;
     let responseMock: TypeMoq.IMock<restify.Response>;
     let nextMock: TypeMoq.IMock<restify.Next>;
     let loggerMock: TypeMoq.IMock<ILogger>;
@@ -21,23 +22,26 @@ describe('Controller', () => {
     beforeEach(() => {
         connectionManagerMock = TypeMoq.Mock.ofType<XeroConnection.IManager>();
         integrationManagerMock = TypeMoq.Mock.ofType<Integration.IManager>();
-        callbackHtmlHandlerMock = TypeMoq.Mock.ofType<restify.RequestHandler>();
+        configMock = TypeMoq.Mock.ofType<IConfig>();
         responseMock = TypeMoq.Mock.ofType<restify.Response>();
         nextMock = TypeMoq.Mock.ofType<restify.Next>();
 
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
         loggerMock.setup(l => l.child(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => loggerMock.object);
 
+        configMock.setup(c => c.portalUrl).returns(() => 'http://localhost');
+
+        connectionManagerMock.setup(m => m.authenticate);
+
         controller = new Controller(loggerMock.object,
             () => connectionManagerMock.object,
             () => integrationManagerMock.object,
-            callbackHtmlHandlerMock.object);
+            configMock.object);
     });
 
     afterEach(() => {
         connectionManagerMock.verifyAll();
         integrationManagerMock.verifyAll();
-        callbackHtmlHandlerMock.verifyAll();
         responseMock.verifyAll();
         nextMock.verifyAll();
         loggerMock.verifyAll();
@@ -90,12 +94,22 @@ describe('Controller', () => {
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
+        test('sends status 400 when missing returnUrl query parameter', async () => {
+            const verifier = 'verifier query param';
+            responseMock
+                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
+            await controller.callback(req, responseMock.object, nextMock.object);
+        });
+
         test('sends 500 when the manager throws error', async () => {
             const verifier = 'verifier query param';
             responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.authenticate(verifier)).returns(() => Promise.reject(new Error()));
 
-            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
+            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
@@ -104,20 +118,26 @@ describe('Controller', () => {
             responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => false);
 
-            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
+            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
-        test('authenticates and passes the request to callback html handler', async () => {
+        test('redirects to return url', async () => {
             const verifier = 'verifier query param';
-            connectionManagerMock
-                .setup(m => m.authenticate(verifier)).returns(async () => true)
+            const returnUrl = '/my-path';
+            responseMock
+                .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero`, nextMock.object))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
-            callbackHtmlHandlerMock
-                .setup(c => c(req, responseMock.object, nextMock.object))
-                .verifiable(TypeMoq.Times.once());
+            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => true);
+
+            const req = {
+                query: {
+                    accountId,
+                    oauth_verifier: verifier,
+                    returnUrl,
+                },
+            } as restify.Request;
 
             await controller.callback(req, responseMock.object, nextMock.object);
         });

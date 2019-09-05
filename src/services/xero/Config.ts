@@ -9,9 +9,10 @@ if (process.env.TELEPRESENCE_MOUNT_PATH) {
 
 // tslint:disable-next-line: no-var-requires
 const baseConfig: XeroClientConfiguration = require(xeroConfigPath);
-export const getXeroConfig = (accountId: string) => {
+export const getXeroConfig = (accountId: string, returnUrl?: string) => {
+    const queryString = `accountId=${encodeURIComponent(accountId)}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`;
     return {
         ...baseConfig,
-        callbackUrl: `${config.serviceUrl}/callback?accountId=${encodeURIComponent(accountId)}`,
+        callbackUrl: `${config.serviceUrl}/callback?${queryString}`,
     };
 };

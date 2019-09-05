@@ -8,8 +8,8 @@ import { IAuthRequest } from './IAuthRequest';
 export class Auth implements IAuth {
     private readonly oauthClient: IOAuth1HttpClient;
 
-    constructor(accountId: string) {
-        this.oauthClient = new XeroClient(getXeroConfig(accountId)).oauth1Client;
+    constructor(accountId: string, returnUrl?: string) {
+        this.oauthClient = new XeroClient(getXeroConfig(accountId, returnUrl)).oauth1Client;
     }
 
     async getAuthUrl(): Promise<IAuthRequest> {
