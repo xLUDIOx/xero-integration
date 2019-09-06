@@ -1,5 +1,5 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { BankTransaction, Contact, Invoice } from 'xero-node/lib/AccountingAPI-models';
+import { BankTransaction, Contact, Invoice, Organisation } from 'xero-node/lib/AccountingAPI-models';
 import { ContactsResponse } from 'xero-node/lib/AccountingAPI-responses';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
@@ -24,6 +24,11 @@ export class Client implements IClient {
         const wrappedClient = throttler.getThrottledWrap(accountId, originalClient);
 
         this.xeroClient = wrappedClient;
+    }
+
+    async getOrganisation(): Promise<Organisation | undefined> {
+        const organisationsResponse = await this.xeroClient.organisations.get();
+        return organisationsResponse.Organisations[0];
     }
 
     async findContact(name: string, vat?: string): Promise<Contact|undefined> {

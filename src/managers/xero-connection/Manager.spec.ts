@@ -67,17 +67,17 @@ describe('xero-connection/Manager', () => {
             }
         });
 
-        test('returns false if there is no request token', async () => {
+        test('returns undefined if there is no request token', async () => {
             storeMock
                 .setup(s => s.getRequestTokenByAccountId(accountId))
                 .returns(async () => undefined);
 
             const result = await manager.authenticate('verifier');
 
-            expect(result).toEqual(false);
+            expect(result).toEqual(undefined);
         });
 
-        test('returns true and saves access token on success', async () => {
+        test('returns token and saves it on success', async () => {
             const verifier = 'verifier';
             const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
             const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
@@ -97,10 +97,10 @@ describe('xero-connection/Manager', () => {
 
             const result = await manager.authenticate(verifier);
 
-            expect(result).toBe(true);
+            expect(result).toBe(accessToken);
         });
 
-        test('returns false on XeroError', async () => {
+        test('returns undefined on XeroError', async () => {
             const verifier = 'verifier';
             const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
 
@@ -114,7 +114,7 @@ describe('xero-connection/Manager', () => {
 
             const result = await manager.authenticate(verifier);
 
-            expect(result).toBe(false);
+            expect(result).toBe(undefined);
         });
 
         test('throws on unexpected auth error', async () => {

@@ -15,6 +15,11 @@ const DEFAULT_CURRENCY = 'GBP';
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
+    async getOrganisationName(): Promise<string | undefined> {
+        const organisation =  await this.xeroClient.getOrganisation();
+        return organisation ? organisation.Name : undefined;
+    }
+
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         return await this.xeroClient.getExpenseAccounts();
     }

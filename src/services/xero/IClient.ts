@@ -1,10 +1,12 @@
-import { Contact } from 'xero-node/lib/AccountingAPI-models';
+import { Contact, Organisation } from 'xero-node/lib/AccountingAPI-models';
 
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 
 export interface IClient {
+    getOrganisation(): Promise<Organisation | undefined>;
+
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     createContact(name: string, vat?: string): Promise<Contact>;
 

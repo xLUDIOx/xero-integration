@@ -17,31 +17,31 @@ export class Manager implements IManager {
         return url;
     }
 
-    async authenticate(verifier: string): Promise<boolean> {
+    async authenticate(verifier: string): Promise<AccessToken | undefined> {
         if (!verifier) {
             throw Error('Missing verifier argument');
         }
 
         const requestToken = await this.store.getRequestTokenByAccountId(this.accountId);
         if (!requestToken) {
-            return false;
+            return undefined;
         }
 
         try {
             const accessToken = await this.authClient.getAccessToken(requestToken, verifier);
             await this.store.saveAccessToken(this.accountId, accessToken);
+
+            return accessToken;
         } catch (e) {
             if (e && e.name === 'XeroError') {
-                return false;
+                return undefined;
             } else {
                 throw e;
             }
         }
-
-        return true;
     }
 
-    async getAccessToken(): Promise<AccessToken|undefined> {
+    async getAccessToken(): Promise<AccessToken | undefined> {
         return this.store.getAccessTokenByAccountId(this.accountId);
     }
 }

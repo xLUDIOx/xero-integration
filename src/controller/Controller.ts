@@ -57,11 +57,18 @@ export class Controller {
         const logger = this.baseLogger.child({ accountId }, req);
 
         try {
-            const manager = this.connectionManagerFactory(accountId);
-            if (await manager.authenticate(oauthVerifier)) {
+            const connectionManager = this.connectionManagerFactory(accountId);
+            const accessToken = await connectionManager.authenticate(oauthVerifier);
+            if (accessToken) {
+                const integrationManager = this.integrationManagerFactory(accessToken, accountId, ''); // payhawk api key is not needed here
+                const organisation = await integrationManager.getOrganisationName();
+
                 const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
                 const url = new URL(absoluteReturnUrl);
                 url.searchParams.append('connection', 'xero');
+                if (organisation) {
+                    url.searchParams.append('label', organisation);
+                }
 
                 res.redirect(url.toString(), next);
             } else {

@@ -116,20 +116,25 @@ describe('Controller', () => {
         test('sends 401 when authentication fails', async () => {
             const verifier = 'verifier query param';
             responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
-            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => false);
+            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => undefined);
 
             const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
         test('redirects to return url', async () => {
+            const token: AccessToken = {
+                oauth_token: 'token',
+                oauth_token_secret: 'secret',
+            };
+
             const verifier = 'verifier query param';
             const returnUrl = '/my-path';
             responseMock
                 .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero`, nextMock.object))
                 .verifiable(TypeMoq.Times.once());
 
-            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => true);
+            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => token);
 
             const req = {
                 query: {

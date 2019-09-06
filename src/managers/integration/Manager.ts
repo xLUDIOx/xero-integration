@@ -11,6 +11,10 @@ export class Manager implements IManager {
         private readonly accountId: string,
         private readonly portalUrl: string) { }
 
+    async getOrganisationName(): Promise<string | undefined> {
+        return await this.xeroEntities.getOrganisationName();
+    }
+
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
         await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes.map(a => ({
