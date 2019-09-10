@@ -1,6 +1,7 @@
 import { Payhawk } from '../../services';
 
 export interface INewBill {
+    date: string;
     contactId: string;
     description?: string;
     currency: string;

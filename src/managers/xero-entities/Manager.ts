@@ -26,8 +26,10 @@ export class Manager implements IManager {
 
     async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {
         const contactName = supplier.name || DEFAULT_SUPPLIER_NAME;
-        const contact = await this.xeroClient.findContact(contactName, supplier.vat) ||
-            await this.xeroClient.createContact(contactName, supplier.name ? supplier.vat : undefined);
+        let contact = await this.xeroClient.findContact(contactName, supplier.vat);
+        if (!contact) {
+            contact = await this.xeroClient.createContact(contactName, supplier.name ? supplier.vat : undefined);
+        }
 
         return contact.ContactID!;
     }
@@ -49,6 +51,7 @@ export class Manager implements IManager {
     }
 
     async createOrUpdateAccountTransaction({
+        date,
         bankAccountId,
         contactId,
         description,
@@ -63,6 +66,7 @@ export class Manager implements IManager {
 
         if (!transactionId) {
             transactionId = await this.xeroClient.createTransaction(
+                date,
                 bankAccountId,
                 contactId,
                 description || DEFAULT_DESCRIPTION,
@@ -74,6 +78,7 @@ export class Manager implements IManager {
         } else {
             await this.xeroClient.updateTransaction(
                 transactionId,
+                date,
                 bankAccountId,
                 contactId,
                 description || DEFAULT_DESCRIPTION,
@@ -96,6 +101,7 @@ export class Manager implements IManager {
     }
 
     async createOrUpdateBill({
+        date,
         contactId,
         description,
         currency,
@@ -109,6 +115,7 @@ export class Manager implements IManager {
 
         if (!billId) {
             billId = await this.xeroClient.createBill(
+                date,
                 contactId,
                 description || DEFAULT_DESCRIPTION,
                 currency || DEFAULT_CURRENCY,
@@ -119,6 +126,7 @@ export class Manager implements IManager {
         } else {
             await this.xeroClient.updateBill(
                 billId,
+                date,
                 contactId,
                 description || DEFAULT_DESCRIPTION,
                 currency || DEFAULT_CURRENCY,

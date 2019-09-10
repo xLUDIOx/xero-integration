@@ -64,6 +64,7 @@ export class Manager implements IManager {
         for (const t of expense.transactions) {
             const totalAmount = t.cardAmount;
             const newAccountTransaction: INewAccountTransaction = {
+                date: t.settlementDate,
                 bankAccountId,
                 contactId,
                 description: expense.note,
@@ -80,6 +81,7 @@ export class Manager implements IManager {
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
         const newAccountTransaction: INewAccountTransaction = {
+            date: transfer.date,
             bankAccountId,
             contactId,
             reference: `Bank wire received on ${new Date(transfer.date).toUTCString()}`,
@@ -97,6 +99,7 @@ export class Manager implements IManager {
 
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
+            date: expense.createdAt,
             contactId,
             description: expense.note,
             currency,

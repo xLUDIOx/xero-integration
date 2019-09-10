@@ -11,7 +11,7 @@ import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IClient } from './IClient';
 
-const XERO_MAX_REQUESTS_COUNT = 50;
+const XERO_MAX_REQUESTS_COUNT = 40;
 const THROTTLER_PERIOD_IN_SECONDS = 60;
 
 const throttler = new Throttler(XERO_MAX_REQUESTS_COUNT, THROTTLER_PERIOD_IN_SECONDS);
@@ -31,28 +31,36 @@ export class Client implements IClient {
         return organisationsResponse.Organisations[0];
     }
 
-    async findContact(name: string, vat?: string): Promise<Contact|undefined> {
-        let contactsResponse: ContactsResponse;
+    async findContact(name: string, vat?: string): Promise<Contact | undefined> {
+        let contactsResponse: ContactsResponse | undefined;
         if (vat) {
-            contactsResponse = await this.xeroClient.contacts.get({ where: `TaxNumber=="${this.escape(vat)}"` });
-        } else {
-            contactsResponse = await this.xeroClient.contacts.get({ where: `Name=="${this.escape(name)}"` });
+            contactsResponse = await this.xeroClient.contacts.get({ where: `TaxNumber=="${this.escape(vat.trim())}"` });
         }
 
-        return contactsResponse.Contacts.length > 0 ? contactsResponse.Contacts[0] : undefined;
+        if (!contactsResponse || contactsResponse.Contacts.length === 0) {
+            contactsResponse = await this.xeroClient.contacts.get({ where: `Name=="${this.escape(name.trim())}"` });
+        }
+
+        const contact = contactsResponse.Contacts.length > 0 ? contactsResponse.Contacts[0] : undefined;
+        return contact;
     }
 
     async createContact(name: string, vat?: string): Promise<Contact> {
         const payload: Contact = {
-            Name: name,
+            Name: this.escapeDoubleQuotes(name.trim()),
         };
 
         if (vat) {
-            payload.TaxNumber = vat;
+            payload.TaxNumber = vat.trim();
         }
 
         const contactsResponse = await this.xeroClient.contacts.create(payload);
-        return contactsResponse.Contacts[0];
+        const contact = contactsResponse.Contacts[0];
+        if (contact.StatusAttributeString === 'ERROR') {
+            throw Error(JSON.stringify(contact.ValidationErrors, undefined, 2));
+        }
+
+        return contact;
     }
 
     async activateBankAccount(bankAccount: IBankAccount): Promise<IBankAccount> {
@@ -74,7 +82,7 @@ export class Client implements IClient {
         return bankAccountsResponse.Accounts[0];
     }
 
-    async getBankAccountByCode(code: string): Promise<IBankAccount|undefined> {
+    async getBankAccountByCode(code: string): Promise<IBankAccount | undefined> {
         const bankAccountsResponse = await this.xeroClient.accounts.get({ where: `Type=="BANK" && Code=="${this.escape(code)}"` });
         return bankAccountsResponse.Accounts.length > 0 ? bankAccountsResponse.Accounts[0] : undefined;
     }
@@ -91,8 +99,8 @@ export class Client implements IClient {
         return transactionsResponse.BankTransactions.length > 0 ? transactionsResponse.BankTransactions[0].BankTransactionID : undefined;
     }
 
-    async createTransaction(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
-        const transaction = this.getBankTransactionModel(bankAccountId, contactId, description, reference, amount, accountCode, url);
+    async createTransaction(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
+        const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.create(transaction);
         if (bankTrResponse.BankTransactions[0].StatusAttributeString === 'ERROR') {
@@ -102,8 +110,8 @@ export class Client implements IClient {
         return bankTrResponse.BankTransactions[0].BankTransactionID!;
     }
 
-    async updateTransaction(transactionId: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<void> {
-        const transaction = this.getBankTransactionModel(bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
+    async updateTransaction(transactionId: string, date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<void> {
+        const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.update(transaction);
         if (bankTrResponse.BankTransactions[0].StatusAttributeString === 'ERROR') {
@@ -116,10 +124,10 @@ export class Client implements IClient {
         return billsResponse.Invoices.length > 0 ? billsResponse.Invoices[0].InvoiceID : undefined;
     }
 
-    async createBill(contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string> {
+    async createBill(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string> {
         await this.ensureCurrency(currency);
 
-        const bill = await this.getNewBillModel(contactId, description, currency, amount, accountCode, url);
+        const bill = await this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url);
         const result = await this.xeroClient.invoices.create(bill);
 
         if (result.Invoices[0].StatusAttributeString === 'ERROR') {
@@ -129,8 +137,8 @@ export class Client implements IClient {
         return result.Invoices[0].InvoiceID!;
     }
 
-    async updateBill(billId: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<void> {
-        const bill = await this.getNewBillModel(contactId, description, currency, amount, accountCode, url, billId);
+    async updateBill(billId: string, date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<void> {
+        const bill = await this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url, billId);
         const result = await this.xeroClient.invoices.update(bill);
 
         if (result.Invoices[0].StatusAttributeString === 'ERROR') {
@@ -156,8 +164,9 @@ export class Client implements IClient {
         return attachementsResponse.Attachments;
     }
 
-    private getBankTransactionModel(bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {
+    private getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {
         const transaction: BankTransaction = {
+            Date: date,
             Type: amount >= 0 ? 'SPEND' : 'RECEIVE',
             Url: url,
             BankAccount: {
@@ -184,8 +193,9 @@ export class Client implements IClient {
         return transaction;
     }
 
-    private getNewBillModel(contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string, id?: string): Invoice {
+    private getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string, id?: string): Invoice {
         const bill: Invoice = {
+            Date: date,
             Type: 'ACCPAY',
             Url: url,
             Contact: {
@@ -219,7 +229,15 @@ export class Client implements IClient {
     }
 
     private escape(val: string): string {
-        return val.replace(/[\\$'"]/g, '\\$&');
+        const res = this.escapeDoubleQuotes(val)
+            .replace(/[\\$']/g, '\\$&');
+        return res;
+    }
+
+    private escapeDoubleQuotes(val: string): string {
+        const res = val
+            .replace(/["]/g, '');
+        return res;
     }
 
     private async ensureCurrency(currencyCode: string): Promise<void> {

@@ -99,7 +99,7 @@ describe('integrations/Manager', () => {
                 const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
-                    createdAt: new Date(2019, 2, 2),
+                    createdAt: new Date(2019, 2, 2).toISOString(),
                     note: 'Expense Note',
                     ownerName: 'John Smith',
                     reconciliation,
@@ -114,7 +114,7 @@ describe('integrations/Manager', () => {
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
-                            settlementDate: new Date(2019, 2, 3),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
                         },
                         {
                             id: 'tx2',
@@ -124,7 +124,7 @@ describe('integrations/Manager', () => {
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
-                            settlementDate: new Date(2019, 2, 3),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
                         },
                     ],
                 };
@@ -150,6 +150,7 @@ describe('integrations/Manager', () => {
                 expense.transactions.forEach(t =>
                     xeroEntitiesMock
                         .setup(x => x.createOrUpdateAccountTransaction({
+                            date: t.settlementDate,
                             accountCode: reconciliation.accountCode,
                             bankAccountId,
                             contactId,
@@ -179,7 +180,7 @@ describe('integrations/Manager', () => {
                 const expenseId = 'expenseId';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
-                    createdAt: new Date(2019, 2, 2),
+                    createdAt: new Date(2019, 2, 2).toISOString(),
                     note: 'Expense Note',
                     ownerName: 'John Smith',
                     reconciliation,
@@ -203,6 +204,7 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
+                        date: expense.createdAt,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,
@@ -224,7 +226,7 @@ describe('integrations/Manager', () => {
                 const expenseId = 'expenseId';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
-                    createdAt: new Date(2019, 2, 2),
+                    createdAt: new Date(2019, 2, 2).toISOString(),
                     note: 'Expense Note',
                     ownerName: 'John Smith',
                     reconciliation,
@@ -248,6 +250,7 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
+                        date: expense.createdAt,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,
@@ -329,6 +332,7 @@ describe('integrations/Manager', () => {
             transfers.forEach(t => {
                 xeroEntitiesMock
                     .setup(e => e.createOrUpdateAccountTransaction({
+                        date: t.date,
                         bankAccountId,
                         contactId,
                         reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,

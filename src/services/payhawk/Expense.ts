@@ -1,6 +1,6 @@
 export interface IExpense {
     id: string;
-    createdAt: Date;
+    createdAt: string;
     title: string;
     note: string;
     ownerName: string;
@@ -21,7 +21,7 @@ export interface ISupplier {
 
 export interface IDocument {
     type: 'invoice' | 'receipt' | 'other';
-    date: Date;
+    date: string;
     number: string;
     files: IFile[];
 }
@@ -46,7 +46,7 @@ export interface IReconciliation {
 
 export interface ITransaction {
     id: string;
-    settlementDate: Date;
+    settlementDate: string;
     cardHolderName: string;
     paidCurrency: string;
     paidAmount: number;

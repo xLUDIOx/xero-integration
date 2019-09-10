@@ -197,6 +197,7 @@ describe('XeroEntities.Manager', () => {
     describe('createAccountTransaction', () => {
         test('updates account transaction and does not upload any files if they are the same', async () => {
             const newAccountTx: INewAccountTransaction = {
+                date: new Date(2012, 10, 10).toISOString(),
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -222,12 +223,14 @@ describe('XeroEntities.Manager', () => {
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
                     id,
+                    newAccountTx.date,
                     newAccountTx.bankAccountId,
                     newAccountTx.contactId,
                     newAccountTx.description!,
@@ -240,6 +243,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -271,6 +275,7 @@ describe('XeroEntities.Manager', () => {
 
         test('updates account transaction iploads missing files', async () => {
             const newAccountTx: INewAccountTransaction = {
+                date: new Date(2012, 10, 10).toISOString(),
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -296,12 +301,14 @@ describe('XeroEntities.Manager', () => {
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
                     id,
+                    newAccountTx.date,
                     newAccountTx.bankAccountId,
                     newAccountTx.contactId,
                     newAccountTx.description!,
@@ -314,6 +321,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -366,6 +374,7 @@ describe('XeroEntities.Manager', () => {
         test('create account transaction', async () => {
             const newTxId = 'new-tx-id';
             const newAccountTx: INewAccountTransaction = {
+                date: new Date(2012, 10, 10).toISOString(),
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -378,6 +387,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createTransaction(
+                    newAccountTx.date,
                     newAccountTx.bankAccountId,
                     newAccountTx.contactId,
                     newAccountTx.description!,
@@ -391,6 +401,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createTransaction(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -419,6 +430,7 @@ describe('XeroEntities.Manager', () => {
         test('create account transaction with default description and account code', async () => {
             const newTxId = 'new-tx-id';
             const newAccountTx: INewAccountTransaction = {
+                date: new Date(2012, 10, 10).toISOString(),
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 reference: 'tx description',
@@ -429,6 +441,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createTransaction(
+                    newAccountTx.date,
                     newAccountTx.bankAccountId,
                     newAccountTx.contactId,
                     '(no note)',
@@ -442,6 +455,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createTransaction(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -471,6 +485,7 @@ describe('XeroEntities.Manager', () => {
     describe('createBill', () => {
         test('updates bill and does not upload any files if they are the same', async () => {
             const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -499,12 +514,14 @@ describe('XeroEntities.Manager', () => {
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
                 .setup(x => x.updateBill(
                     id,
+                    newBill.date,
                     newBill.contactId,
                     newBill.description!,
                     newBill.currency,
@@ -516,6 +533,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.updateBill(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -546,6 +564,7 @@ describe('XeroEntities.Manager', () => {
 
         test('updates bill and uploads missing files', async () => {
             const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -574,12 +593,14 @@ describe('XeroEntities.Manager', () => {
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
                 .setup(x => x.updateBill(
                     id,
+                    newBill.date,
                     newBill.contactId,
                     newBill.description!,
                     newBill.currency,
@@ -591,6 +612,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.updateBill(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -642,6 +664,7 @@ describe('XeroEntities.Manager', () => {
         test('creates a bill', async () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -653,6 +676,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createBill(
+                    newBill.date,
                     newBill.contactId,
                     newBill.description!,
                     newBill.currency,
@@ -665,6 +689,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
@@ -692,6 +717,7 @@ describe('XeroEntities.Manager', () => {
         test('creates a bill with default description and account code', async () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
+                date: new Date(2012, 1, 1).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 totalAmount: 12.05,
@@ -701,6 +727,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createBill(
+                    newBill.date,
                     newBill.contactId,
                     '(no note)',
                     newBill.currency,
@@ -713,6 +740,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
