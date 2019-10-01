@@ -6,6 +6,8 @@ import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 
+const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/g;
+
 const DEFAULT_ACCOUNT_CODE = '429';
 const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
@@ -16,7 +18,7 @@ export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
     async getOrganisationName(): Promise<string | undefined> {
-        const organisation =  await this.xeroClient.getOrganisation();
+        const organisation = await this.xeroClient.getOrganisation();
         return organisation ? organisation.Name : undefined;
     }
 
@@ -65,28 +67,42 @@ export class Manager implements IManager {
         let filesToUpload = files;
 
         if (!transactionId) {
-            transactionId = await this.xeroClient.createTransaction(
+            const createData: Xero.ICreateTransactionData = {
                 date,
                 bankAccountId,
                 contactId,
-                description || DEFAULT_DESCRIPTION,
+                description: description || DEFAULT_DESCRIPTION,
                 reference,
-                totalAmount,
-                accountCode || DEFAULT_ACCOUNT_CODE,
+                amount: totalAmount,
+                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
                 url,
-            );
+            };
+
+            try {
+                transactionId = await this.xeroClient.createTransaction(createData);
+            } catch (err) {
+                const createDataFallback = this.tryFallbackItemData(err, createData);
+                transactionId = await this.xeroClient.createTransaction(createDataFallback);
+            }
         } else {
-            await this.xeroClient.updateTransaction(
+            const updateData = {
                 transactionId,
                 date,
                 bankAccountId,
                 contactId,
-                description || DEFAULT_DESCRIPTION,
+                description: description || DEFAULT_DESCRIPTION,
                 reference,
-                totalAmount,
-                accountCode || DEFAULT_ACCOUNT_CODE,
+                amount: totalAmount,
+                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
                 url,
-            );
+            };
+
+            try {
+                await this.xeroClient.updateTransaction(updateData);
+            } catch (err) {
+                const updateDataFallback = this.tryFallbackItemData(err, updateData);
+                await this.xeroClient.updateTransaction(updateDataFallback);
+            }
 
             const existingFileNames = (await this.xeroClient.getTransactionAttachments(transactionId)).map(f => f.FileName);
 
@@ -114,26 +130,40 @@ export class Manager implements IManager {
         let filesToUpload = files;
 
         if (!billId) {
-            billId = await this.xeroClient.createBill(
+            const createData: Xero.ICreateBillData = {
                 date,
                 contactId,
-                description || DEFAULT_DESCRIPTION,
-                currency || DEFAULT_CURRENCY,
-                totalAmount || 0,
-                accountCode || DEFAULT_ACCOUNT_CODE,
+                description: description || DEFAULT_DESCRIPTION,
+                currency: currency || DEFAULT_CURRENCY,
+                amount: totalAmount || 0,
+                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
                 url,
-            );
+            };
+
+            try {
+                billId = await this.xeroClient.createBill(createData);
+            } catch (err) {
+                const createDataFallback = this.tryFallbackItemData(err, createData);
+                billId = await this.xeroClient.createBill(createDataFallback);
+            }
         } else {
-            await this.xeroClient.updateBill(
+            const updateData: Xero.IUpdateBillData = {
                 billId,
                 date,
                 contactId,
-                description || DEFAULT_DESCRIPTION,
-                currency || DEFAULT_CURRENCY,
-                totalAmount || 0,
-                accountCode || DEFAULT_ACCOUNT_CODE,
+                description: description || DEFAULT_DESCRIPTION,
+                currency: currency || DEFAULT_CURRENCY,
+                amount: totalAmount || 0,
+                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
                 url,
-            );
+            };
+
+            try {
+                await this.xeroClient.updateBill(updateData);
+            } catch (err) {
+                const updateDataFallback = this.tryFallbackItemData(err, updateData);
+                await this.xeroClient.updateBill(updateDataFallback);
+            }
 
             const existingFileNames = (await this.xeroClient.getBillAttachments(billId)).map(f => f.FileName);
 
@@ -145,6 +175,17 @@ export class Manager implements IManager {
             const fileName = convertPathToFileName(f.path);
             await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
         }
+    }
+
+    private tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): TData {
+        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
+            // Force default account code
+            data.accountCode = DEFAULT_ACCOUNT_CODE;
+        } else {
+            throw error;
+        }
+
+        return data;
     }
 }
 

@@ -3,9 +3,9 @@ import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { Auth } from './Auth';
 import { Client } from './Client';
 import { IAuth } from './IAuth';
-import { IClient } from './IClient';
+import { IAccountingItemData, IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './IClient';
 
-export { IClient, IAuth };
+export { IClient, IAccountingItemData, ICreateBillData, IUpdateBillData, ICreateTransactionData, IUpdateTransactionData, IAuth };
 export { IAccountCode } from './IAccountCode';
 export { IBankAccount } from './IBankAccount';
 export { IAttachment } from './IAttachment';

@@ -40,6 +40,10 @@ export class Manager implements IManager {
 
     async exportTransfers(startDate: string, endDate: string): Promise<void> {
         const transfers = await this.payhawkClient.getTransfers(startDate, endDate);
+        if (!transfers.length) {
+            return;
+        }
+
         const contactId = await this.xeroEntities.getContactIdForSupplier({ name: 'New Deposit' });
 
         const bankAccountIdMap = new Map<string, string>();

@@ -17,14 +17,40 @@ export interface IClient {
     getExpenseAccounts(): Promise<IAccountCode[]>;
 
     getTransactionIdByUrl(url: string): Promise<string | undefined>;
-    createTransaction(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string>;
-    updateTransaction(transactionId: string, date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<void>;
+    createTransaction(data: ICreateTransactionData): Promise<string>;
+    updateTransaction(data: IUpdateTransactionData): Promise<void>;
     getTransactionAttachments(entityId: string): Promise<IAttachment[]>;
     uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
 
     getBillIdByUrl(url: string): Promise<string | undefined>;
-    createBill(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string>;
-    updateBill(billId: string, date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<void>;
+    createBill(data: ICreateBillData): Promise<string>;
+    updateBill(data: IUpdateBillData): Promise<void>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(entityId: string): Promise<IAttachment[]>;
+}
+
+export interface IAccountingItemData {
+    date: string;
+    contactId: string;
+    description: string;
+    amount: number;
+    accountCode: string;
+    url: string;
+}
+
+export interface ICreateBillData extends IAccountingItemData {
+    currency: string;
+}
+
+export interface IUpdateBillData extends ICreateBillData {
+    billId: string;
+}
+
+export interface ICreateTransactionData extends IAccountingItemData {
+    bankAccountId: string;
+    reference: string;
+}
+
+export interface IUpdateTransactionData extends ICreateTransactionData {
+    transactionId: string;
 }

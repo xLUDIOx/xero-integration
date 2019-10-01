@@ -1,5 +1,3 @@
-import * as restify from 'restify';
-
 import { config } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { createLogger } from '../utils';

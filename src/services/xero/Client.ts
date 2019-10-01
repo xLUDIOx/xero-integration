@@ -9,7 +9,7 @@ import { getXeroConfig } from './Config';
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
-import { IClient } from './IClient';
+import { IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './IClient';
 
 const XERO_MAX_REQUESTS_COUNT = 40;
 const THROTTLER_PERIOD_IN_SECONDS = 60;
@@ -38,7 +38,8 @@ export class Client implements IClient {
         }
 
         if (!contactsResponse || contactsResponse.Contacts.length === 0) {
-            contactsResponse = await this.xeroClient.contacts.get({ where: `Name=="${this.escape(name.trim())}"` });
+            const where = `Name.toLower()=="${this.escape(name.toLowerCase().trim())}"`;
+            contactsResponse = await this.xeroClient.contacts.get({ where });
         }
 
         const contact = contactsResponse.Contacts.length > 0 ? contactsResponse.Contacts[0] : undefined;
@@ -99,7 +100,7 @@ export class Client implements IClient {
         return transactionsResponse.BankTransactions.length > 0 ? transactionsResponse.BankTransactions[0].BankTransactionID : undefined;
     }
 
-    async createTransaction(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<string> {
+    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, url }: ICreateTransactionData): Promise<string> {
         const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.create(transaction);
@@ -110,7 +111,7 @@ export class Client implements IClient {
         return bankTrResponse.BankTransactions[0].BankTransactionID!;
     }
 
-    async updateTransaction(transactionId: string, date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string): Promise<void> {
+    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, url }: IUpdateTransactionData): Promise<void> {
         const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.update(transaction);
@@ -124,7 +125,7 @@ export class Client implements IClient {
         return billsResponse.Invoices.length > 0 ? billsResponse.Invoices[0].InvoiceID : undefined;
     }
 
-    async createBill(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<string> {
+    async createBill({ date, contactId, description, currency, amount, accountCode, url }: ICreateBillData): Promise<string> {
         await this.ensureCurrency(currency);
 
         const bill = await this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url);
@@ -137,7 +138,7 @@ export class Client implements IClient {
         return result.Invoices[0].InvoiceID!;
     }
 
-    async updateBill(billId: string, date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string): Promise<void> {
+    async updateBill({ billId, date, contactId, description, currency, amount, accountCode, url }: IUpdateBillData): Promise<void> {
         const bill = await this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url, billId);
         const result = await this.xeroClient.invoices.update(bill);
 

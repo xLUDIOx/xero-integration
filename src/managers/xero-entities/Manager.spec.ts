@@ -217,40 +217,25 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createTransaction(
                     TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateTransaction(
-                    id,
-                    newAccountTx.date,
-                    newAccountTx.bankAccountId,
-                    newAccountTx.contactId,
-                    newAccountTx.description!,
-                    newAccountTx.reference,
-                    newAccountTx.totalAmount,
-                    newAccountTx.accountCode!,
-                    newAccountTx.url,
-                ))
+                .setup(x => x.updateTransaction({
+                    transactionId: id,
+                    date: newAccountTx.date,
+                    bankAccountId: newAccountTx.bankAccountId,
+                    contactId: newAccountTx.contactId,
+                    description: newAccountTx.description!,
+                    reference: newAccountTx.reference,
+                    amount: newAccountTx.totalAmount,
+                    accountCode: newAccountTx.accountCode!,
+                    url: newAccountTx.url,
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -295,40 +280,25 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createTransaction(
                     TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateTransaction(
-                    id,
-                    newAccountTx.date,
-                    newAccountTx.bankAccountId,
-                    newAccountTx.contactId,
-                    newAccountTx.description!,
-                    newAccountTx.reference,
-                    newAccountTx.totalAmount,
-                    newAccountTx.accountCode!,
-                    newAccountTx.url,
-                ))
+                .setup(x => x.updateTransaction({
+                    transactionId: id,
+                    date: newAccountTx.date,
+                    bankAccountId: newAccountTx.bankAccountId,
+                    contactId: newAccountTx.contactId,
+                    description: newAccountTx.description!,
+                    reference: newAccountTx.reference,
+                    amount: newAccountTx.totalAmount,
+                    accountCode: newAccountTx.accountCode!,
+                    url: newAccountTx.url,
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateTransaction(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -386,28 +356,21 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction(
-                    newAccountTx.date,
-                    newAccountTx.bankAccountId,
-                    newAccountTx.contactId,
-                    newAccountTx.description!,
-                    newAccountTx.reference,
-                    newAccountTx.totalAmount,
-                    newAccountTx.accountCode!,
-                    newAccountTx.url,
-                ))
+                .setup(x => x.createTransaction({
+                    date: newAccountTx.date,
+                    bankAccountId: newAccountTx.bankAccountId,
+                    contactId: newAccountTx.contactId,
+                    description: newAccountTx.description!,
+                    reference: newAccountTx.reference,
+                    amount: newAccountTx.totalAmount,
+                    accountCode: newAccountTx.accountCode!,
+                    url: newAccountTx.url,
+                }))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.createTransaction(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -440,28 +403,21 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction(
-                    newAccountTx.date,
-                    newAccountTx.bankAccountId,
-                    newAccountTx.contactId,
-                    '(no note)',
-                    newAccountTx.reference,
-                    newAccountTx.totalAmount,
-                    '429',
-                    newAccountTx.url,
-                ))
+                .setup(x => x.createTransaction({
+                    date: newAccountTx.date,
+                    bankAccountId: newAccountTx.bankAccountId,
+                    contactId: newAccountTx.contactId,
+                    description: '(no note)',
+                    reference: newAccountTx.reference,
+                    amount: newAccountTx.totalAmount,
+                    accountCode: '429',
+                    url: newAccountTx.url,
+                }))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.createTransaction(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -509,37 +465,24 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill(
                     TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateBill(
-                    id,
-                    newBill.date,
-                    newBill.contactId,
-                    newBill.description!,
-                    newBill.currency,
-                    newBill.totalAmount,
-                    newBill.accountCode!,
-                    newBill.url,
-                ))
+                .setup(x => x.updateBill({
+                    billId: id,
+                    date: newBill.date,
+                    contactId: newBill.contactId,
+                    description: newBill.description!,
+                    currency: newBill.currency,
+                    amount: newBill.totalAmount,
+                    accountCode: newBill.accountCode!,
+                    url: newBill.url,
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -588,37 +531,24 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill(
                     TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateBill(
-                    id,
-                    newBill.date,
-                    newBill.contactId,
-                    newBill.description!,
-                    newBill.currency,
-                    newBill.totalAmount,
-                    newBill.accountCode!,
-                    newBill.url,
-                ))
+                .setup(x => x.updateBill({
+                    billId: id,
+                    date: newBill.date,
+                    contactId: newBill.contactId,
+                    description: newBill.description!,
+                    currency: newBill.currency,
+                    amount: newBill.totalAmount,
+                    accountCode: newBill.accountCode!,
+                    url: newBill.url,
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -675,26 +605,20 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill(
-                    newBill.date,
-                    newBill.contactId,
-                    newBill.description!,
-                    newBill.currency,
-                    newBill.totalAmount,
-                    newBill.accountCode!,
-                    newBill.url,
-                ))
+                .setup(x => x.createBill({
+                    date: newBill.date,
+                    contactId: newBill.contactId,
+                    description: newBill.description!,
+                    currency: newBill.currency,
+                    amount: newBill.totalAmount,
+                    accountCode: newBill.accountCode!,
+                    url: newBill.url,
+                }))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -726,26 +650,20 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill(
-                    newBill.date,
-                    newBill.contactId,
-                    '(no note)',
-                    newBill.currency,
-                    newBill.totalAmount,
-                    '429',
-                    newBill.url,
-                ))
+                .setup(x => x.createBill({
+                    date: newBill.date,
+                    contactId: newBill.contactId,
+                    description: '(no note)',
+                    currency: newBill.currency,
+                    amount: newBill.totalAmount,
+                    accountCode: '429',
+                    url: newBill.url,
+                }))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
