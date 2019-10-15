@@ -1,6 +1,7 @@
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
+import { XeroError } from 'xero-node';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
@@ -316,6 +317,85 @@ describe('Controller', () => {
 
             const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
+        });
+    });
+
+    describe('getConnectionStatus()', () => {
+        test('returns true if token is valid and request succeeds', async () => {
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+
+            integrationManagerMock
+                .setup(m => m.getOrganisationName())
+                .returns(() => Promise.resolve('Demo GmbH'))
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(200, { isAlive: true }))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+            await controller.getConnectionStatus(req, responseMock.object);
+        });
+
+        test('returns false if token is invalid', async () => {
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => undefined);
+
+            responseMock
+                .setup(r => r.send(200, { isAlive: false }))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+            await controller.getConnectionStatus(req, responseMock.object);
+        });
+
+        test('returns false if request fails', async () => {
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+
+            integrationManagerMock
+                .setup(m => m.getOrganisationName())
+                .throws(new XeroError(
+                    401,
+                    'oauth_problem=token_rejected&oauth_problem_advice=The%20access%20token%20has%20not%20been%20authorized%2C%20or%20has%20been%20revoked%20by%20the%20user',
+                    'XeroError: token_rejected (The access token has not been authorized, or has been revoked by the user)',
+                ))
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(200, { isAlive: false }))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+            await controller.getConnectionStatus(req, responseMock.object);
+        });
+
+        test('rethrows if it fails with unexpected error', async () => {
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+
+            const errorMessage = 'Oops, something broke...';
+            integrationManagerMock
+                .setup(m => m.getOrganisationName())
+                .throws(new Error(errorMessage))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+
+            let error: Error | undefined;
+            try {
+                await controller.getConnectionStatus(req, responseMock.object);
+            } catch (err) {
+                error = err;
+            }
+
+            expect(error).toBeDefined();
+            expect(error!.message).toEqual(errorMessage);
         });
     });
 });

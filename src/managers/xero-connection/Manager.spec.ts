@@ -55,6 +55,18 @@ describe('xero-connection/Manager', () => {
 
             expect(result).toEqual(accessToken);
         });
+
+        test('does not return access token from store if it has expired', async () => {
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: new Date(2000, 1, 1) };
+
+            storeMock
+                .setup(s => s.getAccessTokenByAccountId(accountId))
+                .returns(async () => accessToken);
+
+            const result = await manager.getAccessToken();
+
+            expect(result).toEqual(undefined);
+        });
     });
 
     describe('authenticate', () => {

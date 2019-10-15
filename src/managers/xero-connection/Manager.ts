@@ -42,6 +42,12 @@ export class Manager implements IManager {
     }
 
     async getAccessToken(): Promise<AccessToken | undefined> {
-        return this.store.getAccessTokenByAccountId(this.accountId);
+        const xeroAccessToken = await this.store.getAccessTokenByAccountId(this.accountId);
+        const isTokenValid = xeroAccessToken !== undefined && (xeroAccessToken.oauth_expires_at === undefined || new Date(xeroAccessToken.oauth_expires_at) > new Date());
+        if (!isTokenValid) {
+            return undefined;
+        }
+
+        return xeroAccessToken;
     }
 }

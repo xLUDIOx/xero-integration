@@ -2,7 +2,6 @@ import * as restify from 'restify';
 
 import { URL } from 'url';
 import { XeroError } from 'xero-node';
-import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils';
@@ -86,7 +85,7 @@ export class Controller {
         const payload = req.body as IPayhawkPayload;
         const connectionManager = this.connectionManagerFactory(payload.accountId);
         const xeroAccessToken = await connectionManager.getAccessToken();
-        if (!isXeroTokenValid(xeroAccessToken)) {
+        if (!xeroAccessToken) {
             res.send(400, 'Unable to execute request because you do not have a valid Xero auth session');
             return;
         }
@@ -162,7 +161,7 @@ export class Controller {
 
         const connectionManager = this.connectionManagerFactory(accountId);
         const xeroAccessToken = await connectionManager.getAccessToken();
-        if (!isXeroTokenValid(xeroAccessToken)) {
+        if (!xeroAccessToken) {
             return false;
         }
 
@@ -181,8 +180,4 @@ export class Controller {
 
         return true;
     }
-}
-
-function isXeroTokenValid(xeroAccessToken: AccessToken | undefined): boolean {
-    return xeroAccessToken !== undefined && (xeroAccessToken.oauth_expires_at === undefined || new Date(xeroAccessToken.oauth_expires_at) > new Date());
 }
