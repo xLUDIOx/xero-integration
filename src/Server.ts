@@ -17,6 +17,7 @@ export const createServer = (controller: Controller): restify.Server => {
     server.get('/callback', controller.callback.bind(controller));
 
     server.post('/payhawk', controller.payhawk.bind(controller));
+    server.get('/payhawk/connection-status', controller.getConnectionStatus.bind(controller));
 
     return server;
 };

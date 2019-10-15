@@ -1,6 +1,8 @@
 import * as restify from 'restify';
 
 import { URL } from 'url';
+import { XeroError } from 'xero-node';
+import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils';
@@ -84,13 +86,13 @@ export class Controller {
         const payload = req.body as IPayhawkPayload;
         const connectionManager = this.connectionManagerFactory(payload.accountId);
         const xeroAccessToken = await connectionManager.getAccessToken();
-        if (!xeroAccessToken || (xeroAccessToken.oauth_expires_at && xeroAccessToken.oauth_expires_at < new Date())) {
+        if (!isXeroTokenValid(xeroAccessToken)) {
             res.send(400, 'Unable to execute request because you do not have a valid Xero auth session');
             return;
         }
 
         let logger = this.baseLogger.child({ accountId: payload.accountId }, req);
-        const integrationManager = this.integrationManagerFactory(xeroAccessToken, payload.accountId, payload.apiKey);
+        const integrationManager = this.integrationManagerFactory(xeroAccessToken!, payload.accountId, payload.apiKey);
 
         try {
             logger = logger.child({ event: payload.event });
@@ -145,4 +147,42 @@ export class Controller {
             res.send(500);
         }
     }
+
+    async getConnectionStatus(req: restify.Request, res: restify.Response) {
+        const { accountId } = req.query;
+        const isAlive = await this.getIsConnectionAlive(accountId);
+
+        res.send(200, { isAlive });
+    }
+
+    private async getIsConnectionAlive(accountId: string): Promise<boolean> {
+        if (!accountId) {
+            return false;
+        }
+
+        const connectionManager = this.connectionManagerFactory(accountId);
+        const xeroAccessToken = await connectionManager.getAccessToken();
+        if (!isXeroTokenValid(xeroAccessToken)) {
+            return false;
+        }
+
+        const integrationManager = this.integrationManagerFactory(xeroAccessToken!, accountId, '');
+        try {
+            // try get some information from Xero to validate whether the token is still valid
+            await integrationManager.getOrganisationName();
+        } catch (err) {
+            if (err instanceof XeroError && err.message.includes('token_rejected')) {
+                return false;
+            }
+
+            // rethrow if error is not expected
+            throw err;
+        }
+
+        return true;
+    }
+}
+
+function isXeroTokenValid(xeroAccessToken: AccessToken | undefined): boolean {
+    return xeroAccessToken !== undefined && (xeroAccessToken.oauth_expires_at === undefined || new Date(xeroAccessToken.oauth_expires_at) > new Date());
 }
