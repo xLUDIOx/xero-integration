@@ -10,6 +10,8 @@ export { IAccountCode } from './IAccountCode';
 export { IBankAccount } from './IBankAccount';
 export { IAttachment } from './IAttachment';
 
+export { AppType } from './Config';
+
 export const createAuth = (accountId: string, returnUrl?: string): IAuth => {
     return new Auth(accountId, returnUrl);
 };

@@ -42,12 +42,26 @@ export class Manager implements IManager {
     }
 
     async getAccessToken(): Promise<AccessToken | undefined> {
-        const xeroAccessToken = await this.store.getAccessTokenByAccountId(this.accountId);
-        const isTokenValid = xeroAccessToken !== undefined && (xeroAccessToken.oauth_expires_at === undefined || new Date(xeroAccessToken.oauth_expires_at) > new Date());
-        if (!isTokenValid) {
+        let xeroAccessToken = await this.store.getAccessTokenByAccountId(this.accountId);
+        if (xeroAccessToken === undefined) {
             return undefined;
         }
 
+        const isTokenExpired = xeroAccessToken.oauth_expires_at !== undefined && new Date(xeroAccessToken.oauth_expires_at) < new Date();
+        if (isTokenExpired) {
+            xeroAccessToken = await this.refreshAccessToken();
+        }
+
         return xeroAccessToken;
+    }
+
+    async refreshAccessToken(): Promise<AccessToken | undefined> {
+        const currentToken = await this.store.getAccessTokenByAccountId(this.accountId);
+        const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
+        if (refreshedAccessToken) {
+            await this.store.saveAccessToken(this.accountId, refreshedAccessToken);
+        }
+
+        return refreshedAccessToken;
     }
 }

@@ -5,4 +5,5 @@ import { IAuthRequest } from './IAuthRequest';
 export interface IAuth {
     getAuthUrl(): Promise<IAuthRequest>;
     getAccessToken(requestToken: RequestToken, verifier: string): Promise<AccessToken>;
+    refreshAccessToken(currentToken?: AccessToken): Promise<AccessToken | undefined>;
 }

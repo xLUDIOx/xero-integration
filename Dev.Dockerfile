@@ -1,4 +1,4 @@
-FROM node:10
+FROM node:12
 
 WORKDIR /app
 RUN chmod -R 777 /app

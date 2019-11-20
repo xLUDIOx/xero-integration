@@ -4,4 +4,5 @@ export interface IManager {
     getAuthorizationUrl(): Promise<string>;
     authenticate(verifier: string): Promise<AccessToken | undefined>;
     getAccessToken(): Promise<AccessToken | undefined>;
+    refreshAccessToken(): Promise<AccessToken | undefined>;
 }

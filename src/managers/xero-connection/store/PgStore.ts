@@ -20,7 +20,7 @@ export class PgStore implements IStore {
         });
     }
 
-    async getAccessTokenByAccountId(accountId: string): Promise<AccessToken|undefined> {
+    async getAccessTokenByAccountId(accountId: string): Promise<AccessToken | undefined> {
         const queryResult = await this.pgClient.query({
             text: `SELECT "access_token" FROM "access_tokens" WHERE "account_id" = $1`,
             values: [accountId],
@@ -42,7 +42,7 @@ export class PgStore implements IStore {
         });
     }
 
-    async getRequestTokenByAccountId(accountId: string): Promise<RequestToken|undefined> {
+    async getRequestTokenByAccountId(accountId: string): Promise<RequestToken | undefined> {
         const queryResult = await this.pgClient.query({
             text: `SELECT "request_token" FROM "request_tokens" WHERE "account_id" = $1`,
             values: [accountId],
