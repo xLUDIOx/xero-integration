@@ -8,7 +8,7 @@ export { IManager };
 export * from './IAccountCode';
 export * from './INewAccountTransaction';
 export * from './INewBill';
-export const createManager = (accountId: string, xerAccessToken: AccessToken): IManager => {
-    const xeroClient = Xero.createClient(accountId, xerAccessToken);
+export const createManager = (accountId: string, xeroAccessToken: AccessToken): IManager => {
+    const xeroClient = Xero.createClient(accountId, xeroAccessToken);
     return new Manager(xeroClient);
 };

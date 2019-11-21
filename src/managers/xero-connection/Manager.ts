@@ -47,12 +47,17 @@ export class Manager implements IManager {
             return undefined;
         }
 
-        const isTokenExpired = xeroAccessToken.oauth_expires_at !== undefined && new Date(xeroAccessToken.oauth_expires_at) < new Date();
+        const isTokenExpired = this.isTokenExpired(xeroAccessToken);
         if (isTokenExpired) {
             xeroAccessToken = await this.refreshAccessToken();
         }
 
         return xeroAccessToken;
+    }
+
+    isTokenExpired(accessToken: AccessToken): boolean {
+        const isTokenExpired = accessToken.oauth_expires_at !== undefined && new Date(accessToken.oauth_expires_at) < new Date();
+        return isTokenExpired;
     }
 
     async refreshAccessToken(): Promise<AccessToken | undefined> {

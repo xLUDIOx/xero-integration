@@ -7,6 +7,7 @@ import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger } from '../utils';
 import { Controller } from './Controller';
+import { ConnectionMessage } from './IConnectionStatus';
 import { PayhawkEvent } from './PayhawkEvent';
 
 describe('Controller', () => {
@@ -352,7 +353,7 @@ describe('Controller', () => {
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
-        test('returns false if request fails', async () => {
+        test('returns disconnected remotely if request fails', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
@@ -367,7 +368,25 @@ describe('Controller', () => {
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
-                .setup(r => r.send(200, { isAlive: false }))
+                .setup(r => r.send(200, { isAlive: false, message: ConnectionMessage.DisconnectedRemotely }))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { query: { accountId } } as restify.Request;
+            await controller.getConnectionStatus(req, responseMock.object);
+        });
+
+        test('returns token expired', async () => {
+            const token = { oauth_expires_at: new Date(2009, 1, 1) } as AccessToken;
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => token);
+
+            connectionManagerMock
+                .setup(m => m.isTokenExpired(token))
+                .returns(() => true);
+
+            responseMock
+                .setup(r => r.send(200, { isAlive: false, message: ConnectionMessage.TokenExpired }))
                 .verifiable(TypeMoq.Times.once());
 
             const req = { query: { accountId } } as restify.Request;
