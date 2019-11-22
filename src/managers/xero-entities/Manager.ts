@@ -6,7 +6,7 @@ import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 
-const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/g;
+const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/;
 
 const DEFAULT_ACCOUNT_CODE = '429';
 const DEFAULT_DESCRIPTION = '(no note)';
