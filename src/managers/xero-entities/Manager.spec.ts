@@ -148,7 +148,7 @@ describe('XeroEntities.Manager', () => {
     describe('getBankAccountIdForCurrency', () => {
         const currency = 'EUR';
         const accountName = 'Payhawk EUR';
-        const accountNumber = 'PAYHAWK-EUR';
+        const accountNumber = '000000-PAYHAWK-EUR';
         const accountCode = 'PHWK-EUR';
         const bankAccountId = 'bank-account-id';
 

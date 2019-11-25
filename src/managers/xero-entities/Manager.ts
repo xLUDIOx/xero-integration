@@ -6,14 +6,6 @@ import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 
-const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/;
-
-const DEFAULT_ACCOUNT_CODE = '429';
-const DEFAULT_DESCRIPTION = '(no note)';
-const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
-
-const DEFAULT_CURRENCY = 'GBP';
-
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
@@ -193,6 +185,16 @@ function convertPathToFileName(filePath: string): string {
     return path.basename(filePath);
 }
 
-const defBankAccountNumber = (currency: string) => `PAYHAWK-${currency}`;
+const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/;
+
+const DEFAULT_ACCOUNT_CODE = '429';
+const DEFAULT_DESCRIPTION = '(no note)';
+const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
+
+const DEFAULT_CURRENCY = 'GBP';
+
+const DEFAULT_SORT_CODE = '000000';
+
+const defBankAccountNumber = (currency: string) => `${DEFAULT_SORT_CODE}-PAYHAWK-${currency}`;
 const defBankAccountCode = (currency: string) => `PHWK-${currency}`;
 const defBankAccountName = (currency: string) => `Payhawk ${currency}`;
