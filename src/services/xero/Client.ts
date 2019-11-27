@@ -5,6 +5,7 @@ import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { AttachmentsEndpoint } from 'xero-node/lib/AccountingAPIClient';
 import { Throttler } from '../../utils';
+import { LineAmountType } from './ClientContracts';
 import { getXeroConfig } from './Config';
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
@@ -177,6 +178,7 @@ export class Client implements IClient {
                 ContactID: contactId,
             },
             Reference: reference,
+            LineAmountTypes: LineAmountType.TaxInclusive,
             LineItems: [
                 {
                     Description: description,
@@ -203,6 +205,7 @@ export class Client implements IClient {
                 ContactID: contactId,
             },
             CurrencyCode: currency,
+            LineAmountTypes: LineAmountType.TaxInclusive,
             LineItems: [
                 {
                     Description: description,
