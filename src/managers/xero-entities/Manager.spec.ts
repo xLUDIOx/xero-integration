@@ -2,6 +2,7 @@ import * as TypeMoq from 'typemoq';
 
 import { IAttachment } from 'src/services/xero';
 import { Payhawk, Xero } from '../../services';
+import { AccountType, BankAccountStatusCode } from '../../services/xero/ClientContracts';
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
@@ -155,7 +156,7 @@ describe('XeroEntities.Manager', () => {
         test('gets existing bank account for currency', async () => {
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => ({ AccountID: bankAccountId, Name: accountName, Status: 'ACTIVE' }));
+                .returns(async () => ({ AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Active, Type: AccountType.Bank }));
 
             const result = await manager.getBankAccountIdForCurrency(currency);
 
@@ -163,14 +164,14 @@ describe('XeroEntities.Manager', () => {
         });
 
         test('gets existing bank account for currency and activates it when archived', async () => {
-            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: 'ARCHIVED' };
+            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Archived, Type: AccountType.Bank };
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
                 .returns(async () => bankAccount);
 
             xeroClientMock
                 .setup(x => x.activateBankAccount(bankAccount))
-                .returns(async () => ({ ...bankAccount, Status: 'ACTIVE' }))
+                .returns(async () => ({ ...bankAccount, Status: BankAccountStatusCode.Active }))
                 .verifiable(TypeMoq.Times.once());
 
             const result = await manager.getBankAccountIdForCurrency(currency);
@@ -179,7 +180,7 @@ describe('XeroEntities.Manager', () => {
         });
 
         test('creates a bank account if it does not exist', async () => {
-            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: 'ACTIVE' };
+            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Active, Type: AccountType.Bank };
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
                 .returns(async () => undefined);
@@ -472,6 +473,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.updateBill({
                     billId: id,
                     date: newBill.date,
+                    dueDate: newBill.date,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -538,6 +540,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.updateBill({
                     billId: id,
                     date: newBill.date,
+                    dueDate: newBill.date,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -607,6 +610,7 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill({
                     date: newBill.date,
+                    dueDate: newBill.date,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -642,6 +646,7 @@ describe('XeroEntities.Manager', () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 date: new Date(2012, 1, 1).toISOString(),
+                dueDate: new Date(2012, 1, 11).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 totalAmount: 12.05,
@@ -652,6 +657,7 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill({
                     date: newBill.date,
+                    dueDate: newBill.dueDate,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
@@ -698,6 +704,7 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill({
                     date: newBill.date,
+                    dueDate: newBill.date,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
@@ -717,6 +724,7 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill({
                     date: newBill.date,
+                    dueDate: newBill.date,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,

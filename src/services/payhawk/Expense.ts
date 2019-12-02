@@ -8,6 +8,7 @@ export interface IExpense {
     document?: IDocument;
     supplier: ISupplier;
     reconciliation: IReconciliation;
+    paymentData: IPaymentData;
     transactions: ITransaction[];
 }
 
@@ -42,6 +43,10 @@ export interface IReconciliation {
         [fieldName: string]: string;
     };
     accountCode?: string;
+}
+
+export interface IPaymentData {
+    dueDate?: string;
 }
 
 export interface ITransaction {

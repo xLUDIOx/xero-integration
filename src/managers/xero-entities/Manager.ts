@@ -44,31 +44,12 @@ export class Manager implements IManager {
         return bankAccount.AccountID!;
     }
 
-    async createOrUpdateAccountTransaction({
-        date,
-        bankAccountId,
-        contactId,
-        description,
-        reference,
-        totalAmount,
-        accountCode,
-        files,
-        url,
-    }: INewAccountTransaction): Promise<void> {
-        let transactionId = await this.xeroClient.getTransactionIdByUrl(url);
-        let filesToUpload = files;
+    async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<void> {
+        let transactionId = await this.xeroClient.getTransactionIdByUrl(newTransaction.url);
+        let filesToUpload = newTransaction.files;
 
         if (!transactionId) {
-            const createData: Xero.ICreateTransactionData = {
-                date,
-                bankAccountId,
-                contactId,
-                description: description || DEFAULT_DESCRIPTION,
-                reference,
-                amount: totalAmount,
-                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
-                url,
-            };
+            const createData = this.getTransactionData(newTransaction);
 
             try {
                 transactionId = await this.xeroClient.createTransaction(createData);
@@ -79,14 +60,7 @@ export class Manager implements IManager {
         } else {
             const updateData = {
                 transactionId,
-                date,
-                bankAccountId,
-                contactId,
-                description: description || DEFAULT_DESCRIPTION,
-                reference,
-                amount: totalAmount,
-                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
-                url,
+                ...this.getTransactionData(newTransaction),
             };
 
             try {
@@ -108,29 +82,12 @@ export class Manager implements IManager {
         }
     }
 
-    async createOrUpdateBill({
-        date,
-        contactId,
-        description,
-        currency,
-        totalAmount,
-        accountCode,
-        files,
-        url,
-    }: INewBill): Promise<void> {
-        let billId = await this.xeroClient.getBillIdByUrl(url);
-        let filesToUpload = files;
+    async createOrUpdateBill(newBill: INewBill): Promise<void> {
+        let billId = await this.xeroClient.getBillIdByUrl(newBill.url);
+        let filesToUpload = newBill.files;
 
         if (!billId) {
-            const createData: Xero.ICreateBillData = {
-                date,
-                contactId,
-                description: description || DEFAULT_DESCRIPTION,
-                currency: currency || DEFAULT_CURRENCY,
-                amount: totalAmount || 0,
-                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
-                url,
-            };
+            const createData = this.getBillData(newBill);
 
             try {
                 billId = await this.xeroClient.createBill(createData);
@@ -141,13 +98,7 @@ export class Manager implements IManager {
         } else {
             const updateData: Xero.IUpdateBillData = {
                 billId,
-                date,
-                contactId,
-                description: description || DEFAULT_DESCRIPTION,
-                currency: currency || DEFAULT_CURRENCY,
-                amount: totalAmount || 0,
-                accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
-                url,
+                ...this.getBillData(newBill),
             };
 
             try {
@@ -178,6 +129,50 @@ export class Manager implements IManager {
         }
 
         return data;
+    }
+
+    private getTransactionData({
+        date,
+        bankAccountId,
+        contactId,
+        description,
+        reference,
+        totalAmount,
+        accountCode,
+        url,
+    }: INewAccountTransaction): Xero.ICreateTransactionData {
+        return {
+            date,
+            bankAccountId,
+            contactId,
+            description: description || DEFAULT_DESCRIPTION,
+            reference,
+            amount: totalAmount,
+            accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            url,
+        };
+    }
+
+    private getBillData({
+        date,
+        dueDate,
+        contactId,
+        description,
+        currency,
+        totalAmount,
+        accountCode,
+        url,
+    }: INewBill): Xero.ICreateBillData {
+        return {
+            date,
+            dueDate: dueDate || date,
+            contactId,
+            description: description || DEFAULT_DESCRIPTION,
+            currency: currency || DEFAULT_CURRENCY,
+            amount: totalAmount || 0,
+            accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            url,
+        };
     }
 }
 

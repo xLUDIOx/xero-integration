@@ -104,6 +104,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    paymentData: {},
                     title: txDescription,
                     transactions: [
                         {
@@ -185,6 +186,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [ ],
                 };
@@ -205,6 +207,7 @@ describe('integrations/Manager', () => {
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
                         date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,
@@ -231,6 +234,9 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    paymentData: {
+                        dueDate: new Date(2019, 2, 12).toISOString(),
+                    },
                     title: 'My Cash Expense',
                     transactions: [ ],
                 };
@@ -251,6 +257,7 @@ describe('integrations/Manager', () => {
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
                         date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,

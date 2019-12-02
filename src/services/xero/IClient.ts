@@ -40,6 +40,7 @@ export interface IAccountingItemData {
 
 export interface ICreateBillData extends IAccountingItemData {
     currency: string;
+    dueDate?: string;
 }
 
 export interface IUpdateBillData extends ICreateBillData {

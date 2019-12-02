@@ -104,6 +104,7 @@ export class Manager implements IManager {
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
             date: expense.document ? expense.document.date : expense.createdAt,
+            dueDate: expense.paymentData.dueDate,
             contactId,
             description: expense.note,
             currency,
