@@ -7,7 +7,7 @@ USER node
 
 COPY [ "./package.json", "./package-lock.json", "./tsconfig.json", "./"]
 
-RUN npm install
+RUN npm ci
 
 ADD . ./
 

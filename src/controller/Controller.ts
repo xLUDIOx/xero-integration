@@ -4,7 +4,7 @@ import { URL } from 'url';
 import { XeroError } from 'xero-node';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger } from '../utils';
+import { ILogger, OperationNotAllowedError } from '../utils';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -114,7 +114,16 @@ export class Controller {
                     }
 
                     logger = logger.child({ expenseId });
-                    await integrationManager.exportExpense(expenseId);
+                    try {
+                        await integrationManager.exportExpense(expenseId);
+                    } catch (err) {
+                        if (err instanceof OperationNotAllowedError) {
+                            logger.warn(`[${err.name}]: ${err.message}`);
+                        } else {
+                            logger.error(err);
+                            res.send(500);
+                        }
+                    }
                     break;
                 case PayhawkEvent.ExportTransfers:
                     if (!payload.data) {

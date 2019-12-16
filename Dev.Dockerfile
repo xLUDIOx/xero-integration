@@ -9,7 +9,7 @@ EXPOSE 8080 9230
 ENTRYPOINT [ "npm", "start" ]
 
 COPY ["./package.json", "./package-lock.json", "./tsconfig.json", "./"]
-RUN npm install
+RUN npm ci
 
 ADD . ./
 RUN npm run compile

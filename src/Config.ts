@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+
 export interface IConfig {
     serviceName: string;
     serviceUrl: string;
@@ -13,5 +15,5 @@ if (process.env.TELEPRESENCE_MOUNT_PATH) {
 export const config: IConfig = {
     serviceName: 'Xero Integration',
     // tslint:disable-next-line: no-var-requires
-    ...require(serviceConfigPath),
+    ...(fs.existsSync(serviceConfigPath) ? require(serviceConfigPath) : {}),
 };

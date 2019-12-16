@@ -1,6 +1,8 @@
+import { KeyNameMap } from '../../../../utils';
+
 import { BankTransaction, Contact, Currency, Invoice } from 'xero-node/lib/AccountingAPI-models';
-import { KeyNameMap } from '../../utils';
-import { IBankAccount } from './IBankAccount';
+
+import { IBankAccount } from '.';
 
 export enum ClientResponseStatus {
     Ok = 'OK',
@@ -51,14 +53,12 @@ export enum InvoiceType {
 }
 
 export enum InvoiceStatusCode {
-    Draft = 'DRAFT',
+    Draft = 'DRAFT', // Default
     Submitted = 'SUBMITTED',
     Deleted = 'DELETED',
     Authorised = 'AUTHORISED',
     Paid = 'PAID',
     Voided = 'VOIDED',
-
-    Default = Draft,
 }
 
 export enum LineAmountType {

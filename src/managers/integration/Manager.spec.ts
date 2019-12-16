@@ -206,8 +206,10 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
+                        bankAccountId: undefined,
                         date: expense.createdAt,
                         dueDate: expense.paymentData.dueDate,
+                        isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,
@@ -256,8 +258,10 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
+                        bankAccountId: undefined,
                         date: expense.createdAt,
                         dueDate: expense.paymentData.dueDate,
+                        isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency,
                         contactId,

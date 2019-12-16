@@ -5,7 +5,7 @@ import { XeroError } from 'xero-node';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger } from '../utils';
+import { ILogger, OperationNotAllowedError } from '../utils';
 import { Controller } from './Controller';
 import { ConnectionMessage } from './IConnectionStatus';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -204,6 +204,33 @@ describe('Controller', () => {
             integrationManagerMock
                 .setup(m => m.exportExpense(expenseId))
                 .returns(() => Promise.resolve())
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(204))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('logs warning if operation is not allowed', async () => {
+            const expire = new Date();
+            expire.setHours(expire.getHours() + 1);
+            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const apiKey = 'payhawk api key';
+            const expenseId = 'expId';
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => accessToken);
+
+            integrationManagerMock
+                .setup(m => m.exportExpense(expenseId))
+                .returns(() => Promise.reject(new OperationNotAllowedError('Error.')))
+                .verifiable(TypeMoq.Times.once());
+
+            loggerMock
+                .setup(l => l.warn(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock

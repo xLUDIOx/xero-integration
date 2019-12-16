@@ -4,6 +4,7 @@ export interface IExpense {
     title: string;
     note: string;
     ownerName: string;
+    isPaid?: boolean;
     category?: string;
     document?: IDocument;
     supplier: ISupplier;

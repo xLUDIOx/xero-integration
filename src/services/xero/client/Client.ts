@@ -1,9 +1,9 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { BankTransaction, Contact, Invoice, Organisation } from 'xero-node/lib/AccountingAPI-models';
+import { BankTransaction, Contact, Invoice, Organisation, Payment } from 'xero-node/lib/AccountingAPI-models';
 import { ContactsResponse, SummariseErrors } from 'xero-node/lib/AccountingAPI-responses';
 
 import { AttachmentsEndpoint } from 'xero-node/lib/AccountingAPIClient';
-import { Intersection } from '../../utils';
+import { Intersection, OperationNotAllowedError } from '../../../utils';
 import {
     AccountClassType,
     AccountingItemKeys,
@@ -16,14 +16,19 @@ import {
     ClientResponseStatus,
     ContactKeys,
     CurrencyKeys,
+    IAccountCode,
+    IAttachment,
+    IBankAccount,
+    IBillPaymentData,
+    IClient,
+    ICreateBillData,
+    ICreateTransactionData,
     InvoiceStatusCode,
     InvoiceType,
+    IUpdateBillData,
+    IUpdateTransactionData,
     LineAmountType,
-} from './ClientContracts';
-import { IAccountCode } from './IAccountCode';
-import { IAttachment } from './IAttachment';
-import { IBankAccount } from './IBankAccount';
-import { IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './IClient';
+} from './contracts';
 
 export class Client implements IClient {
     constructor(private readonly xeroClient: XeroClient) {
@@ -110,7 +115,7 @@ export class Client implements IClient {
     }
 
     async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, url }: ICreateTransactionData): Promise<string> {
-        const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.create(transaction);
         const bankTransaction = this.handleClientResponse(bankTrResponse.BankTransactions[0]);
@@ -119,7 +124,7 @@ export class Client implements IClient {
     }
 
     async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, url }: IUpdateTransactionData): Promise<void> {
-        const transaction = this.getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
 
         const bankTrResponse = await this.xeroClient.bankTransactions.update(transaction);
         this.handleClientResponse(bankTrResponse.BankTransactions[0]);
@@ -134,20 +139,29 @@ export class Client implements IClient {
     }
 
     async createBill(data: ICreateBillData): Promise<string> {
-        const { date, dueDate, contactId, description, currency, amount, accountCode, url } = data;
+        const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
         await this.ensureCurrency(currency);
 
-        const bill = this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate);
+        const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid);
         const result = await this.xeroClient.invoices.create(bill);
 
         const billResult = this.handleClientResponse(result.Invoices[0]);
-        return billResult.InvoiceID!;
+        const billId = billResult.InvoiceID!;
+        return billId;
     }
 
     async updateBill(data: IUpdateBillData): Promise<void> {
-        const { billId, date, dueDate, contactId, description, currency, amount, accountCode, url } = data;
-        const bill = await this.getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, billId);
-        const result = await this.xeroClient.invoices.update(bill);
+        const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
+        const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid, billId);
+
+        if (isPaid) {
+            const existingBillResponse = await this.xeroClient.invoices.get({ InvoiceID: billId });
+            if (existingBillResponse.Invoices[0] && existingBillResponse.Invoices[0].Status === InvoiceStatusCode.Paid) {
+                throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
+            }
+        }
+
+        const result = await this.xeroClient.invoices.update(billModel);
 
         this.handleClientResponse(result.Invoices[0]);
     }
@@ -170,58 +184,18 @@ export class Client implements IClient {
         return attachementsResponse.Attachments;
     }
 
-    private getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {
-        const commonData = this.getAccountingItemModel(date, contactId, description, amount, accountCode, url);
-        const transaction: BankTransaction = {
-            BankTransactionID: id,
-            Type: amount >= 0 ? BankTransactionType.Spend : BankTransactionType.Receive,
-            BankAccount: {
-                AccountID: bankAccountId,
-            },
-            Reference: reference,
-            ...commonData,
-        };
+    async payBill({ date, bankAccountId, amount, billId }: IBillPaymentData): Promise<void> {
+        const invoiceResponse = await this.xeroClient.invoices.get({ InvoiceID: billId });
+        const invoice = invoiceResponse.Invoices[0];
 
-        return transaction;
-    }
+        const paymentModel = getNewPaymentModel(date, amount, bankAccountId, billId);
 
-    private getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string, dueDate?: string, id?: string): Invoice {
-        const commonData = this.getAccountingItemModel(date, contactId, description, amount, accountCode, url);
-        const bill: Invoice = {
-            InvoiceID: id,
-            DueDateString: dueDate,
-            Type: InvoiceType.AccountsPayable,
-            CurrencyCode: currency,
-            ...commonData,
-        };
+        if (invoice.Status === InvoiceStatusCode.Paid) {
+            throw new OperationNotAllowedError('Bill is already paid. Payment cannot be updated.');
+        }
 
-        return bill;
-    }
-
-    private getAccountingItemModel(date: string, contactId: string, description: string, amount: number, accountCode: string, url: string): Intersection<BankTransaction, Invoice> {
-        // Dates have the following form:
-        //
-        //      "DateString": "2014-05-26T00:00:00",
-        //      "Date": "\/Date(1401062400000+0000)\/",
-        //
-        // Either is sufficient
-        // Same applies for DueDate and DueDateString
-        return {
-            DateString: date,
-            Url: url,
-            Contact: {
-                ContactID: contactId,
-            },
-            LineAmountTypes: LineAmountType.TaxInclusive,
-            LineItems: [
-                {
-                    Description: description,
-                    AccountCode: accountCode,
-                    Quantity: 1,
-                    UnitAmount: amount,
-                },
-            ],
-        };
+        const paymentResult = await this.xeroClient.payments.create(paymentModel);
+        this.handleClientResponse(paymentResult.Payments[0]);
     }
 
     private async uploadAttachment(attachmentsEndpoint: AttachmentsEndpoint, entityId: string, fileName: string, filePath: string, contentType: string) {
@@ -265,4 +239,78 @@ export class Client implements IClient {
 
         return clientResponse;
     }
+}
+
+function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, url);
+    const transaction: BankTransaction = {
+        BankTransactionID: id,
+        Type: amount >= 0 ? BankTransactionType.Spend : BankTransactionType.Receive,
+        BankAccount: {
+            AccountID: bankAccountId,
+        },
+        Reference: reference,
+        ...commonData,
+    };
+
+    return transaction;
+}
+
+function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
+    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, url);
+
+    const bill: Invoice = {
+        InvoiceID: id,
+        DueDateString: dueDate,
+        Type: InvoiceType.AccountsPayable,
+        CurrencyCode: currency,
+        ...commonData,
+    };
+
+    if (isPaid) {
+        bill.Status = InvoiceStatusCode.Authorised;
+    }
+
+    return bill;
+}
+
+function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, accountCode: string, url: string): Intersection<BankTransaction, Invoice> {
+    // Dates have the following form:
+    //
+    //      "DateString": "2014-05-26T00:00:00",
+    //      "Date": "\/Date(1401062400000+0000)\/",
+    //
+    // Either is sufficient
+    // Same applies for DueDate and DueDateString
+    return {
+        DateString: date,
+        Url: url,
+        Contact: {
+            ContactID: contactId,
+        },
+        LineAmountTypes: LineAmountType.TaxInclusive,
+        LineItems: [
+            {
+                Description: description,
+                AccountCode: accountCode,
+                Quantity: 1,
+                UnitAmount: amount,
+            },
+        ],
+    };
+}
+
+function getNewPaymentModel(date: string, amount: number, bankAccountId: string, billId?: string): Payment {
+    const paymentModel: Payment = {
+        Date: date,
+        Invoice: {
+            InvoiceID: billId,
+        },
+        Account: {
+            AccountID: bankAccountId,
+        },
+        Amount: amount,
+    };
+
+    return paymentModel;
 }
