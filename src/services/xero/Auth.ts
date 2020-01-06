@@ -1,7 +1,7 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { AccessToken, IOAuth1HttpClient, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
-import { AppType, getXeroConfig } from '../Config';
+import { AppType, getXeroConfig } from './Config';
 import { IAuth } from './IAuth';
 import { IAuthRequest } from './IAuthRequest';
 

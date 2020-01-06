@@ -101,17 +101,10 @@ export class Manager implements IManager {
         const currency = expense.reconciliation.expenseCurrency;
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
-        let bankAccountId: string | undefined;
-        if (expense.isPaid) {
-            bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(currency);
-        }
-
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
-            bankAccountId,
             date: expense.document ? expense.document.date : expense.createdAt,
             dueDate: expense.paymentData.dueDate,
-            isPaid: expense.isPaid,
             contactId,
             description: expense.note,
             currency,

@@ -86,18 +86,19 @@ export class Manager implements IManager {
         let billId = await this.xeroClient.getBillIdByUrl(newBill.url);
         let filesToUpload = newBill.files;
 
-        const billData = this.getBillData(newBill);
         if (!billId) {
+            const createData = this.getBillData(newBill);
+
             try {
-                billId = await this.xeroClient.createBill(billData);
+                billId = await this.xeroClient.createBill(createData);
             } catch (err) {
-                const createDataFallback = this.tryFallbackItemData(err, billData);
+                const createDataFallback = this.tryFallbackItemData(err, createData);
                 billId = await this.xeroClient.createBill(createDataFallback);
             }
         } else {
             const updateData: Xero.IUpdateBillData = {
                 billId,
-                ...billData,
+                ...this.getBillData(newBill),
             };
 
             try {
@@ -107,25 +108,9 @@ export class Manager implements IManager {
                 await this.xeroClient.updateBill(updateDataFallback);
             }
 
-            const files = await this.xeroClient.getBillAttachments(billId);
-            const existingFileNames = (files).map(f => f.FileName);
+            const existingFileNames = (await this.xeroClient.getBillAttachments(billId)).map(f => f.FileName);
 
-            filesToUpload = filesToUpload.filter(f => {
-                const filePath = convertPathToFileName(f.path);
-                const isAlreadyUploaded = existingFileNames.includes(filePath);
-                return !isAlreadyUploaded;
-            });
-        }
-
-        if (newBill.isPaid && newBill.bankAccountId !== undefined) {
-            const paymentData: Xero.IBillPaymentData = {
-                date: billData.date,
-                amount: billData.amount,
-                bankAccountId: newBill.bankAccountId,
-                billId,
-            };
-
-            await this.xeroClient.payBill(paymentData);
+            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(convertPathToFileName(f.path)));
         }
 
         // Files should be uploaded in the right order so Promise.all is no good
@@ -171,7 +156,6 @@ export class Manager implements IManager {
     private getBillData({
         date,
         dueDate,
-        isPaid,
         contactId,
         description,
         currency,
@@ -182,7 +166,6 @@ export class Manager implements IManager {
         return {
             date,
             dueDate: dueDate || date,
-            isPaid,
             contactId,
             description: description || DEFAULT_DESCRIPTION,
             currency: currency || DEFAULT_CURRENCY,

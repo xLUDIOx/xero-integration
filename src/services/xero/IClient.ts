@@ -25,7 +25,6 @@ export interface IClient {
     getBillIdByUrl(url: string): Promise<string | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
     updateBill(data: IUpdateBillData): Promise<void>;
-    payBill(data: IBillPaymentData): Promise<void>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(entityId: string): Promise<IAttachment[]>;
 }
@@ -41,16 +40,11 @@ export interface IAccountingItemData {
 
 export interface ICreateBillData extends IAccountingItemData {
     currency: string;
-    isPaid?: boolean;
     dueDate?: string;
 }
 
 export interface IUpdateBillData extends ICreateBillData {
     billId: string;
-}
-
-export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount' | 'billId'> {
-    bankAccountId: string;
 }
 
 export interface ICreateTransactionData extends IAccountingItemData {

@@ -1,9 +1,9 @@
 import * as TypeMoq from 'typemoq';
 import { AccountingAPIClient } from 'xero-node';
 
-import { OperationNotAllowedError } from '../../../utils';
 import { Client } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, InvoiceType, LineAmountType } from './ClientContracts';
+import { ICreateBillData, ICreateTransactionData } from './IClient';
 
 const CURRENCY = 'GBP';
 
@@ -11,7 +11,6 @@ describe('Xero client', () => {
     let xeroClientMock: TypeMoq.IMock<AccountingAPIClient>;
     let bankTransactionsMock: TypeMoq.IMock<any>;
     let invoicesMock: TypeMoq.IMock<any>;
-    let paymentsMock: TypeMoq.IMock<any>;
     let currenciesMock: TypeMoq.IMock<any>;
 
     let client: Client;
@@ -20,7 +19,6 @@ describe('Xero client', () => {
         xeroClientMock = TypeMoq.Mock.ofType<AccountingAPIClient>();
         bankTransactionsMock = TypeMoq.Mock.ofType<any>();
         invoicesMock = TypeMoq.Mock.ofType<any>();
-        paymentsMock = TypeMoq.Mock.ofType<any>();
         currenciesMock = TypeMoq.Mock.ofType<any>();
 
         currenciesMock
@@ -29,7 +27,6 @@ describe('Xero client', () => {
 
         xeroClientMock.setup(x => x.bankTransactions).returns(() => bankTransactionsMock.object);
         xeroClientMock.setup(x => x.invoices).returns(() => invoicesMock.object);
-        xeroClientMock.setup(x => x.payments).returns(() => paymentsMock.object);
         xeroClientMock.setup(x => x.currencies).returns(() => currenciesMock.object);
 
         client = new Client(xeroClientMock.object);
@@ -193,37 +190,6 @@ describe('Xero client', () => {
             expect(invoiceId).toEqual(id);
         });
 
-        it('should throw error if invoice is already paid', async () => {
-            const invoice = getBillModel(true);
-
-            const id = '1';
-
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: id,
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: id,
-                            Status: InvoiceStatusCode.Paid,
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            let error: Error | undefined;
-            try {
-                await client.updateBill({ ...invoice, billId: id });
-            } catch (err) {
-                error = err;
-            }
-
-            expect(error).not.toBe(undefined);
-            expect(error).toBeInstanceOf(OperationNotAllowedError);
-        });
-
         it('should throw error', async () => {
             const invoice = getBillModel();
 
@@ -285,89 +251,6 @@ describe('Xero client', () => {
         });
     });
 
-    describe('payments', () => {
-        it('should create a payment if bill is not yet paid', async () => {
-            const paymentDetails: IBillPaymentData = {
-                date: new Date().toISOString(),
-                billId: '1',
-                amount: 100,
-                bankAccountId: 'bank_id',
-            };
-
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: paymentDetails.billId,
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: paymentDetails.billId,
-                            Status: InvoiceStatusCode.Draft,
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            paymentsMock
-                .setup(m => m.create({
-                    Date: paymentDetails.date,
-                    Invoice: {
-                        InvoiceID: paymentDetails.billId,
-                    },
-                    Account: {
-                        AccountID: paymentDetails.bankAccountId,
-                    },
-                    Amount: paymentDetails.amount,
-                }))
-                .returns(async () => ({
-                    Payments: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            PaymentID: '2',
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            await client.payBill(paymentDetails);
-        });
-
-        it('throws error if bill is already paid', async () => {
-            const paymentDetails: IBillPaymentData = {
-                date: new Date().toISOString(),
-                billId: '1',
-                amount: 100,
-                bankAccountId: 'bank_id',
-            };
-
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: paymentDetails.billId,
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: paymentDetails.billId,
-                            Status: InvoiceStatusCode.Paid,
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            let error: Error | undefined;
-            try {
-                await client.payBill(paymentDetails);
-            } catch (err) {
-                error = err;
-            }
-
-            expect(error).not.toBe(undefined);
-            expect(error).toBeInstanceOf(OperationNotAllowedError);
-        });
-    });
-
     function getTransactionModel(): ICreateTransactionData {
         const transaction: ICreateTransactionData = {
             date: new Date(2012, 10, 10).toISOString(),
@@ -383,11 +266,10 @@ describe('Xero client', () => {
         return transaction;
     }
 
-    function getBillModel(isPaid?: boolean): ICreateBillData {
+    function getBillModel(): ICreateBillData {
         const bill: ICreateBillData = {
             date: new Date(2012, 10, 10).toISOString(),
             dueDate: new Date(2012, 10, 20).toISOString(),
-            isPaid,
             contactId: 'contact-id',
             currency: CURRENCY,
             description: 'expense note',

@@ -1,16 +1,11 @@
-import * as fs from 'fs';
-
 import { XeroClientConfiguration } from 'xero-node/lib/internals/BaseAPIClient';
 
 import { config } from '../../Config';
 
 const xeroConfigPath = getXeroConfigPath();
 
-const baseConfig: XeroClientConfiguration = {
-    // tslint:disable-next-line: no-var-requires
-    ...(fs.existsSync(xeroConfigPath) ? require(xeroConfigPath) : {}),
-};
-
+// tslint:disable-next-line: no-var-requires
+const baseConfig: XeroClientConfiguration = require(xeroConfigPath);
 baseConfig.privateKeyPath = getXeroPrivateKeyPath(baseConfig);
 
 export const AppType = baseConfig.appType;

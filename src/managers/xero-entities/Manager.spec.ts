@@ -1,6 +1,8 @@
 import * as TypeMoq from 'typemoq';
 
+import { IAttachment } from 'src/services/xero';
 import { Payhawk, Xero } from '../../services';
+import { AccountType, BankAccountStatusCode } from '../../services/xero/ClientContracts';
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
@@ -154,7 +156,7 @@ describe('XeroEntities.Manager', () => {
         test('gets existing bank account for currency', async () => {
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => ({ AccountID: bankAccountId, Name: accountName, Status: Xero.BankAccountStatusCode.Active, Type: Xero.AccountType.Bank }));
+                .returns(async () => ({ AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Active, Type: AccountType.Bank }));
 
             const result = await manager.getBankAccountIdForCurrency(currency);
 
@@ -162,14 +164,14 @@ describe('XeroEntities.Manager', () => {
         });
 
         test('gets existing bank account for currency and activates it when archived', async () => {
-            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: Xero.BankAccountStatusCode.Archived, Type: Xero.AccountType.Bank };
+            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Archived, Type: AccountType.Bank };
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
                 .returns(async () => bankAccount);
 
             xeroClientMock
                 .setup(x => x.activateBankAccount(bankAccount))
-                .returns(async () => ({ ...bankAccount, Status: Xero.BankAccountStatusCode.Active }))
+                .returns(async () => ({ ...bankAccount, Status: BankAccountStatusCode.Active }))
                 .verifiable(TypeMoq.Times.once());
 
             const result = await manager.getBankAccountIdForCurrency(currency);
@@ -178,7 +180,7 @@ describe('XeroEntities.Manager', () => {
         });
 
         test('creates a bank account if it does not exist', async () => {
-            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: Xero.BankAccountStatusCode.Active, Type: Xero.AccountType.Bank };
+            const bankAccount: Xero.IBankAccount = { AccountID: bankAccountId, Name: accountName, Status: BankAccountStatusCode.Active, Type: AccountType.Bank };
             xeroClientMock
                 .setup(x => x.getBankAccountByCode(accountCode))
                 .returns(async () => undefined);
@@ -246,7 +248,7 @@ describe('XeroEntities.Manager', () => {
                         FileName: f.name,
                     };
 
-                    return att as Xero.IAttachment;
+                    return att as IAttachment;
                 }))
                 .verifiable(TypeMoq.Times.once());
 
@@ -309,7 +311,7 @@ describe('XeroEntities.Manager', () => {
                         FileName: f.name,
                     };
 
-                    return att as Xero.IAttachment;
+                    return att as IAttachment;
                 }))
                 .verifiable(TypeMoq.Times.once());
 
@@ -472,7 +474,6 @@ describe('XeroEntities.Manager', () => {
                     billId: id,
                     date: newBill.date,
                     dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -495,91 +496,12 @@ describe('XeroEntities.Manager', () => {
                         FileName: f.name,
                     };
 
-                    return att as Xero.IAttachment;
+                    return att as IAttachment;
                 }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.once());
-
-            await manager.createOrUpdateBill(newBill);
-        });
-
-        test('updates bill and pays it', async () => {
-            const newBill: INewBill = {
-                date: new Date(2012, 10, 10).toISOString(),
-                isPaid: true,
-                bankAccountId: 'bank_id',
-                currency: 'EUR',
-                contactId: 'contact-id',
-                description: 'expense note',
-                totalAmount: 12.05,
-                accountCode: '310',
-                files,
-                url: 'expense url',
-            };
-
-            const id = 'bId';
-
-            xeroClientMock
-                .setup(x => x.getBillIdByUrl(newBill.url))
-                .returns(async () => id)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.getBillIdByUrl(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                ))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.updateBill({
-                    billId: id,
-                    date: newBill.date,
-                    dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
-                    contactId: newBill.contactId,
-                    description: newBill.description!,
-                    currency: newBill.currency,
-                    amount: newBill.totalAmount,
-                    accountCode: newBill.accountCode!,
-                    url: newBill.url,
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
-                ))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.getBillAttachments(id))
-                .returns(async () => files.map(f => {
-                    const att = {
-                        FileName: f.name,
-                    };
-
-                    return att as Xero.IAttachment;
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.payBill({
-                    billId: id,
-                    amount: newBill.totalAmount,
-                    bankAccountId: newBill.bankAccountId!,
-                    date: newBill.date,
-                }))
                 .verifiable(TypeMoq.Times.once());
 
             await manager.createOrUpdateBill(newBill);
@@ -619,7 +541,6 @@ describe('XeroEntities.Manager', () => {
                     billId: id,
                     date: newBill.date,
                     dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -642,7 +563,7 @@ describe('XeroEntities.Manager', () => {
                         FileName: f.name,
                     };
 
-                    return att as Xero.IAttachment;
+                    return att as IAttachment;
                 }))
                 .verifiable(TypeMoq.Times.once());
 
@@ -690,7 +611,6 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createBill({
                     date: newBill.date,
                     dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
@@ -718,120 +638,6 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(files.length));
-
-            await manager.createOrUpdateBill(newBill);
-        });
-
-        test('creates a bill and pays it', async () => {
-            const newBillId = 'new-bill-id';
-            const newBill: INewBill = {
-                date: new Date(2012, 10, 10).toISOString(),
-                isPaid: true,
-                bankAccountId: 'bank_id',
-                currency: 'EUR',
-                contactId: 'contact-id',
-                description: 'expense note',
-                totalAmount: 12.05,
-                accountCode: '310',
-                files,
-                url: 'expense url',
-            };
-
-            xeroClientMock
-                .setup(x => x.createBill({
-                    date: newBill.date,
-                    dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
-                    contactId: newBill.contactId,
-                    description: newBill.description!,
-                    currency: newBill.currency,
-                    amount: newBill.totalAmount,
-                    accountCode: newBill.accountCode!,
-                    url: newBill.url,
-                }))
-                .returns(async () => newBillId)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                ))
-                .verifiable(TypeMoq.Times.once());
-
-            for (const file of files) {
-                const fileName = file.name;
-                xeroClientMock
-                    .setup(x => x.uploadBillAttachment(newBillId, fileName, file.path, file.contentType))
-                    .returns(() => Promise.resolve())
-                    .verifiable(TypeMoq.Times.once());
-            }
-
-            xeroClientMock
-                .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.exactly(files.length));
-
-            xeroClientMock
-                .setup(x => x.payBill({
-                    billId: newBillId,
-                    amount: newBill.totalAmount,
-                    bankAccountId: newBill.bankAccountId!,
-                    date: newBill.date,
-                }))
-                .verifiable(TypeMoq.Times.once());
-
-            await manager.createOrUpdateBill(newBill);
-        });
-
-        test('creates a bill and does not pay it if there is no bank account id', async () => {
-            const newBillId = 'new-bill-id';
-            const newBill: INewBill = {
-                date: new Date(2012, 10, 10).toISOString(),
-                isPaid: true,
-                currency: 'EUR',
-                contactId: 'contact-id',
-                description: 'expense note',
-                totalAmount: 12.05,
-                accountCode: '310',
-                files,
-                url: 'expense url',
-            };
-
-            xeroClientMock
-                .setup(x => x.createBill({
-                    date: newBill.date,
-                    dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
-                    contactId: newBill.contactId,
-                    description: newBill.description!,
-                    currency: newBill.currency,
-                    amount: newBill.totalAmount,
-                    accountCode: newBill.accountCode!,
-                    url: newBill.url,
-                }))
-                .returns(async () => newBillId)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                ))
-                .verifiable(TypeMoq.Times.once());
-
-            for (const file of files) {
-                const fileName = file.name;
-                xeroClientMock
-                    .setup(x => x.uploadBillAttachment(newBillId, fileName, file.path, file.contentType))
-                    .returns(() => Promise.resolve())
-                    .verifiable(TypeMoq.Times.once());
-            }
-
-            xeroClientMock
-                .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.exactly(files.length));
-
-            xeroClientMock
-                .setup(x => x.payBill(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
 
             await manager.createOrUpdateBill(newBill);
         });
@@ -852,7 +658,6 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createBill({
                     date: newBill.date,
                     dueDate: newBill.dueDate,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
@@ -900,7 +705,6 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createBill({
                     date: newBill.date,
                     dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
@@ -921,7 +725,6 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createBill({
                     date: newBill.date,
                     dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
