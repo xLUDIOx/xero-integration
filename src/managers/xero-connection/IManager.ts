@@ -5,5 +5,4 @@ export interface IManager {
     authenticate(verifier: string): Promise<AccessToken | undefined>;
     getAccessToken(): Promise<AccessToken | undefined>;
     isTokenExpired(accessToken: AccessToken): boolean;
-    refreshAccessToken(): Promise<AccessToken | undefined>;
 }

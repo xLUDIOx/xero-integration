@@ -49,7 +49,7 @@ export class Manager implements IManager {
 
         const isTokenExpired = this.isTokenExpired(xeroAccessToken);
         if (isTokenExpired) {
-            xeroAccessToken = await this.refreshAccessToken();
+            xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken);
         }
 
         return xeroAccessToken;
@@ -60,8 +60,7 @@ export class Manager implements IManager {
         return isTokenExpired;
     }
 
-    async refreshAccessToken(): Promise<AccessToken | undefined> {
-        const currentToken = await this.store.getAccessTokenByAccountId(this.accountId);
+    private async tryRefreshAccessToken(currentToken: AccessToken): Promise<AccessToken | undefined> {
         const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
         if (refreshedAccessToken) {
             await this.store.saveAccessToken(this.accountId, refreshedAccessToken);

@@ -10,10 +10,12 @@ import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
 
 export class Controller {
-    constructor(private readonly baseLogger: ILogger,
-                private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
-                private readonly integrationManagerFactory: Integration.IManagerFactory,
-                private readonly config: IConfig) {
+    constructor(
+        private readonly baseLogger: ILogger,
+        private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
+        private readonly integrationManagerFactory: Integration.IManagerFactory,
+        private readonly config: IConfig,
+    ) {
     }
 
     async connect(req: restify.Request, res: restify.Response, next: restify.Next) {
@@ -160,21 +162,23 @@ export class Controller {
             return { isAlive: false };
         }
 
-        const connectionManager = this.connectionManagerFactory(accountId);
-        const xeroAccessToken = await connectionManager.getAccessToken();
-        if (!xeroAccessToken) {
-            return { isAlive: false };
-        }
-
-        const isTokenExpired = connectionManager.isTokenExpired(xeroAccessToken);
-        if (isTokenExpired) {
-            return { isAlive: false, message: ConnectionMessage.TokenExpired };
-        }
-
-        const integrationManager = this.integrationManagerFactory(xeroAccessToken!, accountId, '');
         try {
+            const connectionManager = this.connectionManagerFactory(accountId);
+            const xeroAccessToken = await connectionManager.getAccessToken();
+            if (!xeroAccessToken) {
+                return { isAlive: false };
+            }
+
+            const isTokenExpired = connectionManager.isTokenExpired(xeroAccessToken);
+            if (isTokenExpired) {
+                return { isAlive: false, message: ConnectionMessage.TokenExpired };
+            }
+
             // try get some information from Xero to validate whether the token is still valid
+            const integrationManager = this.integrationManagerFactory(xeroAccessToken!, accountId, '');
             await integrationManager.getOrganisationName();
+
+            return { isAlive: true };
         } catch (err) {
             if (err instanceof XeroError && err.message.includes('token_rejected')) {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };
@@ -183,7 +187,5 @@ export class Controller {
             // rethrow if error is not expected
             throw err;
         }
-
-        return { isAlive: true };
     }
 }
