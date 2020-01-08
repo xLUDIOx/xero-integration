@@ -24,7 +24,7 @@ export class Auth implements IAuth {
     }
 
     async refreshAccessToken(currentToken?: AccessToken): Promise<AccessToken | undefined> {
-        if (AppType === 'partner') {
+        if (AppType !== 'partner') {
             return undefined;
         }
 
