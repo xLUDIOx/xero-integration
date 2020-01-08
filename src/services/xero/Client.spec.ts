@@ -41,7 +41,7 @@ describe('Xero client', () => {
 
     describe('bank transactions', () => {
         it('should create spend bank transaction as tax inclusive with correct date string', async () => {
-            const transaction = getTransactionModel();
+            const transaction = getSpendTransactionModel();
 
             const id = '1';
 
@@ -84,8 +84,52 @@ describe('Xero client', () => {
             expect(transactionId).toEqual(id);
         });
 
+        it('should create receive bank transaction with correct amount', async () => {
+            const transaction = getReceiveTransactionModel();
+
+            const id = '1';
+
+            bankTransactionsMock
+                .setup(m => m.create({
+                    BankTransactionID: undefined,
+                    Type: BankTransactionType.Receive,
+                    BankAccount: {
+                        AccountID: transaction.bankAccountId,
+                    },
+                    Reference: transaction.reference,
+                    DateString: transaction.date,
+                    Url: transaction.url,
+                    Contact: {
+                        ContactID: transaction.contactId,
+                    },
+                    LineAmountTypes: LineAmountType.TaxInclusive,
+                    LineItems: [
+                        {
+                            Description: transaction.description,
+                            AccountCode: transaction.accountCode,
+                            Quantity: 1,
+                            UnitAmount: Math.abs(transaction.amount),
+                        },
+                    ],
+                }))
+                .returns(async () => {
+                    return ({
+                        BankTransactions: [
+                            {
+                                StatusAttributeString: ClientResponseStatus.Ok,
+                                BankTransactionID: id,
+                            },
+                        ],
+                    });
+                })
+                .verifiable(TypeMoq.Times.once());
+
+            const transactionId = await client.createTransaction(transaction);
+            expect(transactionId).toEqual(id);
+        });
+
         it('should throw error', async () => {
-            const transaction = getTransactionModel();
+            const transaction = getSpendTransactionModel();
 
             bankTransactionsMock
                 .setup(m => m.create({
@@ -251,7 +295,7 @@ describe('Xero client', () => {
         });
     });
 
-    function getTransactionModel(): ICreateTransactionData {
+    function getSpendTransactionModel(): ICreateTransactionData {
         const transaction: ICreateTransactionData = {
             date: new Date(2012, 10, 10).toISOString(),
             bankAccountId: 'bank-account-id',
@@ -259,6 +303,21 @@ describe('Xero client', () => {
             description: 'expense note',
             reference: 'tx description',
             amount: 12.05,
+            accountCode: '310',
+            url: 'expense url',
+        };
+
+        return transaction;
+    }
+
+    function getReceiveTransactionModel(): ICreateTransactionData {
+        const transaction: ICreateTransactionData = {
+            date: new Date(2012, 10, 10).toISOString(),
+            bankAccountId: 'bank-account-id',
+            contactId: 'contact-id',
+            description: 'expense note',
+            reference: 'tx description',
+            amount: -12.05,
             accountCode: '310',
             url: 'expense url',
         };

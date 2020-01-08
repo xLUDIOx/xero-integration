@@ -218,7 +218,7 @@ export class Client implements IClient {
                     Description: description,
                     AccountCode: accountCode,
                     Quantity: 1,
-                    UnitAmount: amount,
+                    UnitAmount: Math.abs(amount),
                 },
             ],
         };
