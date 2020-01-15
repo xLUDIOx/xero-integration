@@ -116,6 +116,7 @@ describe('integrations/Manager', () => {
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
                             settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: 1,
                         },
                         {
                             id: 'tx2',
@@ -126,6 +127,7 @@ describe('integrations/Manager', () => {
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
                             settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: 2,
                         },
                     ],
                 };
@@ -157,7 +159,7 @@ describe('integrations/Manager', () => {
                             contactId,
                             description: expense.note,
                             reference: t.description,
-                            totalAmount: t.cardAmount,
+                            totalAmount: t.cardAmount + t.fees,
                             files,
                             url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
                         }))

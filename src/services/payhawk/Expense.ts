@@ -58,4 +58,5 @@ export interface ITransaction {
     cardCurrency: string;
     cardAmount: number;
     description: string;
+    fees: number;
 }

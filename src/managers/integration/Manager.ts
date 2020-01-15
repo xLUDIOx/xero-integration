@@ -66,7 +66,7 @@ export class Manager implements IManager {
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
         for (const t of expense.transactions) {
-            const totalAmount = t.cardAmount;
+            const totalAmount = t.cardAmount + t.fees;
             const newAccountTransaction: INewAccountTransaction = {
                 date: t.settlementDate,
                 bankAccountId,
