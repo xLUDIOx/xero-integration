@@ -12,7 +12,8 @@ export class Manager implements IManager {
         private readonly portalUrl: string) { }
 
     async getOrganisationName(): Promise<string | undefined> {
-        return await this.xeroEntities.getOrganisationName();
+        const organisation = await this.xeroEntities.getOrganisation();
+        return organisation ? organisation.Name : undefined;
     }
 
     async synchronizeChartOfAccounts(): Promise<void> {
@@ -20,6 +21,16 @@ export class Manager implements IManager {
         await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes.map(a => ({
             code: a.Code,
             name: a.Name,
+        })));
+    }
+
+    async synchronizeBankAccounts(): Promise<void> {
+        const bankAccounts = await this.xeroEntities.getBankAccounts();
+        await this.payhawkClient.synchronizeBankAccounts(bankAccounts.map(b => ({
+            name: b.Name,
+            externalId: b.AccountID,
+            number: b.BankAccountNumber,
+            currency: b.CurrencyCode,
         })));
     }
 
@@ -101,10 +112,30 @@ export class Manager implements IManager {
         const currency = expense.reconciliation.expenseCurrency;
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
+        let bankAccountId: string | undefined;
+        if (expense.isPaid && expense.paymentData.source) {
+            const potentialBankAccountId = expense.paymentData.source;
+            const bankAccount = await this.xeroEntities.getBankAccountById(potentialBankAccountId);
+            if (bankAccount) {
+                const isBankAccountInSameCurrency = currency === bankAccount.CurrencyCode;
+                if (isBankAccountInSameCurrency) {
+                    bankAccountId = potentialBankAccountId;
+                } else {
+                    const organisation = await this.xeroEntities.getOrganisation();
+                    const isSameCurrencyAsBase = organisation && organisation.BaseCurrency === bankAccount.CurrencyCode;
+                    if (isSameCurrencyAsBase) {
+                        bankAccountId = potentialBankAccountId;
+                    }
+                }
+            }
+        }
+
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
+            bankAccountId,
             date: expense.document ? expense.document.date : expense.createdAt,
             dueDate: expense.paymentData.dueDate,
+            isPaid: expense.isPaid,
             contactId,
             description: expense.note,
             currency,

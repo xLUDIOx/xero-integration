@@ -9,6 +9,7 @@ import { config } from '../../Config';
 import { IExpense, IFile } from './Expense';
 import { IAccountCode } from './IAccountCode';
 import { IBalanceTransfer } from './IBalanceTransfer';
+import { IBusinessAccount } from './IBankAccount';
 import { IClient } from './IClient';
 import { IDownloadedFile } from './IDownloadedFile';
 
@@ -44,6 +45,12 @@ export class Client implements IClient {
     async synchronizeChartOfAccounts(accountCodes: IAccountCode[]) {
         await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/accounting-codes`, {
             method: 'PUT', json: accountCodes, headers: this.headers,
+        });
+    }
+
+    async synchronizeBankAccounts(accounts: IBusinessAccount[]) {
+        await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/business-accounts`, {
+            method: 'PUT', json: accounts, headers: this.headers,
         });
     }
 

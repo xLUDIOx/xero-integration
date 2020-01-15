@@ -2,18 +2,15 @@ import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { Throttler } from '../../utils';
-import { Auth } from './Auth';
-import { Client } from './Client';
+import { Auth, IAuth } from './auth';
+import { Client, IAccountingItemData, IBillPaymentData, IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './client';
 import { getXeroConfig } from './Config';
-import { IAuth } from './IAuth';
-import { IAccountingItemData, IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './IClient';
 
-export { IClient, IAccountingItemData, ICreateBillData, IUpdateBillData, ICreateTransactionData, IUpdateTransactionData, IAuth };
-export { IAccountCode } from './IAccountCode';
-export { IBankAccount } from './IBankAccount';
-export { IAttachment } from './IAttachment';
+export { IClient, IAccountingItemData, ICreateBillData, IUpdateBillData, ICreateTransactionData, IUpdateTransactionData, IAuth, IBillPaymentData };
 
 export { AppType } from './Config';
+
+export * from './client';
 
 const XERO_MAX_REQUESTS_COUNT = 40;
 const THROTTLER_PERIOD_IN_SECONDS = 60;

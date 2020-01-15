@@ -2,20 +2,30 @@ import * as path from 'path';
 
 import { Payhawk, Xero } from '../../services';
 import { IAccountCode } from './IAccountCode';
+import { IBankAccount } from './IBankAccount';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
+import { IOrganisation } from './IOrganisation';
 
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
-    async getOrganisationName(): Promise<string | undefined> {
+    async getOrganisation(): Promise<IOrganisation | undefined> {
         const organisation = await this.xeroClient.getOrganisation();
-        return organisation ? organisation.Name : undefined;
+        return organisation;
     }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         return await this.xeroClient.getExpenseAccounts();
+    }
+
+    async getBankAccounts(): Promise<IBankAccount[]> {
+        return await this.xeroClient.getBankAccounts();
+    }
+
+    async getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined> {
+        return await this.xeroClient.getBankAccountById(bankAccountId);
     }
 
     async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {
@@ -86,19 +96,18 @@ export class Manager implements IManager {
         let billId = await this.xeroClient.getBillIdByUrl(newBill.url);
         let filesToUpload = newBill.files;
 
+        const billData = this.getBillData(newBill);
         if (!billId) {
-            const createData = this.getBillData(newBill);
-
             try {
-                billId = await this.xeroClient.createBill(createData);
+                billId = await this.xeroClient.createBill(billData);
             } catch (err) {
-                const createDataFallback = this.tryFallbackItemData(err, createData);
+                const createDataFallback = this.tryFallbackItemData(err, billData);
                 billId = await this.xeroClient.createBill(createDataFallback);
             }
         } else {
             const updateData: Xero.IUpdateBillData = {
                 billId,
-                ...this.getBillData(newBill),
+                ...billData,
             };
 
             try {
@@ -108,9 +117,26 @@ export class Manager implements IManager {
                 await this.xeroClient.updateBill(updateDataFallback);
             }
 
-            const existingFileNames = (await this.xeroClient.getBillAttachments(billId)).map(f => f.FileName);
+            const files = await this.xeroClient.getBillAttachments(billId);
+            const existingFileNames = (files).map(f => f.FileName);
 
-            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(convertPathToFileName(f.path)));
+            filesToUpload = filesToUpload.filter(f => {
+                const filePath = convertPathToFileName(f.path);
+                const isAlreadyUploaded = existingFileNames.includes(filePath);
+                return !isAlreadyUploaded;
+            });
+        }
+
+        if (newBill.isPaid && newBill.bankAccountId !== undefined) {
+            const paymentData: Xero.IBillPaymentData = {
+                date: billData.date,
+                amount: billData.amount,
+                currency: billData.currency,
+                bankAccountId: newBill.bankAccountId,
+                billId,
+            };
+
+            await this.xeroClient.payBill(paymentData);
         }
 
         // Files should be uploaded in the right order so Promise.all is no good
@@ -156,6 +182,7 @@ export class Manager implements IManager {
     private getBillData({
         date,
         dueDate,
+        isPaid,
         contactId,
         description,
         currency,
@@ -166,6 +193,7 @@ export class Manager implements IManager {
         return {
             date,
             dueDate: dueDate || date,
+            isPaid,
             contactId,
             description: description || DEFAULT_DESCRIPTION,
             currency: currency || DEFAULT_CURRENCY,

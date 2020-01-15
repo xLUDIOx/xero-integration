@@ -4,6 +4,7 @@ export interface IExpense {
     title: string;
     note: string;
     ownerName: string;
+    isPaid?: boolean;
     category?: string;
     document?: IDocument;
     supplier: ISupplier;
@@ -47,6 +48,7 @@ export interface IReconciliation {
 
 export interface IPaymentData {
     dueDate?: string;
+    source?: string;
 }
 
 export interface ITransaction {

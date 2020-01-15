@@ -10,6 +10,8 @@ export interface IClient {
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     createContact(name: string, vat?: string): Promise<Contact>;
 
+    getBankAccounts(): Promise<IBankAccount[]>;
+    getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
     getBankAccountByCode(code: string): Promise<IBankAccount | undefined>;
     activateBankAccount(bankAccount: IBankAccount): Promise<IBankAccount>;
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
@@ -25,6 +27,7 @@ export interface IClient {
     getBillIdByUrl(url: string): Promise<string | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
     updateBill(data: IUpdateBillData): Promise<void>;
+    payBill(data: IBillPaymentData): Promise<void>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(entityId: string): Promise<IAttachment[]>;
 }
@@ -40,11 +43,16 @@ export interface IAccountingItemData {
 
 export interface ICreateBillData extends IAccountingItemData {
     currency: string;
+    isPaid?: boolean;
     dueDate?: string;
 }
 
 export interface IUpdateBillData extends ICreateBillData {
     billId: string;
+}
+
+export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount' | 'billId' | 'currency'> {
+    bankAccountId: string;
 }
 
 export interface ICreateTransactionData extends IAccountingItemData {
