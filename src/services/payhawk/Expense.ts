@@ -36,7 +36,7 @@ export interface IFile {
 export interface IReconciliation {
     expenseTotalAmount: number;
     expenseTaxAmount: number;
-    expenseCurrency: string;
+    expenseCurrency?: string;
     baseTotalAmount: number;
     baseTaxAmount: number;
     baseCurrency: string;

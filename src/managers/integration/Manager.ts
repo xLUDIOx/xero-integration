@@ -1,4 +1,4 @@
-import { Payhawk } from '../../services';
+import { FxRates, Payhawk } from '../../services';
 import * as XeroEntities from '../xero-entities';
 import { INewAccountTransaction, INewBill } from '../xero-entities';
 import { IManager } from './IManager';
@@ -7,6 +7,7 @@ export class Manager implements IManager {
     constructor(
         private readonly payhawkClient: Payhawk.IClient,
         private readonly xeroEntities: XeroEntities.IManager,
+        private readonly fxRateService: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly accountId: string,
         private readonly portalUrl: string) { }
@@ -109,36 +110,51 @@ export class Manager implements IManager {
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
-        const currency = expense.reconciliation.expenseCurrency;
-        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
+        const date = expense.document ? expense.document.date : expense.createdAt;
 
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
+        if (!expenseCurrency) {
+            return;
+        }
+
+        let fxRate: number | undefined;
         let bankAccountId: string | undefined;
+
         if (expense.isPaid && expense.paymentData.source) {
             const potentialBankAccountId = expense.paymentData.source;
             const bankAccount = await this.xeroEntities.getBankAccountById(potentialBankAccountId);
+
             if (bankAccount) {
-                const isBankAccountInSameCurrency = currency === bankAccount.CurrencyCode;
-                if (isBankAccountInSameCurrency) {
+                const bankAccountCurrency = bankAccount.CurrencyCode;
+
+                if (expenseCurrency === bankAccountCurrency) {
                     bankAccountId = potentialBankAccountId;
                 } else {
                     const organisation = await this.xeroEntities.getOrganisation();
-                    const isSameCurrencyAsBase = organisation && organisation.BaseCurrency === bankAccount.CurrencyCode;
-                    if (isSameCurrencyAsBase) {
-                        bankAccountId = potentialBankAccountId;
+
+                    if (organisation) {
+                        const organisationBaseCurrency = organisation.BaseCurrency;
+                        if (organisationBaseCurrency === bankAccountCurrency) {
+                            fxRate = await this.fxRateService.getByDate(organisationBaseCurrency, expenseCurrency, new Date(date));
+                            bankAccountId = potentialBankAccountId;
+                        }
                     }
                 }
             }
         }
 
+        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
+
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
             bankAccountId,
-            date: expense.document ? expense.document.date : expense.createdAt,
+            date,
             dueDate: expense.paymentData.dueDate,
             isPaid: expense.isPaid,
             contactId,
             description: expense.note,
-            currency,
+            currency: expenseCurrency,
+            fxRate,
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,

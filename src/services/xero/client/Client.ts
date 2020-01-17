@@ -219,11 +219,11 @@ export class Client implements IClient {
         return attachementsResponse.Attachments;
     }
 
-    async payBill({ date, bankAccountId, amount, billId }: IBillPaymentData): Promise<void> {
+    async payBill({ date, bankAccountId, amount, fxRate, billId }: IBillPaymentData): Promise<void> {
         const invoiceResponse = await this.xeroClient.invoices.get({ InvoiceID: billId });
         const invoice = invoiceResponse.Invoices[0];
 
-        const paymentModel = getNewPaymentModel(date, amount, bankAccountId, billId);
+        const paymentModel = getNewPaymentModel(date, amount, bankAccountId, fxRate, billId);
 
         if (invoice.Status === InvoiceStatusCode.Paid) {
             throw new OperationNotAllowedError('Bill is already paid. Payment cannot be updated.');
@@ -335,7 +335,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
     };
 }
 
-function getNewPaymentModel(date: string, amount: number, bankAccountId: string, billId?: string): Payment {
+function getNewPaymentModel(date: string, amount: number, bankAccountId: string, fxRate?: number, billId?: string): Payment {
     const paymentModel: Payment = {
         Date: date,
         Invoice: {
@@ -345,6 +345,7 @@ function getNewPaymentModel(date: string, amount: number, bankAccountId: string,
             AccountID: bankAccountId,
         },
         Amount: amount,
+        CurrencyRate: fxRate,
     };
 
     return paymentModel;

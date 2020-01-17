@@ -8,6 +8,7 @@ export interface INewBill {
     contactId: string;
     description?: string;
     currency: string;
+    fxRate?: number;
     totalAmount: number;
     accountCode?: string;
     files: Payhawk.IDownloadedFile[];

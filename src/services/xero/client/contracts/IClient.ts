@@ -43,6 +43,7 @@ export interface IAccountingItemData {
 
 export interface ICreateBillData extends IAccountingItemData {
     currency: string;
+    fxRate?: number;
     isPaid?: boolean;
     dueDate?: string;
 }
@@ -51,7 +52,7 @@ export interface IUpdateBillData extends ICreateBillData {
     billId: string;
 }
 
-export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount' | 'billId' | 'currency'> {
+export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount' | 'billId' | 'currency' | 'fxRate'> {
     bankAccountId: string;
 }
 

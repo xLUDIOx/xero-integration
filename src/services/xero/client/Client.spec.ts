@@ -329,6 +329,7 @@ describe('Xero client', () => {
                 billId: '1',
                 amount: 100,
                 currency: CURRENCY,
+                fxRate: 1,
                 bankAccountId: 'bank_id',
             };
 
@@ -357,6 +358,7 @@ describe('Xero client', () => {
                         AccountID: paymentDetails.bankAccountId,
                     },
                     Amount: paymentDetails.amount,
+                    CurrencyRate: paymentDetails.fxRate,
                 }))
                 .returns(async () => ({
                     Payments: [

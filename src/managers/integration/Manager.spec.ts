@@ -1,6 +1,6 @@
 import * as TypeMoq from 'typemoq';
 
-import { Payhawk } from '../../services';
+import { FxRates, Payhawk } from '../../services';
 import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
 
@@ -9,6 +9,7 @@ describe('integrations/Manager', () => {
     const portalUrl = 'https://portal.payhawk.io';
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
+    let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
 
     let manager: Manager;
@@ -16,9 +17,10 @@ describe('integrations/Manager', () => {
     beforeEach(() => {
         payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
+        fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
 
-        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, deleteFilesMock.object, accountId, portalUrl);
+        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, fxRatesServiceMock.object, deleteFilesMock.object, accountId, portalUrl);
     });
 
     afterEach(() => {
@@ -213,7 +215,8 @@ describe('integrations/Manager', () => {
                         dueDate: expense.paymentData.dueDate,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
-                        currency: reconciliation.expenseCurrency,
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
                         contactId,
                         description: expense.note,
                         totalAmount: 11.28,
@@ -265,7 +268,8 @@ describe('integrations/Manager', () => {
                         dueDate: expense.paymentData.dueDate,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
-                        currency: reconciliation.expenseCurrency,
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
                         contactId,
                         description: expense.note,
                         totalAmount: 11.28,

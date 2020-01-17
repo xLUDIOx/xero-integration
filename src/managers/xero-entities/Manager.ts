@@ -131,6 +131,7 @@ export class Manager implements IManager {
             const paymentData: Xero.IBillPaymentData = {
                 date: billData.date,
                 amount: billData.amount,
+                fxRate: billData.fxRate,
                 currency: billData.currency,
                 bankAccountId: newBill.bankAccountId,
                 billId,
@@ -186,6 +187,7 @@ export class Manager implements IManager {
         contactId,
         description,
         currency,
+        fxRate,
         totalAmount,
         accountCode,
         url,
@@ -197,6 +199,7 @@ export class Manager implements IManager {
             contactId,
             description: description || DEFAULT_DESCRIPTION,
             currency: currency || DEFAULT_CURRENCY,
+            fxRate,
             amount: totalAmount || 0,
             accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
             url,
