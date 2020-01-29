@@ -297,23 +297,31 @@ describe('integrations/Manager', () => {
         const endDate = new Date().toISOString();
 
         test('creates an account transaction for each transfer', async () => {
+            await testTransfersExport(new Date(), 'account');
+        });
+
+        test('creates an account transaction for each transfer - backward compat', async () => {
+            await testTransfersExport(new Date(2020, 0, 28, 23, 59, 59), 'accountId');
+        });
+
+        const testTransfersExport = async (date: Date, paramName: string) => {
             const bankAccountId = 'bank-account-id';
             const contactId = 'contact-id';
             const transfers = [{
                 id: '1',
                 amount: 1000,
                 currency: 'BGN',
-                date: new Date().toISOString(),
+                date: date.toISOString(),
             }, {
                 id: '2',
                 amount: 2000,
                 currency: 'EUR',
-                date: new Date().toISOString(),
+                date: date.toISOString(),
             }, {
                 id: '3',
                 amount: 3000,
                 currency: 'EUR',
-                date: new Date().toISOString(),
+                date: date.toISOString(),
             }];
 
             payhawkClientMock
@@ -355,7 +363,7 @@ describe('integrations/Manager', () => {
                         reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,
                         totalAmount: -t.amount,
                         files: [],
-                        url: `${portalUrl}/funds?transferId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
+                        url: `${portalUrl}/funds?transferId=${encodeURIComponent(t.id)}&${paramName}=${encodeURIComponent(accountId)}`,
                     }))
                     .verifiable(TypeMoq.Times.once());
             });
@@ -365,6 +373,6 @@ describe('integrations/Manager', () => {
                 .verifiable(TypeMoq.Times.exactly(transfers.length));
 
             await manager.exportTransfers(startDate, endDate);
-        });
+        };
     });
 });

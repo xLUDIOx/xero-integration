@@ -79,8 +79,9 @@ export class Manager implements IManager {
 
         for (const t of expense.transactions) {
             const totalAmount = t.cardAmount + t.fees;
+            const date = t.settlementDate;
             const newAccountTransaction: INewAccountTransaction = {
-                date: t.settlementDate,
+                date,
                 bankAccountId,
                 contactId,
                 description: expense.note,
@@ -88,7 +89,7 @@ export class Manager implements IManager {
                 totalAmount,
                 accountCode: expense.reconciliation.accountCode,
                 files,
-                url: this.transactionUrl(t.id),
+                url: this.transactionUrl(t.id, new Date(date)),
             };
 
             await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -96,14 +97,15 @@ export class Manager implements IManager {
     }
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
+        const date = transfer.date;
         const newAccountTransaction: INewAccountTransaction = {
-            date: transfer.date,
+            date,
             bankAccountId,
             contactId,
             reference: `Bank wire received on ${new Date(transfer.date).toUTCString()}`,
             totalAmount: -Math.abs(transfer.amount),
             files: [],
-            url: this.transferUrl(transfer.id),
+            url: this.transferUrl(transfer.id, new Date(date)),
         };
 
         await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -158,21 +160,35 @@ export class Manager implements IManager {
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,
-            url: this.expenseUrl(expense.id),
+            url: this.expenseUrl(expense.id, new Date(date)),
         };
 
         await this.xeroEntities.createOrUpdateBill(newBill);
     }
 
-    private expenseUrl(expenseId: string): string {
-        return `${this.portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(this.accountId)}`;
+    private expenseUrl(expenseId: string, date: Date): string {
+        const accountIdQueryParam = this.getAccountIdQueryParam(date);
+        return `${this.portalUrl}/expenses/${encodeURIComponent(expenseId)}?${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private transactionUrl(transactionId: string): string {
-        return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&accountId=${encodeURIComponent(this.accountId)}`;
+    private transactionUrl(transactionId: string, date: Date): string {
+        const accountIdQueryParam = this.getAccountIdQueryParam(date);
+        return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private transferUrl(transferId: string): string {
-        return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&accountId=${encodeURIComponent(this.accountId)}`;
+    private transferUrl(transferId: string, date: Date): string {
+        const accountIdQueryParam = this.getAccountIdQueryParam(date);
+        return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
+    }
+
+    private getAccountIdQueryParam(date: Date): 'account' | 'accountId' {
+        const time = date.getTime();
+        if (time >= TIME_AT_PARAM_CHANGE) {
+            return 'account';
+        }
+
+        return 'accountId';
     }
 }
+
+const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);
