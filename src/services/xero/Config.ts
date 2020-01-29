@@ -15,7 +15,7 @@ baseConfig.privateKeyPath = getXeroPrivateKeyPath(baseConfig);
 
 export const AppType = baseConfig.appType;
 export const getXeroConfig = (accountId: string, returnUrl?: string) => {
-    const queryString = `account=${encodeURIComponent(accountId)}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`;
+    const queryString = `accountId=${encodeURIComponent(accountId)}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`;
     return {
         ...baseConfig,
         callbackUrl: `${config.serviceUrl}/callback?${queryString}`,

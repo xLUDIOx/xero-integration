@@ -11,7 +11,7 @@ import { ConnectionMessage } from './IConnectionStatus';
 import { PayhawkEvent } from './PayhawkEvent';
 
 describe('Controller', () => {
-    const account = 'accountId';
+    const accountId = 'accountId';
     let connectionManagerMock: TypeMoq.IMock<XeroConnection.IManager>;
     let integrationManagerMock: TypeMoq.IMock<Integration.IManager>;
     let configMock: TypeMoq.IMock<IConfig>;
@@ -63,7 +63,7 @@ describe('Controller', () => {
             responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(() => Promise.reject(new Error()));
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.connect(req, responseMock.object, nextMock.object);
         });
 
@@ -72,7 +72,7 @@ describe('Controller', () => {
             connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(async () => authorizationUrl);
             responseMock.setup(r => r.redirect(authorizationUrl, nextMock.object)).verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.connect(req, responseMock.object, nextMock.object);
         });
     });
@@ -92,7 +92,7 @@ describe('Controller', () => {
                 .setup(r => r.send(400, TypeMoq.It.isAnyString()))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
@@ -102,7 +102,7 @@ describe('Controller', () => {
                 .setup(r => r.send(400, TypeMoq.It.isAnyString()))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account, oauth_verifier: verifier } } as restify.Request;
+            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
@@ -111,7 +111,7 @@ describe('Controller', () => {
             responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.authenticate(verifier)).returns(() => Promise.reject(new Error()));
 
-            const req = { query: { account, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
+            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
@@ -120,7 +120,7 @@ describe('Controller', () => {
             responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => undefined);
 
-            const req = { query: { account, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
+            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
@@ -140,7 +140,7 @@ describe('Controller', () => {
 
             const req = {
                 query: {
-                    account,
+                    accountId,
                     oauth_verifier: verifier,
                     returnUrl,
                 },
@@ -160,7 +160,7 @@ describe('Controller', () => {
                 .setup(r => r.send(400, TypeMoq.It.isAnyString()))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account } } as restify.Request;
+            const req = { body: { accountId } } as restify.Request;
 
             await controller.payhawk(req, responseMock.object);
         });
@@ -177,7 +177,7 @@ describe('Controller', () => {
                 .setup(r => r.send(400, TypeMoq.It.isAnyString()))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account } } as restify.Request;
+            const req = { body: { accountId } } as restify.Request;
 
             await controller.payhawk(req, responseMock.object);
         });
@@ -187,7 +187,7 @@ describe('Controller', () => {
                 .setup(m => m.getAccessToken())
                 .returns(async () => ({} as AccessToken));
 
-            const req = { body: { account, event: 'some unknown event' } } as restify.Request;
+            const req = { body: { accountId, event: 'some unknown event' } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -210,7 +210,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -237,7 +237,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -264,7 +264,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.ExportTransfers, data: exportData } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: exportData } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -283,7 +283,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.ExportExpense, data: undefined } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -302,7 +302,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.ExportTransfers, data: undefined } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -321,7 +321,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -343,7 +343,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { account, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
     });
@@ -363,7 +363,7 @@ describe('Controller', () => {
                 .setup(r => r.send(200, { isAlive: true }))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
@@ -376,7 +376,7 @@ describe('Controller', () => {
                 .setup(r => r.send(200, { isAlive: false }))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
@@ -398,7 +398,7 @@ describe('Controller', () => {
                 .setup(r => r.send(200, { isAlive: false, message: ConnectionMessage.DisconnectedRemotely }))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
@@ -416,7 +416,7 @@ describe('Controller', () => {
                 .setup(r => r.send(200, { isAlive: false, message: ConnectionMessage.TokenExpired }))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
@@ -431,7 +431,7 @@ describe('Controller', () => {
                 .throws(new Error(errorMessage))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { query: { account } } as restify.Request;
+            const req = { query: { accountId } } as restify.Request;
 
             let error: Error | undefined;
             try {

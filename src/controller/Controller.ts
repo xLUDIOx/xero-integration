@@ -19,14 +19,14 @@ export class Controller {
     }
 
     async connect(req: restify.Request, res: restify.Response, next: restify.Next) {
-        if (!req.query.account) {
+        if (!req.query.accountId) {
             res.send(400, 'Missing accountId query parameter');
             return;
         }
 
         const returnUrl = req.query.returnUrl || '/';
 
-        const accountId = req.query.account;
+        const accountId = req.query.accountId;
         const logger = this.baseLogger.child({ accountId }, req);
 
         try {
@@ -39,7 +39,7 @@ export class Controller {
     }
 
     async callback(req: restify.Request, res: restify.Response, next: restify.Next) {
-        if (!req.query.account) {
+        if (!req.query.accountId) {
             res.send(400, 'Missing accountId query parameter');
             return;
         }
@@ -54,7 +54,7 @@ export class Controller {
             return;
         }
 
-        const accountId: string = req.query.account;
+        const accountId: string = req.query.accountId;
         const oauthVerifier: string = req.query.oauth_verifier;
         const returnUrl: string = req.query.returnUrl;
 
@@ -164,8 +164,8 @@ export class Controller {
     }
 
     async getConnectionStatus(req: restify.Request, res: restify.Response) {
-        const { account } = req.query;
-        const connectionStatus = await this.resolveConnectionStatus(account);
+        const { accountId } = req.query;
+        const connectionStatus = await this.resolveConnectionStatus(accountId);
 
         res.send(200, connectionStatus);
     }
