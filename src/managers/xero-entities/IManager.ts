@@ -12,6 +12,6 @@ export interface IManager {
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
     getBankAccountIdForCurrency(currency: string): Promise<string>;
-    createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<void>;
-    createOrUpdateBill(input: INewBill): Promise<void>;
+    createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<string>;
+    createOrUpdateBill(input: INewBill): Promise<string>;
 }

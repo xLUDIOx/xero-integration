@@ -132,6 +132,7 @@ describe('integrations/Manager', () => {
                             fees: 2,
                         },
                     ],
+                    externalLinks: [],
                 };
 
                 const bankAccountId = 'bank-account-id';
@@ -165,7 +166,7 @@ describe('integrations/Manager', () => {
                             files,
                             url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
                         }))
-                        .returns(() => Promise.resolve())
+                        .returns(() => Promise.resolve('1'))
                         .verifiable(TypeMoq.Times.once()),
                 );
 
@@ -193,6 +194,7 @@ describe('integrations/Manager', () => {
                     paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [ ],
+                    externalLinks: [],
                 };
 
                 const contactId = 'contact-id';
@@ -223,7 +225,7 @@ describe('integrations/Manager', () => {
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     }))
-                    .returns(() => Promise.resolve())
+                    .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
@@ -246,6 +248,7 @@ describe('integrations/Manager', () => {
                     },
                     title: 'My Cash Expense',
                     transactions: [ ],
+                    externalLinks: [],
                 };
 
                 const contactId = 'contact-id';

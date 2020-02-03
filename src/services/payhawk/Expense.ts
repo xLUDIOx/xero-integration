@@ -11,6 +11,12 @@ export interface IExpense {
     reconciliation: IReconciliation;
     paymentData: IPaymentData;
     transactions: ITransaction[];
+    externalLinks: IExternalLink[];
+}
+
+export interface IExternalLink {
+    title: string;
+    url: string;
 }
 
 export interface ISupplier {

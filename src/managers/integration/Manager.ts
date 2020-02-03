@@ -77,6 +77,8 @@ export class Manager implements IManager {
         const bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(currency);
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
+        const transactionIds = [];
+
         for (const t of expense.transactions) {
             const totalAmount = t.cardAmount + t.fees;
             const date = t.settlementDate;
@@ -92,8 +94,12 @@ export class Manager implements IManager {
                 url: this.transactionUrl(t.id, new Date(date)),
             };
 
-            await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
+            const transactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
+            transactionIds.push(transactionId);
         }
+
+        const transactionUrls = transactionIds.map(id => XeroEntities.getTransactionExternalUrl(id, bankAccountId));
+        await this.updateExpenseLinks(expense.id, transactionUrls);
     }
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
@@ -163,7 +169,19 @@ export class Manager implements IManager {
             url: this.expenseUrl(expense.id, new Date(date)),
         };
 
-        await this.xeroEntities.createOrUpdateBill(newBill);
+        const billId = await this.xeroEntities.createOrUpdateBill(newBill);
+        const billUrl = XeroEntities.getBillExternalUrl(billId);
+
+        await this.updateExpenseLinks(expense.id, [billUrl]);
+    }
+
+    private async updateExpenseLinks(expenseId: string, urls: string[]) {
+        return this.payhawkClient.updateExpense(
+            expenseId,
+            {
+                externalLinks: urls.map(url => ({ url, title: 'Xero' })),
+            },
+        );
     }
 
     private expenseUrl(expenseId: string, date: Date): string {

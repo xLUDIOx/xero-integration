@@ -30,6 +30,20 @@ export class Client implements IClient {
         return result;
     }
 
+    async updateExpense(expenseId: string, patch: Partial<IExpense>): Promise<void> {
+        const { externalLinks } = patch;
+        await request(
+            `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/expenses/${encodeURIComponent(expenseId)}/links`,
+            {
+                method: 'PUT',
+                json: true,
+                headers: this.headers,
+                body: {
+                    externalLinks,
+                },
+            });
+    }
+
     async getTransfers(startDate: string, endDate: string): Promise<IBalanceTransfer[]> {
         const queryString = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
         const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/transfers?${queryString}`;

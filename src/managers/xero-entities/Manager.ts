@@ -54,7 +54,7 @@ export class Manager implements IManager {
         return bankAccount.AccountID!;
     }
 
-    async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<void> {
+    async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<string> {
         let transactionId = await this.xeroClient.getTransactionIdByUrl(newTransaction.url);
         let filesToUpload = newTransaction.files;
 
@@ -90,9 +90,11 @@ export class Manager implements IManager {
             const fileName = convertPathToFileName(f.path);
             await this.xeroClient.uploadTransactionAttachment(transactionId, fileName, f.path, f.contentType);
         }
+
+        return transactionId;
     }
 
-    async createOrUpdateBill(newBill: INewBill): Promise<void> {
+    async createOrUpdateBill(newBill: INewBill): Promise<string> {
         let billId = await this.xeroClient.getBillIdByUrl(newBill.url);
         let filesToUpload = newBill.files;
 
@@ -145,6 +147,8 @@ export class Manager implements IManager {
             const fileName = convertPathToFileName(f.path);
             await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
         }
+
+        return billId;
     }
 
     private tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): TData {
@@ -206,6 +210,14 @@ export class Manager implements IManager {
         };
     }
 }
+
+export const getTransactionExternalUrl = (transactionId: string, bankAccountId: string): string => {
+    return `https://go.xero.com/Bank/ViewTransaction.aspx?bankTransactionId=${encodeURIComponent(transactionId)}&accountId=${encodeURIComponent(bankAccountId)}`;
+};
+
+export const getBillExternalUrl = (invoiceId: string): string => {
+    return `https://go.xero.com/AccountsPayable/View.aspx?invoiceId=${encodeURIComponent(invoiceId)}`;
+};
 
 function convertPathToFileName(filePath: string): string {
     return path.basename(filePath);
