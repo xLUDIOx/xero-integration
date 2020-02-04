@@ -223,7 +223,7 @@ function convertPathToFileName(filePath: string): string {
     return path.basename(filePath);
 }
 
-const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code/;
+const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account code '.+' has been archived/;
 
 const DEFAULT_ACCOUNT_CODE = '429';
 const DEFAULT_DESCRIPTION = '(no note)';

@@ -920,72 +920,79 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateBill(newBill);
         });
 
-        test('creates a bill with fallback to default account code', async () => {
-            const newBillId = 'new-bill-id';
-            const newBill: INewBill = {
-                date: new Date(2012, 1, 1).toISOString(),
-                currency: 'EUR',
-                fxRate: 1,
-                contactId: 'contact-id',
-                totalAmount: 12.05,
-                files,
-                url: 'expense url',
-                accountCode: '42945235343232',
-            };
+        describe('creates a bill with fallback to default account code', () => {
+            [
+                'Account code \'42945235343232\' is not a valid code for this document.',
+                'Account code \'42945235343232\' has been archived, or has been deleted. Each line item must reference a valid account.',
+            ].forEach(errorMsg => {
+                test(errorMsg, async () => {
+                    const newBillId = 'new-bill-id';
+                    const newBill: INewBill = {
+                        date: new Date(2012, 1, 1).toISOString(),
+                        currency: 'EUR',
+                        fxRate: 1,
+                        contactId: 'contact-id',
+                        totalAmount: 12.05,
+                        files,
+                        url: 'expense url',
+                        accountCode: '42945235343232',
+                    };
 
-            xeroClientMock
-                .setup(x => x.createBill({
-                    date: newBill.date,
-                    dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
-                    contactId: newBill.contactId,
-                    description: '(no note)',
-                    currency: newBill.currency,
-                    amount: newBill.totalAmount,
-                    fxRate: newBill.fxRate,
-                    accountCode: newBill.accountCode!,
-                    url: newBill.url,
-                }))
-                .throws(Error(`
-                    [
-                        {
-                            "Message": "Account code '42945235343232' is not a valid code for this document."
-                        }
-                    ]
-                `))
-                .verifiable(TypeMoq.Times.exactly(2));
+                    xeroClientMock
+                        .setup(x => x.createBill({
+                            date: newBill.date,
+                            dueDate: newBill.date,
+                            isPaid: newBill.isPaid,
+                            contactId: newBill.contactId,
+                            description: '(no note)',
+                            currency: newBill.currency,
+                            amount: newBill.totalAmount,
+                            fxRate: newBill.fxRate,
+                            accountCode: newBill.accountCode!,
+                            url: newBill.url,
+                        }))
+                        .throws(Error(`
+                        [
+                            {
+                                "Message": "${errorMsg}"
+                            }
+                        ]
+                    `))
+                        .verifiable(TypeMoq.Times.exactly(2));
 
-            xeroClientMock
-                .setup(x => x.createBill({
-                    date: newBill.date,
-                    dueDate: newBill.date,
-                    isPaid: newBill.isPaid,
-                    contactId: newBill.contactId,
-                    description: '(no note)',
-                    currency: newBill.currency,
-                    amount: newBill.totalAmount,
-                    fxRate: newBill.fxRate,
-                    accountCode: '429',
-                    url: newBill.url,
-                }))
-                .returns(async () => newBillId)
-                .verifiable(TypeMoq.Times.exactly(2));
+                    xeroClientMock
+                        .setup(x => x.createBill({
+                            date: newBill.date,
+                            dueDate: newBill.date,
+                            isPaid: newBill.isPaid,
+                            contactId: newBill.contactId,
+                            description: '(no note)',
+                            currency: newBill.currency,
+                            amount: newBill.totalAmount,
+                            fxRate: newBill.fxRate,
+                            accountCode: '429',
+                            url: newBill.url,
+                        }))
+                        .returns(async () => newBillId)
+                        .verifiable(TypeMoq.Times.exactly(2));
 
-            for (const file of files) {
-                const fileName = file.name;
-                xeroClientMock
-                    .setup(x => x.uploadBillAttachment(newBillId, fileName, file.path, file.contentType))
-                    .returns(() => Promise.resolve())
-                    .verifiable(TypeMoq.Times.exactly(2));
-            }
+                    for (const file of files) {
+                        const fileName = file.name;
+                        xeroClientMock
+                            .setup(x => x.uploadBillAttachment(newBillId, fileName, file.path, file.contentType))
+                            .returns(() => Promise.resolve())
+                            .verifiable(TypeMoq.Times.exactly(2));
+                    }
 
-            xeroClientMock
-                .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.exactly(files.length * 2));
+                    xeroClientMock
+                        .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                        .verifiable(TypeMoq.Times.exactly(files.length * 2));
 
-            // test 2 consecutive failures
-            await manager.createOrUpdateBill(newBill);
-            await manager.createOrUpdateBill(newBill);
+                    // test 2 consecutive failures
+                    await manager.createOrUpdateBill(newBill);
+                    await manager.createOrUpdateBill(newBill);
+                });
+            });
         });
     });
 });
