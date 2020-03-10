@@ -3,7 +3,7 @@ import { BankTransaction, Contact, Invoice, Organisation, Payment } from 'xero-n
 import { ContactsResponse, SummariseErrors } from 'xero-node/lib/AccountingAPI-responses';
 import { AttachmentsEndpoint } from 'xero-node/lib/AccountingAPIClient';
 
-import { Intersection, OperationNotAllowedError } from '../../../utils';
+import { IDocumentSanitizer, Intersection, OperationNotAllowedError } from '../../../utils';
 import {
     AccountClassType,
     AccountingItemKeys,
@@ -31,7 +31,7 @@ import {
 } from './contracts';
 
 export class Client implements IClient {
-    constructor(private readonly xeroClient: XeroClient) { }
+    constructor(private readonly xeroClient: XeroClient, private readonly documentSanitizer: IDocumentSanitizer) { }
 
     async getOrganisation(): Promise<Organisation | undefined> {
         const organisationsResponse = await this.xeroClient.organisations.get();
@@ -233,6 +233,7 @@ export class Client implements IClient {
     }
 
     private async uploadAttachment(attachmentsEndpoint: AttachmentsEndpoint, entityId: string, fileName: string, filePath: string, contentType: string) {
+        await this.documentSanitizer.sanitize(filePath);
         const attachmentsResponse = await attachmentsEndpoint.uploadAttachment({
             entityId,
             fileName,

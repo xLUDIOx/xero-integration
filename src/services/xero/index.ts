@@ -1,7 +1,7 @@
 import { AccountingAPIClient as XeroClient } from 'xero-node';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
-import { Throttler } from '../../utils';
+import { createDocumentSanitizer, Throttler } from '../../utils';
 import { Auth, IAuth } from './auth';
 import {
     AccountType,
@@ -50,5 +50,5 @@ export const createClient = (accountId: string, accessToken: AccessToken): IClie
     const originalClient = new XeroClient(getXeroConfig(accountId), accessToken);
     const wrappedClient = throttler.getThrottledWrap(accountId, originalClient);
 
-    return new Client(wrappedClient);
+    return new Client(wrappedClient, createDocumentSanitizer());
 };

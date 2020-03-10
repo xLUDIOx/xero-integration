@@ -8,21 +8,15 @@ import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentDa
 const CURRENCY = 'GBP';
 
 describe('Xero client', () => {
-    let xeroClientMock: TypeMoq.IMock<AccountingAPIClient>;
-    let bankTransactionsMock: TypeMoq.IMock<any>;
-    let invoicesMock: TypeMoq.IMock<any>;
-    let paymentsMock: TypeMoq.IMock<any>;
-    let currenciesMock: TypeMoq.IMock<any>;
+    const xeroClientMock = TypeMoq.Mock.ofType<AccountingAPIClient>();
+    let bankTransactionsMock = TypeMoq.Mock.ofType<any>();
+    let invoicesMock = TypeMoq.Mock.ofType<any>();
+    let paymentsMock = TypeMoq.Mock.ofType<any>();
+    let currenciesMock = TypeMoq.Mock.ofType<any>();
 
-    let client: Client;
+    const client = new Client(xeroClientMock.object, { sanitize: () => Promise.resolve() });
 
     beforeEach(() => {
-        xeroClientMock = TypeMoq.Mock.ofType<AccountingAPIClient>();
-        bankTransactionsMock = TypeMoq.Mock.ofType<any>();
-        invoicesMock = TypeMoq.Mock.ofType<any>();
-        paymentsMock = TypeMoq.Mock.ofType<any>();
-        currenciesMock = TypeMoq.Mock.ofType<any>();
-
         currenciesMock
             .setup(m => m.get({ where: `${CurrencyKeys.Code}=="${CURRENCY}"` }))
             .returns(async () => ({ Currencies: [{}] }));
@@ -31,15 +25,22 @@ describe('Xero client', () => {
         xeroClientMock.setup(x => x.invoices).returns(() => invoicesMock.object);
         xeroClientMock.setup(x => x.payments).returns(() => paymentsMock.object);
         xeroClientMock.setup(x => x.currencies).returns(() => currenciesMock.object);
-
-        client = new Client(xeroClientMock.object);
     });
 
     afterEach(() => {
-        currenciesMock.verifyAll();
-        invoicesMock.verifyAll();
-        bankTransactionsMock.verifyAll();
-        xeroClientMock.verifyAll();
+        try {
+            currenciesMock.verifyAll();
+            invoicesMock.verifyAll();
+            paymentsMock.verifyAll();
+            bankTransactionsMock.verifyAll();
+            xeroClientMock.verifyAll();
+        } finally {
+            invoicesMock = TypeMoq.Mock.ofType<any>();
+            paymentsMock = TypeMoq.Mock.ofType<any>();
+            currenciesMock = TypeMoq.Mock.ofType<any>();
+            bankTransactionsMock = TypeMoq.Mock.ofType<any>();
+            xeroClientMock.reset();
+        }
     });
 
     describe('bank transactions', () => {
@@ -257,8 +258,7 @@ describe('Xero client', () => {
                 }))
                 .verifiable(TypeMoq.Times.once());
 
-            // tslint:disable-next-line: no-floating-promises
-            expect(client.updateBill({ ...invoice, billId: id })).rejects.toThrow(OperationNotAllowedError);
+            await expect(client.updateBill({ ...invoice, billId: id })).rejects.toThrow(OperationNotAllowedError);
         });
 
         it('should throw error', async () => {
@@ -397,8 +397,7 @@ describe('Xero client', () => {
                 }))
                 .verifiable(TypeMoq.Times.once());
 
-            // tslint:disable-next-line: no-floating-promises
-            expect(client.payBill(paymentDetails)).rejects.toThrow(OperationNotAllowedError);
+            await expect(client.payBill(paymentDetails)).rejects.toThrow(OperationNotAllowedError);
         });
     });
 

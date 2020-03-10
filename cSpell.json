@@ -2,24 +2,25 @@
     "version": "0.1",
     "language": "en",
     "words": [
-        "xero",
-        "quotemark",
-        "telepresence",
-        "pino",
-        "stackdriver",
+        "authorise",
+        "authorised",
+        "chmod",
+        "creditcard",
+        "entrypoint",
+        "ghostscript",
+        "jsonb",
         "organisation",
         "organisations",
-        "authorised",
-        "creditcard",
-        "paypal",
-        "summarise",
         "payhawk",
+        "paypal",
+        "pino",
+        "quotemark",
+        "stackdriver",
+        "summarise",
+        "telepresence",
         "typemoq",
-        "authorise",
-        "jsonb",
         "workdir",
-        "entrypoint",
-        "chmod"
+        "xero"
     ],
     "dictionaries": [
         "npm",
@@ -27,5 +28,8 @@
         "typescript"
     ],
     "flagWords": [],
-    "ignorePaths": ["node_modules/**", "package-lock.json"]
+    "ignorePaths": [
+        "node_modules/**",
+        "package-lock.json"
+    ]
 }
