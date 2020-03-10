@@ -15,7 +15,7 @@ export class DocumentSanitizer implements IDocumentSanitizer {
             return;
         }
 
-        // Shrink a bit more than the actual scale differnce to compensate for non-linear resize of compressed files.
+        // Shrink a bit more than the actual scale difference to compensate for non-linear resize of compressed files.
         const ratio = (FILE_SIZE_LIMIT / fileSize) * 0.75;
         const lowered = input.toLowerCase();
         if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg') || lowered.endsWith('.png')) {
@@ -35,6 +35,7 @@ export class DocumentSanitizer implements IDocumentSanitizer {
 
     private async shrinkPdf(input: string) {
         await new Promise((resolve, reject) => {
+            // cspell:disable-next-line
             const command = `gs -q -dNOPAUSE -dQUIET -dBATCH -dSAFER -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/screen -dEmbedAllFonts=true -dSubsetFonts=true -dColorImageDownsampleType=/Bicubic -dColorImageResolution=70 -dGrayImageDownsampleType=/Bicubic -dGrayImageResolution=70 -dMonoImageDownsampleType=/Bicubic -dMonoImageResolution=70 -sOutputFile=${input}.tmp.pdf ${input}`;
             exec(command, (err, stdout, stderr) => {
                 if (err) {
