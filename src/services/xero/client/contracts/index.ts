@@ -1,3 +1,4 @@
+export * from './BankAccountKeys';
 export * from './IAccountingApi';
 export * from './IAccountCode';
 export * from './IAttachment';

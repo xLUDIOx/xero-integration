@@ -2,7 +2,7 @@ const TIMEOUT_INTERVAL_MS = 1000;
 
 export class Throttler {
     private readonly ring = new Array<{ [key: string]: number }>(this.size);
-    private readonly queues: { [key: string]: Array<() => any> } = {};
+    private readonly queues: { [key: string]: (() => any)[] } = {};
     private cursor: number = 0;
 
     constructor(private readonly maxRequestsPerMinute: number, private readonly size: number = 60) {

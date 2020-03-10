@@ -14,7 +14,7 @@ describe('XeroEntities.Manager', () => {
 
     let manager: IManager;
 
-    const files: Array<Payhawk.IDownloadedFile & { name: string }> = [
+    const files: (Payhawk.IDownloadedFile & { name: string })[] = [
         {
             contentType: 'image/jpeg',
             path: 'tmp/file.jpg',
@@ -148,6 +148,7 @@ describe('XeroEntities.Manager', () => {
         const currency = 'EUR';
         const accountName = 'Payhawk EUR';
         const accountNumber = '000000-PAYHAWK-EUR';
+        // cspell:disable-next-line
         const accountCode = 'PHWK-EUR';
         const bankAccountId = 'bank-account-id';
 
@@ -279,7 +280,7 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateAccountTransaction(newAccountTx);
         });
 
-        test('updates account transaction iploads missing files', async () => {
+        test('updates account transaction uploads missing files', async () => {
             const newAccountTx: INewAccountTransaction = {
                 date: new Date(2012, 10, 10).toISOString(),
                 bankAccountId: 'bank-account-id',

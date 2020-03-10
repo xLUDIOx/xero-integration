@@ -98,6 +98,7 @@ describe('integrations/Manager', () => {
         describe('as an account transaction', () => {
             test('creates an account transaction when expense has transactions', async () => {
                 const expenseId = 'expenseId';
+                // cspell:disable-next-line
                 const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,

@@ -20,6 +20,7 @@ export class Auth implements IAuth {
 
     async getAccessToken(requestToken: RequestToken, verifier: string): Promise<AccessToken> {
         const oauthClient = this.getOAuthClient();
+        // cspell:disable-next-line
         return await oauthClient.swapRequestTokenforAccessToken(requestToken, verifier);
     }
 

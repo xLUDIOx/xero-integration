@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { config } from '../../Config';

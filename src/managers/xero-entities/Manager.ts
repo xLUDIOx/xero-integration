@@ -234,5 +234,6 @@ const DEFAULT_CURRENCY = 'GBP';
 const DEFAULT_SORT_CODE = '000000';
 
 const defBankAccountNumber = (currency: string) => `${DEFAULT_SORT_CODE}-PAYHAWK-${currency}`;
+// cspell:disable-next-line
 const defBankAccountCode = (currency: string) => `PHWK-${currency}`;
 const defBankAccountName = (currency: string) => `Payhawk ${currency}`;

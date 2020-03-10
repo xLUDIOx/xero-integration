@@ -1,7 +1,8 @@
-import * as restify from 'restify';
-
 import { URL } from 'url';
+
+import * as restify from 'restify';
 import { XeroError } from 'xero-node';
+
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger, OperationNotAllowedError } from '../utils';

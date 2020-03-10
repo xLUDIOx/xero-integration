@@ -1,0 +1,31 @@
+{
+    "version": "0.1",
+    "language": "en",
+    "words": [
+        "xero",
+        "quotemark",
+        "telepresence",
+        "pino",
+        "stackdriver",
+        "organisation",
+        "organisations",
+        "authorised",
+        "creditcard",
+        "paypal",
+        "summarise",
+        "payhawk",
+        "typemoq",
+        "authorise",
+        "jsonb",
+        "workdir",
+        "entrypoint",
+        "chmod"
+    ],
+    "dictionaries": [
+        "npm",
+        "softwareTerms",
+        "typescript"
+    ],
+    "flagWords": [],
+    "ignorePaths": ["node_modules/**", "package-lock.json"]
+}

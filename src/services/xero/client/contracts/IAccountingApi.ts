@@ -1,8 +1,6 @@
-import { KeyNameMap } from '../../../../utils';
-
 import { BankTransaction, Contact, Currency, Invoice } from 'xero-node/lib/AccountingAPI-models';
 
-import { IBankAccount } from '.';
+import { KeyNameMap } from '../../../../utils';
 
 export enum ClientResponseStatus {
     Ok = 'OK',
@@ -48,7 +46,9 @@ export enum BankTransactionStatusCode {
 }
 
 export enum InvoiceType {
+    // cspell:disable-next-line
     AccountsPayable = 'ACCPAY',
+    // cspell:disable-next-line
     AccountsReceivable = 'ACCREC',
 }
 
@@ -74,14 +74,6 @@ export const CurrencyKeys: KeyNameMap<Pick<Required<Currency>, 'Code'>> = {
 export const ContactKeys: KeyNameMap<Pick<Required<Contact>, 'Name' | 'TaxNumber'>> = {
     Name: 'Name',
     TaxNumber: 'TaxNumber',
-};
-
-export const BankAccountKeys: KeyNameMap<Pick<Required<IBankAccount>, 'AccountID' | 'CurrencyCode' | 'Code' | 'Type' | 'Status'>> = {
-    AccountID: 'AccountID',
-    Code: 'Code',
-    CurrencyCode: 'CurrencyCode',
-    Type: 'Type',
-    Status: 'Status',
 };
 
 export const AccountingItemKeys: KeyNameMap<Pick<Required<BankTransaction & Invoice>, 'Url' | 'Status'>> = {

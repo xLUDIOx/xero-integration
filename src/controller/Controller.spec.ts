@@ -1,8 +1,8 @@
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
-
 import { XeroError } from 'xero-node';
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ILogger, OperationNotAllowedError } from '../utils';

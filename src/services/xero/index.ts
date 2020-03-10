@@ -3,14 +3,39 @@ import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { Throttler } from '../../utils';
 import { Auth, IAuth } from './auth';
-import { Client, IAccountingItemData, IBillPaymentData, IClient, ICreateBillData, ICreateTransactionData, IUpdateBillData, IUpdateTransactionData } from './client';
+import {
+    AccountType,
+    BankAccountStatusCode,
+    Client,
+    IAccountCode,
+    IAccountingItemData,
+    IAttachment,
+    IBankAccount,
+    IBillPaymentData,
+    IClient,
+    ICreateBillData,
+    ICreateTransactionData,
+    IUpdateBillData,
+    IUpdateTransactionData,
+} from './client';
 import { getXeroConfig } from './Config';
 
-export { IClient, IAccountingItemData, ICreateBillData, IUpdateBillData, ICreateTransactionData, IUpdateTransactionData, IAuth, IBillPaymentData };
-
+export {
+    AccountType,
+    BankAccountStatusCode,
+    IAccountCode,
+    IAccountingItemData,
+    IAttachment,
+    IAuth,
+    IBankAccount,
+    IClient,
+    ICreateBillData,
+    IUpdateBillData,
+    ICreateTransactionData,
+    IUpdateTransactionData,
+    IBillPaymentData,
+};
 export { AppType } from './Config';
-
-export * from './client';
 
 const XERO_MAX_REQUESTS_COUNT = 40;
 const THROTTLER_PERIOD_IN_SECONDS = 60;
