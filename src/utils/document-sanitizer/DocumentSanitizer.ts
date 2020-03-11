@@ -16,7 +16,7 @@ export class DocumentSanitizer implements IDocumentSanitizer {
         }
 
         // Shrink a bit more than the actual scale difference to compensate for non-linear resize of compressed files.
-        const ratio = (FILE_SIZE_LIMIT / fileSize) * 0.75;
+        const ratio = FILE_SIZE_LIMIT / fileSize;
         const lowered = input.toLowerCase();
         if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg') || lowered.endsWith('.png')) {
             await this.shrinkImage(input, ratio);
