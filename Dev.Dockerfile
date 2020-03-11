@@ -1,5 +1,7 @@
 FROM node:12
 
+RUN apt-get update -y && apt-get install -y ghostscript-x
+
 WORKDIR /app
 RUN chmod -R 777 /app
 

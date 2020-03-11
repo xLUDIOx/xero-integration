@@ -15,10 +15,10 @@ export class DocumentSanitizer implements IDocumentSanitizer {
             return;
         }
 
-        // Shrink more than expected. Better chance to fit
-        const ratio = (FILE_SIZE_LIMIT / fileSize) * 0.75;
         const lowered = input.toLowerCase();
         if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg') || lowered.endsWith('.png')) {
+            // Shrink more than expected. Better chance to fit
+            const ratio = (FILE_SIZE_LIMIT / fileSize) * 0.75;
             await this.shrinkImage(input, ratio);
         } else if (lowered.endsWith('.pdf')) {
             await this.shrinkPdf(input);
