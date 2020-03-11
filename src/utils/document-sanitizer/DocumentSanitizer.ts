@@ -2,10 +2,10 @@ import fs = require('fs');
 import { exec } from 'child_process';
 
 import Jimp = require('jimp');
+
 import { IDocumentSanitizer } from './IDocumentSanitizer';
 
-// const FILE_SIZE_LIMIT = 3 * 1024 * 1024;
-const FILE_SIZE_LIMIT = 1024;
+const FILE_SIZE_LIMIT = 3 * 1024 * 1024;
 
 export class DocumentSanitizer implements IDocumentSanitizer {
     async sanitize(input: string) {
@@ -15,7 +15,6 @@ export class DocumentSanitizer implements IDocumentSanitizer {
             return;
         }
 
-        // Shrink a bit more than the actual scale difference to compensate for non-linear resize of compressed files.
         const ratio = FILE_SIZE_LIMIT / fileSize;
         const lowered = input.toLowerCase();
         if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg') || lowered.endsWith('.png')) {
