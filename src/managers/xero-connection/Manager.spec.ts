@@ -1,6 +1,6 @@
 import * as TypeMoq from 'typemoq';
-
 import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+
 import { IAuth } from '../../services/xero';
 import { Manager } from './Manager';
 import { IStore } from './store';

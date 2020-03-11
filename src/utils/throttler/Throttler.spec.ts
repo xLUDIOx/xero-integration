@@ -17,7 +17,7 @@ describe('Throttler', () => {
     const throttler = new Throttler(10);
     const wrappedClientMock = throttler.getThrottledWrap('acc_id', originalClient);
 
-    test('should delay method invokations if max invokations per minute has been reached', async () => {
+    test('should delay method invocations if max invocations per minute has been reached', async () => {
         for (let i = 0; i < 30; i++) {
             // tslint:disable-next-line: no-floating-promises
             wrappedClientMock.getStuff();
@@ -25,29 +25,29 @@ describe('Throttler', () => {
             wrappedClientMock.nested.getStuff();
         }
 
-        // initially, expect no method invokations
+        // initially, expect no method invocations
         expect(callback).toHaveBeenCalledTimes(0);
 
         // since initially queue was empty expect it to be now full
         await flushPromises();
         expect(callback).toHaveBeenCalledTimes(10);
 
-        // since queue is full, if < 1min has passed, expect no new invokations
+        // since queue is full, if < 1min has passed, expect no new invocations
         jest.advanceTimersByTime(40 * 1000);
         await flushPromises();
         expect(callback).toHaveBeenCalledTimes(10);
 
-        // full min has passed, expect queue to be filled with new invokations
+        // full min has passed, expect queue to be filled with new invocations
         jest.advanceTimersByTime(20 * 1000);
         await flushPromises();
         expect(callback).toHaveBeenCalledTimes(20);
 
-        // less than 1 min has passed, expect no new invokations
+        // less than 1 min has passed, expect no new invocations
         jest.advanceTimersByTime(40 * 1000);
         await flushPromises();
         expect(callback).toHaveBeenCalledTimes(20);
 
-        // full min has passed, expect queue to be filled with new invokations
+        // full min has passed, expect queue to be filled with new invocations
         jest.advanceTimersByTime(20 * 1000);
         await flushPromises();
         expect(callback).toHaveBeenCalledTimes(30);

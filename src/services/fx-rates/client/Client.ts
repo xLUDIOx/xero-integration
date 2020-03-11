@@ -1,5 +1,6 @@
 import * as moment from 'moment';
 import * as request from 'request-promise';
+
 import { IClient, IHistoricalDataResponse } from './IClient';
 
 const DATE_FORMAT = 'YYYY-MM-DD';

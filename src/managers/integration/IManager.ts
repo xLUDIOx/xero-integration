@@ -1,4 +1,3 @@
-
 export interface IManager {
     getOrganisationName(): Promise<string | undefined>;
     exportExpense(expenseId: string): Promise<void>;

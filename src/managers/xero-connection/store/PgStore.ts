@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+
 import { Pool } from 'pg';
 import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 

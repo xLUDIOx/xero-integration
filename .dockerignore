@@ -1,4 +1,5 @@
 .vscode
+.git
 build
 config.json
 coverage
