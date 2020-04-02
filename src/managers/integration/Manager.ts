@@ -157,7 +157,7 @@ export class Manager implements IManager {
         const newBill: INewBill = {
             bankAccountId,
             date,
-            dueDate: expense.paymentData.dueDate,
+            dueDate: expense.paymentData.dueDate || date,
             isPaid: expense.isPaid,
             contactId,
             description: expense.note,

@@ -29,6 +29,7 @@ import {
     IUpdateTransactionData,
     LineAmountType,
 } from './contracts';
+import { IBankTransaction } from './contracts/IBankTransaction';
 
 export class Client implements IClient {
     constructor(private readonly xeroClient: XeroClient, private readonly documentSanitizer: IDocumentSanitizer) { }
@@ -53,7 +54,7 @@ export class Client implements IClient {
         return contact;
     }
 
-    async createContact(name: string, vat?: string): Promise<Contact> {
+    async getOrCreateContact(name: string, vat?: string): Promise<Contact> {
         const payload: Contact = {
             Name: this.escapeDoubleQuotes(name.trim()),
         };
@@ -64,6 +65,17 @@ export class Client implements IClient {
 
         const contactsResponse = await this.xeroClient.contacts.create(payload);
         const contact = contactsResponse.Contacts[0];
+
+        if (contact.StatusAttributeString === ClientResponseStatus.Error
+            && contact.ValidationErrors
+            && contact.ValidationErrors.length > 0
+            && contact.ValidationErrors[0].Message
+            && contact.ValidationErrors[0].Message.endsWith('The contact name must be unique across all active contacts.')) {
+            const existing = await this.findContact(name, vat);
+            if (existing) {
+                return existing;
+            }
+        }
 
         return this.handleClientResponse(contact);
     }
@@ -140,12 +152,15 @@ export class Client implements IClient {
         return xeroAccountCodes;
     }
 
-    async getTransactionIdByUrl(url: string): Promise<string | undefined> {
+    async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {
         const transactionsResponse = await this.xeroClient.bankTransactions.get({
             where: `${AccountingItemKeys.Url}="${this.escape(url)}" && ${AccountingItemKeys.Status}!="${BankTransactionStatusCode.Deleted}"`,
         });
 
-        return transactionsResponse.BankTransactions.length > 0 ? transactionsResponse.BankTransactions[0].BankTransactionID : undefined;
+        return transactionsResponse.BankTransactions.length > 0 ? {
+            id: transactionsResponse.BankTransactions[0].BankTransactionID || (() => { throw Error('Got BankTransaction without BankTransactionID from Xero'); })(),
+            isReconciled: !!transactionsResponse.BankTransactions[0].IsReconciled,
+        } : undefined;
     }
 
     async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, url }: ICreateTransactionData): Promise<string> {

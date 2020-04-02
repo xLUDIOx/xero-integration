@@ -87,11 +87,13 @@ describe('integrations/Manager', () => {
         const files: Payhawk.IDownloadedFile[] = [
             {
                 contentType: 'image/jpeg',
-                path: 'tmp/file.jpg',
+                fileName: 'file.jpg',
+                path: 'tmp/12312.file.jpg',
             },
             {
                 contentType: 'image/png',
-                path: 'tmp/file.png',
+                fileName: 'file.png',
+                path: 'tmp/534343.file.png',
             },
         ];
 
@@ -215,7 +217,7 @@ describe('integrations/Manager', () => {
                     .setup(x => x.createOrUpdateBill({
                         bankAccountId: undefined,
                         date: expense.createdAt,
-                        dueDate: expense.paymentData.dueDate,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency!,
@@ -269,7 +271,7 @@ describe('integrations/Manager', () => {
                     .setup(x => x.createOrUpdateBill({
                         bankAccountId: undefined,
                         date: expense.createdAt,
-                        dueDate: expense.paymentData.dueDate,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency!,

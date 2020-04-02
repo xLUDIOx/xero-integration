@@ -17,12 +17,14 @@ describe('XeroEntities.Manager', () => {
     const files: (Payhawk.IDownloadedFile & { name: string })[] = [
         {
             contentType: 'image/jpeg',
-            path: 'tmp/file.jpg',
+            fileName: 'file.jpg',
+            path: 'tmp/123.file.jpg',
             name: 'file.jpg',
         },
         {
             contentType: 'image/png',
-            path: 'tmp/file.png',
+            fileName: 'file.png',
+            path: 'tmp/456.file.png',
             name: 'file.png',
         },
     ];
@@ -93,7 +95,7 @@ describe('XeroEntities.Manager', () => {
                 .returns(async () => undefined);
 
             xeroClientMock
-                .setup(x => x.createContact(supplier.name, supplier.vat))
+                .setup(x => x.getOrCreateContact(supplier.name, supplier.vat))
                 .returns(async () => ({ ContactID: contactId }))
                 .verifiable(TypeMoq.Times.once());
 
@@ -134,7 +136,7 @@ describe('XeroEntities.Manager', () => {
                 .returns(async () => undefined);
 
             xeroClientMock
-                .setup(x => x.createContact(DEFAULT_SUPPLIER_NAME, undefined))
+                .setup(x => x.getOrCreateContact(DEFAULT_SUPPLIER_NAME, undefined))
                 .returns(async () => ({ ContactID: contactId }))
                 .verifiable(TypeMoq.Times.once());
 
@@ -233,8 +235,8 @@ describe('XeroEntities.Manager', () => {
             const id = 'tr';
 
             xeroClientMock
-                .setup(x => x.getTransactionIdByUrl(newAccountTx.url))
-                .returns(async () => id);
+                .setup(x => x.getTransactionByUrl(newAccountTx.url))
+                .returns(async () => ({ id, isReconciled: false }));
 
             xeroClientMock
                 .setup(x => x.createTransaction(
@@ -296,8 +298,8 @@ describe('XeroEntities.Manager', () => {
             const id = 'tr';
 
             xeroClientMock
-                .setup(x => x.getTransactionIdByUrl(newAccountTx.url))
-                .returns(async () => id);
+                .setup(x => x.getTransactionByUrl(newAccountTx.url))
+                .returns(async () => ({ id, isReconciled: false }));
 
             xeroClientMock
                 .setup(x => x.createTransaction(
@@ -464,6 +466,7 @@ describe('XeroEntities.Manager', () => {
         test('updates bill and does not upload any files if they are the same', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -533,6 +536,7 @@ describe('XeroEntities.Manager', () => {
         test('updates bill and pays it', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 isPaid: true,
                 bankAccountId: 'bank_id',
                 currency: 'EUR',
@@ -615,6 +619,7 @@ describe('XeroEntities.Manager', () => {
         test('updates bill and uploads missing files', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -705,6 +710,7 @@ describe('XeroEntities.Manager', () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
                 fxRate: 1,
                 contactId: 'contact-id',
@@ -756,6 +762,7 @@ describe('XeroEntities.Manager', () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 isPaid: true,
                 bankAccountId: 'bank_id',
                 currency: 'EUR',
@@ -819,6 +826,7 @@ describe('XeroEntities.Manager', () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
                 isPaid: true,
                 currency: 'EUR',
                 fxRate: 1,
@@ -930,6 +938,7 @@ describe('XeroEntities.Manager', () => {
                     const newBillId = 'new-bill-id';
                     const newBill: INewBill = {
                         date: new Date(2012, 1, 1).toISOString(),
+                        dueDate: new Date(2012, 1, 1).toISOString(),
                         currency: 'EUR',
                         fxRate: 1,
                         contactId: 'contact-id',
