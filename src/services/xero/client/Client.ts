@@ -158,7 +158,7 @@ export class Client implements IClient {
         });
 
         return transactionsResponse.BankTransactions.length > 0 ? {
-            id: transactionsResponse.BankTransactions[0].BankTransactionID || '',
+            id: transactionsResponse.BankTransactions[0].BankTransactionID || (() => { throw Error('Got BankTransaction without BankTransactionID from Xero'); })(),
             isReconciled: !!transactionsResponse.BankTransactions[0].IsReconciled,
         } : undefined;
     }
