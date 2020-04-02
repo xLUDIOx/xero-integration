@@ -5,7 +5,7 @@ RUN chmod -R 777 /app
 
 USER node
 
-COPY [ "./package.json", "./package-lock.json", "./tsconfig.json", "./"]
+COPY [ "./package.json", "./package-lock.json", "./"]
 
 RUN npm ci
 

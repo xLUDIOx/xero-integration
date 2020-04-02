@@ -1,5 +1,3 @@
-import * as path from 'path';
-
 import { Payhawk, Xero } from '../../services';
 import { IAccountCode } from './IAccountCode';
 import { IBankAccount } from './IBankAccount';
@@ -32,7 +30,7 @@ export class Manager implements IManager {
         const contactName = supplier.name || DEFAULT_SUPPLIER_NAME;
         let contact = await this.xeroClient.findContact(contactName, supplier.vat);
         if (!contact) {
-            contact = await this.xeroClient.createContact(contactName, supplier.name ? supplier.vat : undefined);
+            contact = await this.xeroClient.getOrCreateContact(contactName, supplier.name ? supplier.vat : undefined);
         }
 
         return contact.ContactID!;
@@ -55,7 +53,12 @@ export class Manager implements IManager {
     }
 
     async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<string> {
-        let transactionId = await this.xeroClient.getTransactionIdByUrl(newTransaction.url);
+        const transaction = await this.xeroClient.getTransactionByUrl(newTransaction.url);
+        if (transaction && transaction.isReconciled) {
+            return transaction.id;
+        }
+
+        let transactionId = transaction ? transaction.id : undefined;
         let filesToUpload = newTransaction.files;
 
         if (!transactionId) {
@@ -82,12 +85,12 @@ export class Manager implements IManager {
 
             const existingFileNames = (await this.xeroClient.getTransactionAttachments(transactionId)).map(f => f.FileName);
 
-            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(convertPathToFileName(f.path)));
+            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
         }
 
         // Files should be uploaded in the right order so Promise.all is no good
         for (const f of filesToUpload) {
-            const fileName = convertPathToFileName(f.path);
+            const fileName = f.fileName;
             await this.xeroClient.uploadTransactionAttachment(transactionId, fileName, f.path, f.contentType);
         }
 
@@ -123,7 +126,7 @@ export class Manager implements IManager {
             const existingFileNames = (files).map(f => f.FileName);
 
             filesToUpload = filesToUpload.filter(f => {
-                const filePath = convertPathToFileName(f.path);
+                const filePath = f.fileName;
                 const isAlreadyUploaded = existingFileNames.includes(filePath);
                 return !isAlreadyUploaded;
             });
@@ -144,7 +147,7 @@ export class Manager implements IManager {
 
         // Files should be uploaded in the right order so Promise.all is no good
         for (const f of filesToUpload) {
-            const fileName = convertPathToFileName(f.path);
+            const fileName = f.fileName;
             await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
         }
 
@@ -218,10 +221,6 @@ export const getTransactionExternalUrl = (transactionId: string, bankAccountId: 
 export const getBillExternalUrl = (invoiceId: string): string => {
     return `https://go.xero.com/AccountsPayable/View.aspx?invoiceId=${encodeURIComponent(invoiceId)}`;
 };
-
-function convertPathToFileName(filePath: string): string {
-    return path.basename(filePath);
-}
 
 const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account code '.+' has been archived/;
 

@@ -3,12 +3,13 @@ import { Contact, Organisation } from 'xero-node/lib/AccountingAPI-models';
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
+import { IBankTransaction } from './IBankTransaction';
 
 export interface IClient {
     getOrganisation(): Promise<Organisation | undefined>;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
-    createContact(name: string, vat?: string): Promise<Contact>;
+    getOrCreateContact(name: string, vat?: string): Promise<Contact>;
 
     getBankAccounts(): Promise<IBankAccount[]>;
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
@@ -18,7 +19,7 @@ export interface IClient {
 
     getExpenseAccounts(): Promise<IAccountCode[]>;
 
-    getTransactionIdByUrl(url: string): Promise<string | undefined>;
+    getTransactionByUrl(url: string): Promise<IBankTransaction | undefined>;
     createTransaction(data: ICreateTransactionData): Promise<string>;
     updateTransaction(data: IUpdateTransactionData): Promise<void>;
     getTransactionAttachments(entityId: string): Promise<IAttachment[]>;

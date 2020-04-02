@@ -10,7 +10,7 @@ USER node
 EXPOSE 8080 9230
 ENTRYPOINT [ "npm", "start" ]
 
-COPY ["./package.json", "./package-lock.json", "./tsconfig.json", "./"]
+COPY ["./package.json", "./package-lock.json", "./"]
 RUN npm ci
 
 ADD . ./
