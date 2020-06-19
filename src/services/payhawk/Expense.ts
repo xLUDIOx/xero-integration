@@ -29,8 +29,8 @@ export interface ISupplier {
 
 export interface IDocument {
     type: 'invoice' | 'receipt' | 'other';
-    date: string;
-    number: string;
+    date?: string;
+    number?: string;
     files: IFile[];
 }
 

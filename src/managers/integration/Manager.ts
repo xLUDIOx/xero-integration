@@ -118,7 +118,7 @@ export class Manager implements IManager {
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
-        const date = expense.document ? expense.document.date : expense.createdAt;
+        const date = expense.document && expense.document.date ? expense.document.date : expense.createdAt;
 
         const expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {

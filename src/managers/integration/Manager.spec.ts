@@ -237,6 +237,59 @@ describe('integrations/Manager', () => {
                 await manager.exportExpense(expenseId);
             });
 
+            test('creates a bill when expense has no due date or document date', async () => {
+                const expenseId = 'expenseId';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2).toISOString(),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation,
+                    supplier,
+                    document: { type: 'invoice', files: []},
+                    paymentData: {},
+                    title: 'My Cash Expense',
+                    transactions: [ ],
+                    externalLinks: [],
+                };
+
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateBill({
+                        bankAccountId: undefined,
+                        date: expense.createdAt,
+                        dueDate: expense.createdAt,
+                        isPaid: expense.isPaid,
+                        accountCode: reconciliation.accountCode,
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
+                        contactId,
+                        description: expense.note,
+                        totalAmount: 11.28,
+                        files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                    }))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                await manager.exportExpense(expenseId);
+            });
+
             test('deletes files even when create bill fails', async () => {
                 const expenseId = 'expenseId';
                 const expense: Payhawk.IExpense = {
