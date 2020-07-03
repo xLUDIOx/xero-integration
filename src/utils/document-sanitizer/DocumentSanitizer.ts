@@ -1,5 +1,5 @@
-import fs = require('fs');
 import { exec } from 'child_process';
+import fs = require('fs');
 
 import Jimp = require('jimp');
 
@@ -20,8 +20,36 @@ export class DocumentSanitizer implements IDocumentSanitizer {
 
     private async shrinkPdf(input: string) {
         await new Promise((resolve, reject) => {
-            // cspell:disable-next-line
-            const command = `gs -q -dNOPAUSE -dQUIET -dBATCH -dSAFER -sDEVICE=pdfwrite -dCompatibilityLevel=1.4 -dPDFSETTINGS=/screen -dEmbedAllFonts=true -dSubsetFonts=true -dColorImageDownsampleType=/Bicubic -dColorImageResolution=70 -dGrayImageDownsampleType=/Bicubic -dGrayImageResolution=70 -dMonoImageDownsampleType=/Bicubic -dMonoImageResolution=70 -sOutputFile=${input}.tmp.pdf ${input}`;
+            // cspell:disable
+            const command = `gs \
+                -q \
+                -dNOPAUSE \
+                -dQUIET \
+                -dBATCH \
+                -dSAFER \
+                -sDEVICE=pdfwrite \
+                -dCompatibilityLevel=1.4 \
+                -dPDFSETTINGS=/screen \
+                -dEmbedAllFonts=true \
+                -dSubsetFonts=true \
+                -dColorImageDownsampleType=/Bicubic \
+                -dGrayImageDownsampleType=/Bicubic \
+                -dMonoImageDownsampleType=/Bicubic \
+                -dDownsampleColorImages=true \
+                -dDownsampleGrayImages=true \
+                -dDownsampleMonoImages=true \
+                -dColorImageResolution=72 \
+                -dGrayImageResolution=72 \
+                -dMonoImageResolution=72 \
+                -dColorImageDownsampleThreshold=1.0 \
+                -dGrayImageDownsampleThreshold=1.0 \
+                -dMonoImageDownsampleThreshold=1.0 \
+                -sOutputFile=${input}.tmp.pdf \
+                ${input}
+            `;
+
+            // cspell:enable
+
             exec(command, (err, stdout, stderr) => {
                 if (err) {
                     reject(err);
