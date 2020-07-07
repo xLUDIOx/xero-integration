@@ -75,7 +75,7 @@ describe('integrations/Manager', () => {
             baseTotalAmount: 10,
             expenseTaxAmount: 2.26,
             expenseTotalAmount: 11.28,
-            customFields: { },
+            customFields: {},
         };
 
         const supplier: Payhawk.ISupplier = {
@@ -116,7 +116,9 @@ describe('integrations/Manager', () => {
                             id: 'tx1',
                             cardAmount: 5,
                             cardCurrency: 'EUR',
+                            cardName: 'Card 1',
                             cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
@@ -128,6 +130,7 @@ describe('integrations/Manager', () => {
                             cardAmount: 5,
                             cardCurrency: 'EUR',
                             cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
@@ -163,7 +166,7 @@ describe('integrations/Manager', () => {
                             accountCode: reconciliation.accountCode,
                             bankAccountId,
                             contactId,
-                            description: expense.note,
+                            description: `${t.cardHolderName}${t.cardName ? `, ${t.cardName}` : ''}, *${t.cardLastDigits} | ${expense.note}`,
                             reference: t.description,
                             totalAmount: t.cardAmount + t.fees,
                             files,
@@ -196,7 +199,7 @@ describe('integrations/Manager', () => {
                     supplier,
                     paymentData: {},
                     title: 'My Cash Expense',
-                    transactions: [ ],
+                    transactions: [],
                     externalLinks: [],
                 };
 
@@ -223,7 +226,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
-                        description: expense.note,
+                        description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
@@ -246,10 +249,10 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
-                    document: { type: 'invoice', files: []},
+                    document: { type: 'invoice', files: [] },
                     paymentData: {},
                     title: 'My Cash Expense',
-                    transactions: [ ],
+                    transactions: [],
                     externalLinks: [],
                 };
 
@@ -276,7 +279,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
-                        description: expense.note,
+                        description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
@@ -303,7 +306,7 @@ describe('integrations/Manager', () => {
                         dueDate: new Date(2019, 2, 12).toISOString(),
                     },
                     title: 'My Cash Expense',
-                    transactions: [ ],
+                    transactions: [],
                     externalLinks: [],
                 };
 
@@ -330,7 +333,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
-                        description: expense.note,
+                        description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
@@ -358,7 +361,6 @@ describe('integrations/Manager', () => {
         test('creates an account transaction for each transfer', async () => {
             await testTransfersExport(new Date(), 'account');
         });
-
         test('creates an account transaction for each transfer - backward compat', async () => {
             await testTransfersExport(new Date(2020, 0, 28, 23, 59, 59), 'accountId');
         });

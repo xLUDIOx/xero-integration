@@ -81,17 +81,18 @@ export class Manager implements IManager {
 
         for (const t of expense.transactions) {
             const totalAmount = t.cardAmount + t.fees;
+            const description = formatDescription(formatCardDescription(t.cardHolderName, t.cardLastDigits, t.cardName), expense.note);
             const date = t.settlementDate;
             const newAccountTransaction: INewAccountTransaction = {
                 date,
                 bankAccountId,
                 contactId,
-                description: expense.note,
+                description,
                 reference: t.description,
                 totalAmount,
                 accountCode: expense.reconciliation.accountCode,
                 files,
-                url: this.transactionUrl(t.id, new Date(date)),
+                url: this.buildTransactionUrl(t.id, new Date(date)),
             };
 
             const transactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -111,7 +112,7 @@ export class Manager implements IManager {
             reference: `Bank wire received on ${new Date(transfer.date).toUTCString()}`,
             totalAmount: -Math.abs(transfer.amount),
             files: [],
-            url: this.transferUrl(transfer.id, new Date(date)),
+            url: this.buildTransferUrl(transfer.id, new Date(date)),
         };
 
         await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -153,6 +154,8 @@ export class Manager implements IManager {
 
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
+        const description = formatDescription(expense.ownerName, expense.note);
+
         const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: INewBill = {
             bankAccountId,
@@ -160,13 +163,13 @@ export class Manager implements IManager {
             dueDate: expense.paymentData.dueDate || date,
             isPaid: expense.isPaid,
             contactId,
-            description: expense.note,
+            description,
             currency: expenseCurrency,
             fxRate,
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,
-            url: this.expenseUrl(expense.id, new Date(date)),
+            url: this.buildExpenseUrl(expense.id, new Date(date)),
         };
 
         const billId = await this.xeroEntities.createOrUpdateBill(newBill);
@@ -184,17 +187,17 @@ export class Manager implements IManager {
         );
     }
 
-    private expenseUrl(expenseId: string, date: Date): string {
+    private buildExpenseUrl(expenseId: string, date: Date): string {
         const accountIdQueryParam = this.getAccountIdQueryParam(date);
         return `${this.portalUrl}/expenses/${encodeURIComponent(expenseId)}?${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private transactionUrl(transactionId: string, date: Date): string {
+    private buildTransactionUrl(transactionId: string, date: Date): string {
         const accountIdQueryParam = this.getAccountIdQueryParam(date);
         return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private transferUrl(transferId: string, date: Date): string {
+    private buildTransferUrl(transferId: string, date: Date): string {
         const accountIdQueryParam = this.getAccountIdQueryParam(date);
         return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
@@ -207,6 +210,14 @@ export class Manager implements IManager {
 
         return 'accountId';
     }
+}
+
+function formatDescription(name: string, expenseNote?: string): string {
+    return `${name}${expenseNote ? ` | ${expenseNote}` : ''}`;
+}
+
+function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {
+    return `${cardHolderName}${cardName ? `, ${cardName}` : ''}, *${cardLastDigits}`;
 }
 
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);
