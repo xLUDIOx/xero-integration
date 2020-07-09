@@ -4,6 +4,7 @@ export interface INewBill {
     bankAccountId?: string;
     date: string;
     dueDate: string;
+    paymentDate?: string;
     isPaid?: boolean;
     contactId: string;
     description?: string;

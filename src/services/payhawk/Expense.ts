@@ -54,6 +54,7 @@ export interface IReconciliation {
 
 export interface IPaymentData {
     dueDate?: string;
+    date?: string;
     source?: string;
 }
 

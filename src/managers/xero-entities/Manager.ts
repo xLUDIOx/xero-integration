@@ -132,9 +132,9 @@ export class Manager implements IManager {
             });
         }
 
-        if (newBill.isPaid && newBill.bankAccountId !== undefined) {
+        if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId) {
             const paymentData: Xero.IBillPaymentData = {
-                date: billData.date,
+                date: newBill.paymentDate,
                 amount: billData.amount,
                 fxRate: billData.fxRate,
                 currency: billData.currency,

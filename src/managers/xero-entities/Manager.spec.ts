@@ -536,8 +536,9 @@ describe('XeroEntities.Manager', () => {
         test('updates bill and pays it', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
-                dueDate: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
+                paymentDate: new Date(2012, 10, 11).toISOString(),
                 bankAccountId: 'bank_id',
                 currency: 'EUR',
                 contactId: 'contact-id',
@@ -569,7 +570,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.updateBill({
                     billId: id,
                     date: newBill.date,
-                    dueDate: newBill.date,
+                    dueDate: newBill.dueDate,
                     isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: newBill.description!,
@@ -608,7 +609,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newBill.totalAmount,
                     fxRate: newBill.fxRate,
                     bankAccountId: newBill.bankAccountId!,
-                    date: newBill.date,
+                    date: newBill.paymentDate!,
                     currency: newBill.currency,
                 }))
                 .verifiable(TypeMoq.Times.once());
@@ -762,7 +763,8 @@ describe('XeroEntities.Manager', () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
-                dueDate: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 12).toISOString(),
+                paymentDate: new Date(2012, 10, 11).toISOString(),
                 isPaid: true,
                 bankAccountId: 'bank_id',
                 currency: 'EUR',
@@ -777,7 +779,7 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.createBill({
                     date: newBill.date,
-                    dueDate: newBill.date,
+                    dueDate: newBill.dueDate,
                     isPaid: newBill.isPaid,
                     contactId: newBill.contactId,
                     description: newBill.description!,
@@ -814,7 +816,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newBill.totalAmount,
                     fxRate: newBill.fxRate,
                     bankAccountId: newBill.bankAccountId!,
-                    date: newBill.date,
+                    date: newBill.paymentDate!,
                     currency: newBill.currency,
                 }))
                 .verifiable(TypeMoq.Times.once());
