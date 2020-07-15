@@ -2,7 +2,7 @@ import * as TypeMoq from 'typemoq';
 import { AccountingAPIClient } from 'xero-node';
 
 import { OperationNotAllowedError } from '../../../utils';
-import { Client } from './Client';
+import { Client, escapeParam } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
@@ -398,6 +398,14 @@ describe('Xero client', () => {
                 .verifiable(TypeMoq.Times.once());
 
             await expect(client.payBill(paymentDetails)).rejects.toThrow(OperationNotAllowedError);
+        });
+    });
+
+    describe('escapeParam()', () => {
+        it('should map to same value regardless of quotes and whitespace', () => {
+            const expected = 'My Company Ltd.';
+            expect(escapeParam('"My Company" Ltd.')).toEqual(expected);
+            expect(escapeParam('"  My Company   " Ltd.')).toEqual(expected);
         });
     });
 

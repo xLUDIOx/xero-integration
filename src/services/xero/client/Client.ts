@@ -42,11 +42,11 @@ export class Client implements IClient {
     async findContact(name: string, vat?: string): Promise<Contact | undefined> {
         let contactsResponse: ContactsResponse | undefined;
         if (vat) {
-            contactsResponse = await this.xeroClient.contacts.get({ where: `${ContactKeys.TaxNumber}=="${this.escape(vat.trim())}"` });
+            contactsResponse = await this.xeroClient.contacts.get({ where: `${ContactKeys.TaxNumber}=="${escapeParam(vat.trim())}"` });
         }
 
         if (!contactsResponse || contactsResponse.Contacts.length === 0) {
-            const where = `${ContactKeys.Name}.toLower()=="${this.escape(name.toLowerCase().trim())}"`;
+            const where = `${ContactKeys.Name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
             contactsResponse = await this.xeroClient.contacts.get({ where });
         }
 
@@ -56,7 +56,7 @@ export class Client implements IClient {
 
     async getOrCreateContact(name: string, vat?: string): Promise<Contact> {
         const payload: Contact = {
-            Name: this.escapeDoubleQuotes(name.trim()),
+            Name: escapeParam(name),
         };
 
         if (vat) {
@@ -140,7 +140,7 @@ export class Client implements IClient {
 
     async getBankAccountByCode(code: string): Promise<IBankAccount | undefined> {
         const bankAccountsResponse = await this.xeroClient.accounts.get({
-            where: `${BankAccountKeys.Type}=="${AccountType.Bank}" && ${BankAccountKeys.Code}=="${this.escape(code)}"`,
+            where: `${BankAccountKeys.Type}=="${AccountType.Bank}" && ${BankAccountKeys.Code}=="${escapeParam(code)}"`,
         });
         return bankAccountsResponse.Accounts.length > 0 ? bankAccountsResponse.Accounts[0] : undefined;
     }
@@ -154,7 +154,7 @@ export class Client implements IClient {
 
     async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {
         const transactionsResponse = await this.xeroClient.bankTransactions.get({
-            where: `${AccountingItemKeys.Url}="${this.escape(url)}" && ${AccountingItemKeys.Status}!="${BankTransactionStatusCode.Deleted}"`,
+            where: `${AccountingItemKeys.Url}="${escapeParam(url)}" && ${AccountingItemKeys.Status}!="${BankTransactionStatusCode.Deleted}"`,
         });
 
         return transactionsResponse.BankTransactions.length > 0 ? {
@@ -181,7 +181,7 @@ export class Client implements IClient {
 
     async getBillIdByUrl(url: string): Promise<string | undefined> {
         const billsResponse = await this.xeroClient.invoices.get({
-            where: `${AccountingItemKeys.Url}="${this.escape(url)}" && ${AccountingItemKeys.Status}!="${InvoiceStatusCode.Deleted}"`,
+            where: `${AccountingItemKeys.Url}="${escapeParam(url)}" && ${AccountingItemKeys.Status}!="${InvoiceStatusCode.Deleted}"`,
         });
 
         return billsResponse.Invoices.length > 0 ? billsResponse.Invoices[0].InvoiceID : undefined;
@@ -259,20 +259,8 @@ export class Client implements IClient {
         this.handleClientResponse(attachmentsResponse.Attachments[0]);
     }
 
-    private escape(val: string): string {
-        const res = this.escapeDoubleQuotes(val)
-            .replace(/[\\$']/g, '\\$&');
-        return res.trim();
-    }
-
-    private escapeDoubleQuotes(val: string): string {
-        const res = val
-            .replace(/["]/g, '');
-        return res.trim();
-    }
-
     private async ensureCurrency(currencyCode: string): Promise<void> {
-        const currenciesResponse = await this.xeroClient.currencies.get({ where: `${CurrencyKeys.Code}=="${this.escape(currencyCode)}"` });
+        const currenciesResponse = await this.xeroClient.currencies.get({ where: `${CurrencyKeys.Code}=="${escapeParam(currencyCode)}"` });
         if (currenciesResponse.Currencies.length === 0) {
             const createCurrencyResponse = await this.xeroClient.currencies.create({
                 Code: currencyCode,
@@ -364,4 +352,21 @@ function getNewPaymentModel(date: string, amount: number, bankAccountId: string,
     };
 
     return paymentModel;
+}
+
+export function escapeParam(val: string): string {
+    const res = normalizeName(val)
+        .replace(/[\\$']/g, '\\$&')
+        ;
+    return res.trim();
+}
+
+/*
+    Removes double quotes and multiple whitespace
+*/
+export function normalizeName(name: string): string {
+    const res = name
+        .replace(/["]/g, '')
+        .replace(/\s+/g, ' ');
+    return res.trim();
 }
