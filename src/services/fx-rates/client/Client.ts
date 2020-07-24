@@ -23,11 +23,7 @@ export class Client implements IClient {
             },
         );
 
-        const item = result.quotes[`${fromCurrency}${toCurrency}`];
-        if (!item) {
-            return undefined;
-        }
-
+        const item = result.quotes ? result.quotes[`${fromCurrency}${toCurrency}`] : undefined;
         return item;
     }
 }

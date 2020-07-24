@@ -3,7 +3,7 @@ export interface IClient {
 }
 
 export interface IHistoricalDataResponse {
-    quotes: {
+    quotes?: {
         [key: string]: number;
     };
 }
