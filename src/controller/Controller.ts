@@ -5,7 +5,7 @@ import { XeroError } from 'xero-node';
 
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger, OperationNotAllowedError } from '../utils';
+import { ILogger, isTokenExpired, OperationNotAllowedError } from '../utils';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -183,8 +183,8 @@ export class Controller {
                 return { isAlive: false };
             }
 
-            const isTokenExpired = connectionManager.isTokenExpired(xeroAccessToken);
-            if (isTokenExpired) {
+            const isExpired = isTokenExpired(xeroAccessToken);
+            if (isExpired) {
                 return { isAlive: false, message: ConnectionMessage.TokenExpired };
             }
 

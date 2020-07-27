@@ -1,4 +1,2 @@
-import * as Integration from './integration';
-import * as XeroConnection from './xero-connection';
-
-export { Integration, XeroConnection };
+export * as Integration from './integration';
+export * as XeroConnection from './xero-connection';

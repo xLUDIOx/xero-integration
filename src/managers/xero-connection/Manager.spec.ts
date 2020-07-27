@@ -2,8 +2,8 @@ import * as TypeMoq from 'typemoq';
 import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { IAuth } from '../../services/xero';
+import { IStore } from '../../store';
 import { Manager } from './Manager';
-import { IStore } from './store';
 
 describe('xero-connection/Manager', () => {
     const accountId = 'account_id';

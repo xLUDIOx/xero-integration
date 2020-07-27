@@ -6,7 +6,7 @@ import { config } from '../../Config';
 
 const xeroConfigPath = getXeroConfigPath();
 
-const baseConfig: XeroClientConfiguration = {
+const baseConfig: XeroClientConfiguration & IXeroClientConfigurationV2 = {
     // tslint:disable-next-line: no-var-requires
     ...(fs.existsSync(xeroConfigPath) ? require(xeroConfigPath) : {}),
 };
@@ -19,6 +19,16 @@ export const getXeroConfig = (accountId: string, returnUrl?: string) => {
     return {
         ...baseConfig,
         callbackUrl: `${config.serviceUrl}/callback?${queryString}`,
+    };
+};
+
+export const getXeroConfigV2 = (accountId: string, returnUrl?: string) => {
+    const queryString = `accountId=${encodeURIComponent(accountId)}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`;
+    return {
+        clientId: baseConfig.clientId,
+        clientSecret: baseConfig.clientSecret,
+        scopes: baseConfig.scopes,
+        redirectUris: [`${config.serviceUrl}/callback?${queryString}`],
     };
 };
 
@@ -42,4 +52,10 @@ function getXeroPrivateKeyPath(conf: XeroClientConfiguration): string | undefine
     }
 
     return result;
+}
+
+interface IXeroClientConfigurationV2 {
+    clientId: string;
+    clientSecret: string;
+    scopes: string[];
 }

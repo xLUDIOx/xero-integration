@@ -52,3 +52,5 @@ export const createClient = (accountId: string, accessToken: AccessToken): IClie
 
     return new Client(wrappedClient, createDocumentSanitizer());
 };
+
+export * from './auth-v2';

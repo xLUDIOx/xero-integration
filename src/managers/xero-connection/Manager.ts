@@ -1,8 +1,9 @@
 import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { Xero } from '../../services';
+import { IStore } from '../../store';
+import * as Utils from '../../utils/token-validator';
 import { IManager } from './IManager';
-import { IStore } from './store/IStore';
 
 export class Manager implements IManager {
     constructor(
@@ -47,17 +48,12 @@ export class Manager implements IManager {
             return undefined;
         }
 
-        const isTokenExpired = this.isTokenExpired(xeroAccessToken);
-        if (isTokenExpired) {
+        const isExpired = Utils.isTokenExpired(xeroAccessToken);
+        if (isExpired) {
             xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken);
         }
 
         return xeroAccessToken;
-    }
-
-    isTokenExpired(accessToken: AccessToken): boolean {
-        const isTokenExpired = accessToken.oauth_expires_at !== undefined && new Date(accessToken.oauth_expires_at) < new Date();
-        return isTokenExpired;
     }
 
     private async tryRefreshAccessToken(currentToken: AccessToken): Promise<AccessToken | undefined> {

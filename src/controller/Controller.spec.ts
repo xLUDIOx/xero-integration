@@ -408,10 +408,6 @@ describe('Controller', () => {
                 .setup(m => m.getAccessToken())
                 .returns(async () => token);
 
-            connectionManagerMock
-                .setup(m => m.isTokenExpired(token))
-                .returns(() => true);
-
             responseMock
                 .setup(r => r.send(200, { isAlive: false, message: ConnectionMessage.TokenExpired }))
                 .verifiable(TypeMoq.Times.once());
