@@ -2,6 +2,7 @@
     "version": "0.1",
     "language": "en",
     "words": [
+        "ACCPAY",
         "authorise",
         "authorised",
         "chmod",
@@ -9,6 +10,7 @@
         "entrypoint",
         "ghostscript",
         "jsonb",
+        "openid",
         "organisation",
         "organisations",
         "payhawk",
@@ -19,6 +21,7 @@
         "summarise",
         "telepresence",
         "typemoq",
+        "userid",
         "workdir",
         "xero"
     ],

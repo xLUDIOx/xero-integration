@@ -1,12 +1,14 @@
-import { Contact, Organisation } from 'xero-node/lib/AccountingAPI-models';
+import { Contact } from 'xero-node';
 
 import { IAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
+import { IInvoice } from './IInvoice';
+import { IOrganisation } from './IOrganisation';
 
 export interface IClient {
-    getOrganisation(): Promise<Organisation | undefined>;
+    getOrganisation(): Promise<IOrganisation | undefined>;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     getOrCreateContact(name: string, vat?: string): Promise<Contact>;
@@ -14,7 +16,7 @@ export interface IClient {
     getBankAccounts(): Promise<IBankAccount[]>;
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
     getBankAccountByCode(code: string): Promise<IBankAccount | undefined>;
-    activateBankAccount(bankAccount: IBankAccount): Promise<IBankAccount>;
+    activateBankAccount(bankAccountId: string): Promise<IBankAccount>;
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
 
     getExpenseAccounts(): Promise<IAccountCode[]>;
@@ -25,9 +27,9 @@ export interface IClient {
     getTransactionAttachments(entityId: string): Promise<IAttachment[]>;
     uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
 
-    getBillIdByUrl(url: string): Promise<string | undefined>;
+    getBillByUrl(url: string): Promise<IInvoice | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
-    updateBill(data: IUpdateBillData): Promise<void>;
+    updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void>;
     payBill(data: IBillPaymentData): Promise<void>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(entityId: string): Promise<IAttachment[]>;

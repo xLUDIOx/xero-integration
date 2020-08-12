@@ -1,7 +1,8 @@
-import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { ITokenSet } from '../../store';
 
 export interface IManager {
     getAuthorizationUrl(): Promise<string>;
-    authenticate(verifier: string): Promise<AccessToken | undefined>;
-    getAccessToken(): Promise<AccessToken | undefined>;
+    authenticate(verifier: string): Promise<ITokenSet | undefined>;
+    getAccessToken(): Promise<ITokenSet | undefined>;
+    getActiveTenantId(): Promise<string>;
 }

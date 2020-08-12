@@ -1,54 +1,39 @@
-import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
-
 import { Xero } from '../../services';
-import { IStore } from '../../store';
-import * as Utils from '../../utils/token-validator';
+import { IStore, ITokenSet } from '../../store';
+import { ILogger } from '../../utils';
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
         private readonly store: IStore,
         private readonly authClient: Xero.IAuth,
-        private readonly accountId: string) { }
+        private readonly accountId: string,
+        private readonly logger: ILogger,
+    ) {
+    }
 
     async getAuthorizationUrl(): Promise<string> {
-        const { url, requestToken } = await this.authClient.getAuthUrl();
-        await this.store.saveRequestToken(this.accountId, requestToken);
-
+        const url = await this.authClient.getAuthUrl();
         return url;
     }
 
-    async authenticate(verifier: string): Promise<AccessToken | undefined> {
-        if (!verifier) {
-            throw Error('Missing verifier argument');
-        }
+    async authenticate(verifier: string): Promise<ITokenSet | undefined> {
+        const accessToken = await this.authClient.getAccessToken(verifier);
 
-        const requestToken = await this.store.getRequestTokenByAccountId(this.accountId);
-        if (!requestToken) {
-            return undefined;
-        }
+        await this.saveAccessToken(accessToken);
 
-        try {
-            const accessToken = await this.authClient.getAccessToken(requestToken, verifier);
-            await this.store.saveAccessToken(this.accountId, accessToken);
-
-            return accessToken;
-        } catch (e) {
-            if (e && e.name === 'XeroError') {
-                return undefined;
-            } else {
-                throw e;
-            }
-        }
+        return accessToken.tokenSet;
     }
 
-    async getAccessToken(): Promise<AccessToken | undefined> {
-        let xeroAccessToken = await this.store.getAccessTokenByAccountId(this.accountId);
-        if (xeroAccessToken === undefined) {
+    async getAccessToken(): Promise<ITokenSet | undefined> {
+        const xeroAccessTokenRecord = await this.store.getAccessToken(this.accountId);
+        if (xeroAccessTokenRecord === undefined) {
             return undefined;
         }
 
-        const isExpired = Utils.isTokenExpired(xeroAccessToken);
+        let xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
+
+        const isExpired = xeroAccessToken.expired();
         if (isExpired) {
             xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken);
         }
@@ -56,12 +41,44 @@ export class Manager implements IManager {
         return xeroAccessToken;
     }
 
-    private async tryRefreshAccessToken(currentToken: AccessToken): Promise<AccessToken | undefined> {
-        const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
-        if (refreshedAccessToken) {
-            await this.store.saveAccessToken(this.accountId, refreshedAccessToken);
+    async getActiveTenantId(): Promise<string> {
+        const xeroAccessTokenRecord = await this.store.getAccessToken(this.accountId);
+        if (xeroAccessTokenRecord === undefined) {
+            throw Error('Unable to get active tenant ID because token is undefined');
         }
 
-        return refreshedAccessToken;
+        return xeroAccessTokenRecord.tenant_id;
+    }
+
+    private async tryRefreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet | undefined> {
+        try {
+            if (!currentToken.refresh_token) {
+                this.logger.info('Current token is expired and cannot be refreshed. Must re-authenticate.');
+                return undefined;
+            }
+
+            const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
+
+            if (!refreshedAccessToken) {
+                return undefined;
+            }
+
+            await this.saveAccessToken(refreshedAccessToken);
+            return refreshedAccessToken.tokenSet;
+        } catch (err) {
+            const error = Error(`Failed to refresh access token - ${err.toString()}`);
+            this.logger.error(error);
+        }
+
+        return undefined;
+    }
+
+    private async saveAccessToken(accessToken: Xero.IAccessToken) {
+        await this.store.saveAccessToken({
+            account_id: this.accountId,
+            tenant_id: accessToken.tenantId,
+            user_id: accessToken.xeroUserId,
+            token_set: accessToken.tokenSet,
+        });
     }
 }

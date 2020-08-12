@@ -11,6 +11,11 @@ require('source-map-support').install();
     const controller = createController();
     const server = createServer(controller);
 
+    server.post('/migrate', async (req, res) => {
+        await Store.ensureSchemaVersion();
+        res.send(200);
+    });
+
     const stop = async () => await server.close();
     process.on('SIGTERM', stop);
     process.on('SIGINT', stop);

@@ -3,6 +3,6 @@ export namespace SCHEMA {
     export const NAME = 'xero_integration';
 
     export enum TABLE_NAMES {
-        ACCESS_TOKENS_V2 = 'oauth2_access_tokens',
+        ACCESS_TOKENS = 'oauth2_access_tokens',
     }
 }

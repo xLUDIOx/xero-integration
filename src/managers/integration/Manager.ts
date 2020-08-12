@@ -1,6 +1,6 @@
 import { FxRates, Payhawk } from '../../services';
+import { ILogger } from '../../utils';
 import * as XeroEntities from '../xero-entities';
-import { INewAccountTransaction, INewBill } from '../xero-entities';
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
@@ -10,29 +10,31 @@ export class Manager implements IManager {
         private readonly fxRateService: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly accountId: string,
-        private readonly portalUrl: string) { }
+        private readonly portalUrl: string,
+        private readonly logger: ILogger,
+    ) { }
 
     async getOrganisationName(): Promise<string | undefined> {
         const organisation = await this.xeroEntities.getOrganisation();
-        return organisation ? organisation.Name : undefined;
+        return organisation ? organisation.name : undefined;
     }
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
-        await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes.map(a => ({
-            code: a.Code,
-            name: a.Name,
-        })));
+
+        await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes);
     }
 
     async synchronizeBankAccounts(): Promise<void> {
         const bankAccounts = await this.xeroEntities.getBankAccounts();
-        await this.payhawkClient.synchronizeBankAccounts(bankAccounts.map(b => ({
-            name: b.Name,
-            externalId: b.AccountID,
-            number: b.BankAccountNumber,
-            currency: b.CurrencyCode,
-        })));
+        const bankAccountModels = bankAccounts.map(b => ({
+            name: b.name,
+            externalId: b.accountID,
+            number: b.bankAccountNumber,
+            currency: b.currencyCode.toString(),
+        }));
+
+        await this.payhawkClient.synchronizeBankAccounts(bankAccountModels);
     }
 
     async exportExpense(expenseId: string): Promise<void> {
@@ -61,13 +63,17 @@ export class Manager implements IManager {
         const bankAccountIdMap = new Map<string, string>();
 
         for (const transfer of transfers) {
-            let bankAccountId = bankAccountIdMap.get(transfer.currency);
-            if (!bankAccountId) {
-                bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(transfer.currency);
-                bankAccountIdMap.set(transfer.currency, bankAccountId);
-            }
+            try {
+                let bankAccountId = bankAccountIdMap.get(transfer.currency);
+                if (!bankAccountId) {
+                    bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(transfer.currency);
+                    bankAccountIdMap.set(transfer.currency, bankAccountId);
+                }
 
-            await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
+                await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
+            } catch (err) {
+                this.logger.child({ accountId: this.accountId, transferId: transfer.id }).error(err);
+            }
         }
     }
 
@@ -83,7 +89,7 @@ export class Manager implements IManager {
             const totalAmount = t.cardAmount + t.fees;
             const description = formatDescription(formatCardDescription(t.cardHolderName, t.cardLastDigits, t.cardName), expense.note);
             const date = t.settlementDate;
-            const newAccountTransaction: INewAccountTransaction = {
+            const newAccountTransaction: XeroEntities.INewAccountTransaction = {
                 date,
                 bankAccountId,
                 contactId,
@@ -105,7 +111,7 @@ export class Manager implements IManager {
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
         const date = transfer.date;
-        const newAccountTransaction: INewAccountTransaction = {
+        const newAccountTransaction: XeroEntities.INewAccountTransaction = {
             date,
             bankAccountId,
             contactId,
@@ -134,17 +140,22 @@ export class Manager implements IManager {
             const bankAccount = await this.xeroEntities.getBankAccountById(potentialBankAccountId);
 
             if (bankAccount) {
-                const bankAccountCurrency = bankAccount.CurrencyCode;
+                const bankAccountCurrency = bankAccount.currencyCode;
 
-                if (expenseCurrency === bankAccountCurrency) {
+                if (expenseCurrency === bankAccountCurrency.toString()) {
                     bankAccountId = potentialBankAccountId;
                 } else {
                     const organisation = await this.xeroEntities.getOrganisation();
 
                     if (organisation) {
-                        const organisationBaseCurrency = organisation.BaseCurrency;
+                        const organisationBaseCurrency = organisation.baseCurrency;
                         if (organisationBaseCurrency === bankAccountCurrency) {
-                            fxRate = await this.fxRateService.getByDate(organisationBaseCurrency, expenseCurrency, new Date(date));
+                            fxRate = await this.fxRateService.getByDate(
+                                organisationBaseCurrency.toString(),
+                                expenseCurrency,
+                                new Date(date),
+                            );
+
                             bankAccountId = potentialBankAccountId;
                         }
                     }
@@ -157,7 +168,7 @@ export class Manager implements IManager {
         const description = formatDescription(expense.ownerName, expense.note);
 
         const totalAmount = expense.reconciliation.expenseTotalAmount;
-        const newBill: INewBill = {
+        const newBill: XeroEntities.INewBill = {
             bankAccountId,
             date,
             dueDate: expense.paymentData.dueDate || date,

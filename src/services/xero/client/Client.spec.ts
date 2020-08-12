@@ -1,44 +1,42 @@
 import * as TypeMoq from 'typemoq';
-import { AccountingAPIClient } from 'xero-node';
+import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
-import { OperationNotAllowedError } from '../../../utils';
+import { ILogger, OperationNotAllowedError } from '../../../utils';
+import { createXeroHttpClient } from '../http';
 import { Client, escapeParam } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
 
 describe('Xero client', () => {
-    const xeroClientMock = TypeMoq.Mock.ofType<AccountingAPIClient>();
-    let bankTransactionsMock = TypeMoq.Mock.ofType<any>();
-    let invoicesMock = TypeMoq.Mock.ofType<any>();
-    let paymentsMock = TypeMoq.Mock.ofType<any>();
-    let currenciesMock = TypeMoq.Mock.ofType<any>();
+    const xeroClientMock = TypeMoq.Mock.ofType<AccountingApi>();
+    const loggerMock = TypeMoq.Mock.ofType<ILogger>();
+    const tenantId = '00000000-0000-0000-0000-000000000000';
 
-    const client = new Client(xeroClientMock.object, { sanitize: () => Promise.resolve() });
+    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object } as XeroClient, loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
 
     beforeEach(() => {
-        currenciesMock
-            .setup(m => m.get({ where: `${CurrencyKeys.Code}=="${CURRENCY}"` }))
-            .returns(async () => ({ Currencies: [{}] }));
-
-        xeroClientMock.setup(x => x.bankTransactions).returns(() => bankTransactionsMock.object);
-        xeroClientMock.setup(x => x.invoices).returns(() => invoicesMock.object);
-        xeroClientMock.setup(x => x.payments).returns(() => paymentsMock.object);
-        xeroClientMock.setup(x => x.currencies).returns(() => currenciesMock.object);
+        xeroClientMock
+            .setup(m => m.getCurrencies(
+                tenantId,
+                `${CurrencyKeys.code}=="${CURRENCY}"`
+            ))
+            .returns(async () => ({
+                response: {
+                    headers: {},
+                },
+                body: {
+                    currencies: [{
+                        code: CURRENCY,
+                    }],
+                },
+            }) as any);
     });
 
     afterEach(() => {
         try {
-            currenciesMock.verifyAll();
-            invoicesMock.verifyAll();
-            paymentsMock.verifyAll();
-            bankTransactionsMock.verifyAll();
             xeroClientMock.verifyAll();
         } finally {
-            invoicesMock = TypeMoq.Mock.ofType<any>();
-            paymentsMock = TypeMoq.Mock.ofType<any>();
-            currenciesMock = TypeMoq.Mock.ofType<any>();
-            bankTransactionsMock = TypeMoq.Mock.ofType<any>();
             xeroClientMock.reset();
         }
     });
@@ -49,38 +47,48 @@ describe('Xero client', () => {
 
             const id = '1';
 
-            bankTransactionsMock
-                .setup(m => m.create({
-                    BankTransactionID: undefined,
-                    Type: BankTransactionType.Spend,
-                    BankAccount: {
-                        AccountID: transaction.bankAccountId,
-                    },
-                    Reference: transaction.reference,
-                    DateString: transaction.date,
-                    Url: transaction.url,
-                    Contact: {
-                        ContactID: transaction.contactId,
-                    },
-                    LineAmountTypes: LineAmountType.TaxInclusive,
-                    LineItems: [
-                        {
-                            Description: transaction.description,
-                            AccountCode: transaction.accountCode,
-                            Quantity: 1,
-                            UnitAmount: transaction.amount,
+            xeroClientMock
+                .setup(m => m.createBankTransactions(
+                    tenantId,
+                    {
+                        bankTransactions: [{
+                            bankTransactionID: undefined,
+                            type: BankTransactionType.Spend as any,
+                            bankAccount: {
+                                accountID: transaction.bankAccountId,
+                            },
+                            reference: transaction.reference,
+                            date: transaction.date,
+                            url: transaction.url,
+                            contact: {
+                                contactID: transaction.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
+                                {
+                                    description: transaction.description,
+                                    accountCode: transaction.accountCode,
+                                    quantity: 1,
+                                    unitAmount: transaction.amount,
+                                },
+                            ],
                         },
-                    ],
-                }))
+                        ],
+                    }))
                 .returns(async () => {
                     return ({
-                        BankTransactions: [
-                            {
-                                StatusAttributeString: ClientResponseStatus.Ok,
-                                BankTransactionID: id,
-                            },
-                        ],
-                    });
+                        response: {
+                            headers: {},
+                        },
+                        body: {
+                            bankTransactions: [
+                                {
+                                    statusAttributeString: ClientResponseStatus.Ok,
+                                    bankTransactionID: id,
+                                },
+                            ],
+                        },
+                    }) as any;
                 })
                 .verifiable(TypeMoq.Times.once());
 
@@ -93,38 +101,48 @@ describe('Xero client', () => {
 
             const id = '1';
 
-            bankTransactionsMock
-                .setup(m => m.create({
-                    BankTransactionID: undefined,
-                    Type: BankTransactionType.Receive,
-                    BankAccount: {
-                        AccountID: transaction.bankAccountId,
-                    },
-                    Reference: transaction.reference,
-                    DateString: transaction.date,
-                    Url: transaction.url,
-                    Contact: {
-                        ContactID: transaction.contactId,
-                    },
-                    LineAmountTypes: LineAmountType.TaxInclusive,
-                    LineItems: [
-                        {
-                            Description: transaction.description,
-                            AccountCode: transaction.accountCode,
-                            Quantity: 1,
-                            UnitAmount: Math.abs(transaction.amount),
+            xeroClientMock
+                .setup(m => m.createBankTransactions(
+                    tenantId,
+                    {
+                        bankTransactions: [{
+                            bankTransactionID: undefined,
+                            type: BankTransactionType.Receive as any,
+                            bankAccount: {
+                                accountID: transaction.bankAccountId,
+                            },
+                            reference: transaction.reference,
+                            date: transaction.date,
+                            url: transaction.url,
+                            contact: {
+                                contactID: transaction.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
+                                {
+                                    description: transaction.description,
+                                    accountCode: transaction.accountCode,
+                                    quantity: 1,
+                                    unitAmount: Math.abs(transaction.amount),
+                                },
+                            ],
                         },
-                    ],
-                }))
+                        ],
+                    }))
                 .returns(async () => {
                     return ({
-                        BankTransactions: [
-                            {
-                                StatusAttributeString: ClientResponseStatus.Ok,
-                                BankTransactionID: id,
-                            },
-                        ],
-                    });
+                        response: {
+                            headers: {},
+                        },
+                        body: {
+                            bankTransactions: [
+                                {
+                                    statusAttributeString: ClientResponseStatus.Ok,
+                                    bankTransactionID: id,
+                                },
+                            ],
+                        },
+                    }) as any;
                 })
                 .verifiable(TypeMoq.Times.once());
 
@@ -135,48 +153,53 @@ describe('Xero client', () => {
         it('should throw error', async () => {
             const transaction = getSpendTransactionModel();
 
-            bankTransactionsMock
-                .setup(m => m.create({
-                    BankTransactionID: undefined,
-                    Type: BankTransactionType.Spend,
-                    BankAccount: {
-                        AccountID: transaction.bankAccountId,
-                    },
-                    Reference: transaction.reference,
-                    DateString: transaction.date,
-                    Url: transaction.url,
-                    Contact: {
-                        ContactID: transaction.contactId,
-                    },
-                    LineAmountTypes: LineAmountType.TaxInclusive,
-                    LineItems: [
-                        {
-                            Description: transaction.description,
-                            AccountCode: transaction.accountCode,
-                            Quantity: 1,
-                            UnitAmount: transaction.amount,
-                        },
-                    ],
-                }))
-                .returns(async () => {
-                    return ({
-                        BankTransactions: [
-                            {
-                                StatusAttributeString: ClientResponseStatus.Error,
-                                ValidationErrors: [
-                                    {
-                                        Message: 'Xero Error 1',
-                                        Description: 'Something went wrong 1',
-                                    },
-                                    {
-                                        Message: 'Xero Error 2',
-                                        Description: 'Something went wrong 2',
-                                    },
-                                ],
+            xeroClientMock
+                .setup(m => m.createBankTransactions(
+                    tenantId,
+                    {
+                        bankTransactions: [{
+                            bankTransactionID: undefined,
+                            type: BankTransactionType.Spend as any,
+                            bankAccount: {
+                                accountID: transaction.bankAccountId,
                             },
+                            reference: transaction.reference,
+                            date: transaction.date,
+                            url: transaction.url,
+                            contact: {
+                                contactID: transaction.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
+                                {
+                                    description: transaction.description,
+                                    accountCode: transaction.accountCode,
+                                    quantity: 1,
+                                    unitAmount: transaction.amount,
+                                },
+                            ],
+                        },
                         ],
-                    });
-                })
+                    }))
+                .throws(({
+                    response: {
+                        body: {
+                            Elements: [
+                                {
+                                    ValidationErrors: [
+                                        {
+                                            Message: 'Xero Error 1',
+                                        },
+                                        {
+                                            Message: 'Xero Error 2',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    },
+                    body: {},
+                }) as any)
                 .verifiable(TypeMoq.Times.once());
 
             let error: Error | undefined;
@@ -191,9 +214,7 @@ describe('Xero client', () => {
             }
 
             expect(error.message).toContain('Xero Error 1');
-            expect(error.message).toContain('Something went wrong 1');
             expect(error.message).toContain('Xero Error 2');
-            expect(error.message).toContain('Something went wrong 2');
         });
     });
 
@@ -203,35 +224,45 @@ describe('Xero client', () => {
 
             const id = '1';
 
-            invoicesMock
-                .setup(m => m.create({
-                    InvoiceID: undefined,
-                    DueDateString: invoice.dueDate,
-                    Type: InvoiceType.AccountsPayable,
-                    CurrencyCode: invoice.currency,
-                    DateString: invoice.date,
-                    Url: invoice.url,
-                    Contact: {
-                        ContactID: invoice.contactId,
-                    },
-                    LineAmountTypes: LineAmountType.TaxInclusive,
-                    LineItems: [
-                        {
-                            Description: invoice.description,
-                            AccountCode: invoice.accountCode,
-                            Quantity: 1,
-                            UnitAmount: invoice.amount,
+            xeroClientMock
+                .setup(m => m.createInvoices(
+                    tenantId,
+                    {
+                        invoices: [{
+                            invoiceID: undefined,
+                            dueDate: invoice.dueDate,
+                            type: InvoiceType.AccountsPayable as any,
+                            currencyCode: invoice.currency as any,
+                            date: invoice.date,
+                            url: invoice.url,
+                            contact: {
+                                contactID: invoice.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
+                                {
+                                    description: invoice.description,
+                                    accountCode: invoice.accountCode,
+                                    quantity: 1,
+                                    unitAmount: invoice.amount,
+                                },
+                            ],
                         },
-                    ],
-                }))
+                        ],
+                    }))
                 .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: id,
-                        },
-                    ],
-                }))
+                    response: {
+                        headers: {},
+                    },
+                    body: {
+                        invoices: [
+                            {
+                                statusAttributeString: ClientResponseStatus.Ok,
+                                invoiceID: id,
+                            },
+                        ],
+                    },
+                }) as any)
                 .verifiable(TypeMoq.Times.once());
 
             const invoiceId = await client.createBill(invoice);
@@ -243,65 +274,63 @@ describe('Xero client', () => {
 
             const id = '1';
 
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: id,
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: id,
-                            Status: InvoiceStatusCode.Paid,
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
+            const existing: IInvoice = {
+                invoiceID: id,
+                status: InvoiceStatusCode.Paid as any,
+            };
 
-            await expect(client.updateBill({ ...invoice, billId: id })).rejects.toThrow(OperationNotAllowedError);
+            await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
         });
 
         it('should throw error', async () => {
             const invoice = getBillModel();
 
-            invoicesMock
-                .setup(m => m.create({
-                    InvoiceID: undefined,
-                    DueDateString: invoice.dueDate,
-                    Type: InvoiceType.AccountsPayable,
-                    CurrencyCode: invoice.currency,
-                    DateString: invoice.date,
-                    Url: invoice.url,
-                    Contact: {
-                        ContactID: invoice.contactId,
-                    },
-                    LineAmountTypes: LineAmountType.TaxInclusive,
-                    LineItems: [
-                        {
-                            Description: invoice.description,
-                            AccountCode: invoice.accountCode,
-                            Quantity: 1,
-                            UnitAmount: invoice.amount,
-                        },
-                    ],
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Error,
-                            ValidationErrors: [
+            xeroClientMock
+                .setup(m => m.createInvoices(
+                    tenantId,
+                    {
+                        invoices: [{
+                            invoiceID: undefined,
+                            dueDate: invoice.dueDate,
+                            type: InvoiceType.AccountsPayable as any,
+                            currencyCode: invoice.currency as any,
+                            date: invoice.date,
+                            url: invoice.url,
+                            contact: {
+                                contactID: invoice.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
                                 {
-                                    Message: 'Xero Error 1',
-                                    Description: 'Something went wrong 1',
-                                },
-                                {
-                                    Message: 'Xero Error 2',
-                                    Description: 'Something went wrong 2',
+                                    description: invoice.description,
+                                    accountCode: invoice.accountCode,
+                                    quantity: 1,
+                                    unitAmount: invoice.amount,
                                 },
                             ],
                         },
-                    ],
-                }))
+                        ],
+                    }))
+                .throws(({
+                    body: {},
+                    response: {
+                        body: {
+                            Elements: [
+                                {
+                                    StatusAttributeString: ClientResponseStatus.Error,
+                                    ValidationErrors: [
+                                        {
+                                            Message: 'Xero Error 1',
+                                        },
+                                        {
+                                            Message: 'Xero Error 2',
+                                        },
+                                    ],
+                                },
+                            ],
+                        },
+                    },
+                }) as any)
                 .verifiable(TypeMoq.Times.once());
 
             let error: Error | undefined;
@@ -316,9 +345,7 @@ describe('Xero client', () => {
             }
 
             expect(error.message).toContain('Xero Error 1');
-            expect(error.message).toContain('Something went wrong 1');
             expect(error.message).toContain('Xero Error 2');
-            expect(error.message).toContain('Something went wrong 2');
         });
     });
 
@@ -333,41 +360,50 @@ describe('Xero client', () => {
                 bankAccountId: 'bank_id',
             };
 
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: paymentDetails.billId,
-                }))
-                .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: paymentDetails.billId,
-                            Status: InvoiceStatusCode.Draft,
-                        },
-                    ],
-                }))
-                .verifiable(TypeMoq.Times.once());
+            const existingInvoice: IInvoice = {
+                invoiceID: paymentDetails.billId,
+                status: Invoice.StatusEnum.DRAFT,
+            };
 
-            paymentsMock
-                .setup(m => m.create({
-                    Date: paymentDetails.date,
-                    Invoice: {
-                        InvoiceID: paymentDetails.billId,
-                    },
-                    Account: {
-                        AccountID: paymentDetails.bankAccountId,
-                    },
-                    Amount: paymentDetails.amount,
-                    CurrencyRate: paymentDetails.fxRate,
-                }))
+            xeroClientMock
+                .setup(m => m.getInvoice(
+                    tenantId,
+                    paymentDetails.billId,
+                ))
                 .returns(async () => ({
-                    Payments: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            PaymentID: '2',
+                    response: {
+                        headers: {},
+                    },
+                    body: { invoices: [existingInvoice] },
+                }) as any);
+
+            xeroClientMock
+                .setup(m => m.createPayment(
+                    tenantId,
+                    {
+                        date: paymentDetails.date,
+                        invoice: {
+                            invoiceID: paymentDetails.billId,
                         },
-                    ],
-                }))
+                        account: {
+                            accountID: paymentDetails.bankAccountId,
+                        },
+                        amount: paymentDetails.amount,
+                        currencyRate: paymentDetails.fxRate,
+                    }))
+                .returns(async () => ({
+                    response: {
+                        headers: {},
+                    },
+                    body: {
+                        payments: [
+                            {
+                                statusAttributeString: ClientResponseStatus.Ok,
+                                paymentID: '2',
+                            },
+                        ],
+                    },
+                }) as any)
                 .verifiable(TypeMoq.Times.once());
 
             await client.payBill(paymentDetails);
@@ -382,19 +418,22 @@ describe('Xero client', () => {
                 bankAccountId: 'bank_id',
             };
 
-            invoicesMock
-                .setup(m => m.get({
-                    InvoiceID: paymentDetails.billId,
-                }))
+            xeroClientMock
+                .setup(m => m.getInvoice(tenantId, paymentDetails.billId))
                 .returns(async () => ({
-                    Invoices: [
-                        {
-                            StatusAttributeString: ClientResponseStatus.Ok,
-                            InvoiceID: paymentDetails.billId,
-                            Status: InvoiceStatusCode.Paid,
-                        },
-                    ],
-                }))
+                    response: {
+                        headers: {},
+                    },
+                    body: {
+                        invoices: [
+                            {
+                                statusAttributeString: ClientResponseStatus.Ok,
+                                invoiceID: paymentDetails.billId,
+                                status: InvoiceStatusCode.Paid,
+                            },
+                        ],
+                    },
+                }) as any)
                 .verifiable(TypeMoq.Times.once());
 
             await expect(client.payBill(paymentDetails)).rejects.toThrow(OperationNotAllowedError);

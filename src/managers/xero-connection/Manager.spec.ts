@@ -1,41 +1,39 @@
+import { TokenSet } from 'openid-client';
 import * as TypeMoq from 'typemoq';
-import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
-import { IAuth } from '../../services/xero';
-import { IStore } from '../../store';
+import { Xero } from '../../services';
+import { IStore, ITokenSet, IUserTokenSetRecord } from '../../store';
+import { ILogger } from '../../utils';
 import { Manager } from './Manager';
 
 describe('xero-connection/Manager', () => {
     const accountId = 'account_id';
     let storeMock: TypeMoq.IMock<IStore>;
-    let authMock: TypeMoq.IMock<IAuth>;
+    let authMock: TypeMoq.IMock<Xero.IAuth>;
+    let loggerMock: TypeMoq.IMock<ILogger>;
     let manager: Manager;
 
     beforeEach(() => {
         storeMock = TypeMoq.Mock.ofType<IStore>();
-        authMock = TypeMoq.Mock.ofType<IAuth>();
+        authMock = TypeMoq.Mock.ofType<Xero.IAuth>();
+        loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
-        manager = new Manager(storeMock.object, authMock.object, accountId);
+        manager = new Manager(storeMock.object, authMock.object, accountId, loggerMock.object);
     });
 
     afterEach(() => {
         storeMock.verifyAll();
         authMock.verifyAll();
+        loggerMock.verifyAll();
     });
 
     describe('getAuthorizationUrl', () => {
         test('saves request token and return url', async () => {
-            const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
             const url = 'https://login at xero';
 
             authMock
                 .setup(a => a.getAuthUrl())
-                .returns(async () => ({ url, requestToken }));
-
-            storeMock
-                .setup(s => s.saveRequestToken(accountId, requestToken))
-                .returns(() => Promise.resolve())
-                .verifiable(TypeMoq.Times.once());
+                .returns(async () => url);
 
             const result = await manager.getAuthorizationUrl();
 
@@ -45,11 +43,11 @@ describe('xero-connection/Manager', () => {
 
     describe('getAccessToken', () => {
         test('retrieves access token from store', async () => {
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
+            const accessToken = createAccessToken();
 
             storeMock
-                .setup(s => s.getAccessTokenByAccountId(accountId))
-                .returns(async () => accessToken);
+                .setup(s => s.getAccessToken(accountId))
+                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -57,11 +55,11 @@ describe('xero-connection/Manager', () => {
         });
 
         test('does not return access token from store if it has expired', async () => {
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: new Date(2000, 1, 1) };
+            const accessToken = createAccessToken(true);
 
             storeMock
-                .setup(s => s.getAccessTokenByAccountId(accountId))
-                .returns(async () => accessToken);
+                .setup(s => s.getAccessToken(accountId))
+                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -79,31 +77,16 @@ describe('xero-connection/Manager', () => {
             }
         });
 
-        test('returns undefined if there is no request token', async () => {
-            storeMock
-                .setup(s => s.getRequestTokenByAccountId(accountId))
-                .returns(async () => undefined);
-
-            const result = await manager.authenticate('verifier');
-
-            expect(result).toEqual(undefined);
-        });
-
         test('returns token and saves it on success', async () => {
             const verifier = 'verifier';
-            const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
-
-            storeMock
-                .setup(s => s.getRequestTokenByAccountId(accountId))
-                .returns(async () => requestToken);
+            const accessToken = createAccessToken();
 
             authMock
-                .setup(a => a.getAccessToken(requestToken, verifier))
-                .returns(async () => accessToken);
+                .setup(a => a.getAccessToken(verifier))
+                .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
 
             storeMock
-                .setup(s => s.saveAccessToken(accountId, accessToken))
+                .setup(s => s.saveAccessToken({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 
@@ -112,34 +95,12 @@ describe('xero-connection/Manager', () => {
             expect(result).toBe(accessToken);
         });
 
-        test('returns undefined on XeroError', async () => {
-            const verifier = 'verifier';
-            const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
-
-            storeMock
-                .setup(s => s.getRequestTokenByAccountId(accountId))
-                .returns(async () => requestToken);
-
-            authMock
-                .setup(a => a.getAccessToken(requestToken, verifier))
-                .returns(() => Promise.reject({ name: 'XeroError' }));
-
-            const result = await manager.authenticate(verifier);
-
-            expect(result).toBe(undefined);
-        });
-
         test('throws on unexpected auth error', async () => {
             const expectedError = new Error('unexpected');
             const verifier = 'verifier';
-            const requestToken: RequestToken = { oauth_token: 'auth token', oauth_token_secret: 'secret' };
-
-            storeMock
-                .setup(s => s.getRequestTokenByAccountId(accountId))
-                .returns(async () => requestToken);
 
             authMock
-                .setup(a => a.getAccessToken(requestToken, verifier))
+                .setup(a => a.getAccessToken(verifier))
                 .returns(() => Promise.reject(expectedError));
 
             try {
@@ -151,3 +112,10 @@ describe('xero-connection/Manager', () => {
         });
     });
 });
+
+function createAccessToken(expired: boolean = false): ITokenSet {
+    return new TokenSet({
+        access_token: 'token',
+        expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,
+    });
+}

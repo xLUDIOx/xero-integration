@@ -1,11 +1,18 @@
 import { Xero } from '../../services';
 import { createStore, IStore } from '../../store';
+import { ILogger } from '../../utils';
 import { IManager } from './IManager';
 import { Manager } from './Manager';
 
-export { IManager, IStore };
-export type IManagerFactory = (accountId: string, returnUrl?: string) => IManager;
+export { IStore, IManager };
 
-export const createManager: IManagerFactory = (accountId: string, returnUrl?: string): IManager => {
-    return new Manager(createStore(), Xero.createAuth(accountId, returnUrl), accountId);
+export type IManagerFactory = (params: Xero.IAuthParams, logger: ILogger) => IManager;
+
+export const createManager: IManagerFactory = ({ accountId, returnUrl }: Xero.IAuthParams, logger: ILogger): IManager => {
+    return new Manager(
+        createStore(logger),
+        Xero.createAuth({ accountId, returnUrl }, logger),
+        accountId,
+        logger,
+    );
 };

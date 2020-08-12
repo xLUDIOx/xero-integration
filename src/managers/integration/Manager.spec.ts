@@ -1,6 +1,7 @@
 import * as TypeMoq from 'typemoq';
 
 import { FxRates, Payhawk } from '../../services';
+import { ILogger } from '../../utils';
 import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
 
@@ -10,6 +11,7 @@ describe('integrations/Manager', () => {
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
     let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
+    let loggerMock: TypeMoq.IMock<ILogger>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
 
     let manager: Manager;
@@ -18,9 +20,18 @@ describe('integrations/Manager', () => {
         payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
         fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
+        loggerMock = TypeMoq.Mock.ofType<ILogger>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
 
-        manager = new Manager(payhawkClientMock.object, xeroEntitiesMock.object, fxRatesServiceMock.object, deleteFilesMock.object, accountId, portalUrl);
+        manager = new Manager(
+            payhawkClientMock.object,
+            xeroEntitiesMock.object,
+            fxRatesServiceMock.object,
+            deleteFilesMock.object,
+            accountId,
+            portalUrl,
+            loggerMock.object,
+        );
     });
 
     afterEach(() => {
@@ -33,12 +44,12 @@ describe('integrations/Manager', () => {
         test('gets expense accounts from xero and puts them on payhawk', async () => {
             const xeroAccounts: XeroEntities.IAccountCode[] = [
                 {
-                    Name: 'Account 1',
-                    Code: '400',
+                    name: 'Account 1',
+                    code: '400',
                 },
                 {
-                    Name: 'Account 2',
-                    Code: '370',
+                    name: 'Account 2',
+                    code: '370',
                 },
             ];
 

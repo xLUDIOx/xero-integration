@@ -77,7 +77,7 @@ export class Client implements IClient {
         return await Promise.all(expense.document.files.map(async (f: IFile): Promise<IDownloadedFile> => {
             const extension = mime.extension(f.contentType) || 'jpg';
             const fileName = path.basename(f.url) + '.' + extension;
-            const filePath = path.join(os.tmpdir(), `${Math.trunc(Math.random()*1000000)}.${fileName}`);
+            const filePath = path.join(os.tmpdir(), `${Math.trunc(Math.random() * 1000000)}.${fileName}`);
             const file = fs.createWriteStream(filePath);
 
             await new Promise((resolve, reject) => {

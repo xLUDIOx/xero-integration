@@ -1,11 +1,11 @@
+import { TokenSet } from 'openid-client';
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
-import { XeroError } from 'xero-node';
-import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
 
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger, OperationNotAllowedError } from '../utils';
+import { ITokenSet } from '../store';
+import { DisconnectedRemotelyError, ILogger, OperationNotAllowedError } from '../utils';
 import { Controller } from './Controller';
 import { ConnectionMessage } from './IConnectionStatus';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -35,10 +35,12 @@ describe('Controller', () => {
 
         connectionManagerMock.setup(m => m.authenticate);
 
-        controller = new Controller(loggerMock.object,
+        controller = new Controller(
             () => connectionManagerMock.object,
             () => integrationManagerMock.object,
-            configMock.object);
+            configMock.object,
+            loggerMock.object,
+        );
     });
 
     afterEach(() => {
@@ -51,12 +53,11 @@ describe('Controller', () => {
 
     describe('connect()', () => {
         test('sends status 400 when missing accountId query parameter', async () => {
-            responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
-                .verifiable(TypeMoq.Times.once());
-
             const req = { query: {} } as restify.Request;
-            await controller.connect(req, responseMock.object, nextMock.object);
+
+            await expect(controller.connect(req, responseMock.object, nextMock.object))
+                .rejects
+                .toThrowError('Missing required query parameter: accountId.');
         });
 
         test('sends 500 when the manager throws error', async () => {
@@ -78,73 +79,49 @@ describe('Controller', () => {
     });
 
     describe('callback()', () => {
-        test('sends status 400 when missing accountId query parameter', async () => {
-            responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
-                .verifiable(TypeMoq.Times.once());
+        test('sends status 400 when missing state query parameter', async () => {
+            const req = { query: { code: '' } } as restify.Request;
 
-            const req = { query: {} } as restify.Request;
-            await controller.callback(req, responseMock.object, nextMock.object);
-        });
-
-        test('sends status 400 when missing oauth_verifier query parameter', async () => {
-            responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { query: { accountId } } as restify.Request;
-            await controller.callback(req, responseMock.object, nextMock.object);
-        });
-
-        test('sends status 400 when missing returnUrl query parameter', async () => {
-            const verifier = 'verifier query param';
-            responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { query: { accountId, oauth_verifier: verifier } } as restify.Request;
-            await controller.callback(req, responseMock.object, nextMock.object);
+            await expect(controller.callback(req, responseMock.object, nextMock.object))
+                .rejects
+                .toThrowError('Missing required query parameter: state.');
         });
 
         test('sends 500 when the manager throws error', async () => {
-            const verifier = 'verifier query param';
-            responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
-            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(() => Promise.reject(new Error()));
+            const req = {
+                url: 'https://login.xero.com/identity/connect/authorize?client_id=C50C5AE905A247238EFD0BA93CA7D02A&scope=accounting.settings+accounting.transactions+accounting.attachments+accounting.contacts&response_type=code&redirect_uri=https%3A%2F%2Fxero-adapter-local.payhawk.io%2Fcallback&state=YWNjb3VudElkPXBheWhhd2tfZDFhYTIyNTQmcmV0dXJuVXJsPSUyRg%3D%3D',
+                query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=' },
+            } as restify.Request;
 
-            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
+            responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
+            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(() => Promise.reject(new Error()));
+
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
         test('sends 401 when authentication fails', async () => {
-            const verifier = 'verifier query param';
-            responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
-            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => undefined);
+            const req = { url: '', query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9Lw==' } } as restify.Request;
 
-            const req = { query: { accountId, oauth_verifier: verifier, returnUrl: '/' } } as restify.Request;
+            responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
+            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(async () => undefined);
+
             await controller.callback(req, responseMock.object, nextMock.object);
         });
 
         test('redirects to return url', async () => {
-            const token: AccessToken = {
-                oauth_token: 'token',
-                oauth_token_secret: 'secret',
-            };
+            const token = createAccessToken();
 
-            const verifier = 'verifier query param';
             const returnUrl = '/my-path';
             responseMock
                 .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero`, nextMock.object))
                 .verifiable(TypeMoq.Times.once());
 
-            connectionManagerMock.setup(m => m.authenticate(verifier)).returns(async () => token);
-
             const req = {
-                query: {
-                    accountId,
-                    oauth_verifier: verifier,
-                    returnUrl,
-                },
+                url: '',
+                query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=' },
             } as restify.Request;
+
+            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(async () => token);
 
             await controller.callback(req, responseMock.object, nextMock.object);
         });
@@ -157,24 +134,7 @@ describe('Controller', () => {
                 .returns(async () => undefined);
 
             responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { body: { accountId } } as restify.Request;
-
-            await controller.payhawk(req, responseMock.object);
-        });
-
-        test('sends 400 if current access token is expired', async () => {
-            const oldExpiry = new Date();
-            oldExpiry.setHours(oldExpiry.getHours() - 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: oldExpiry };
-            connectionManagerMock
-                .setup(m => m.getAccessToken())
-                .returns(async () => accessToken);
-
-            responseMock
-                .setup(r => r.send(400, TypeMoq.It.isAnyString()))
+                .setup(r => r.send(401))
                 .verifiable(TypeMoq.Times.once());
 
             const req = { body: { accountId } } as restify.Request;
@@ -185,16 +145,18 @@ describe('Controller', () => {
         test('sends 400 for unknown event', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessToken));
+                .returns(async () => ({} as ITokenSet));
+
+            responseMock
+                .setup(r => r.send(400, 'Unknown event'))
+                .verifiable(TypeMoq.Times.once());
 
             const req = { body: { accountId, event: 'some unknown event' } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 204 and call exportExpense for that event', async () => {
-            const expire = new Date();
-            expire.setHours(expire.getHours() + 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const accessToken = createAccessToken();
             const apiKey = 'payhawk api key';
             const expenseId = 'expId';
             connectionManagerMock
@@ -215,9 +177,7 @@ describe('Controller', () => {
         });
 
         test('logs warning if operation is not allowed', async () => {
-            const expire = new Date();
-            expire.setHours(expire.getHours() + 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const accessToken = createAccessToken();
             const apiKey = 'payhawk api key';
             const expenseId = 'expId';
             connectionManagerMock
@@ -242,9 +202,7 @@ describe('Controller', () => {
         });
 
         test('send 204 and call exportTransfers for that event', async () => {
-            const expire = new Date();
-            expire.setHours(expire.getHours() + 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const accessToken = createAccessToken();
             const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -269,9 +227,7 @@ describe('Controller', () => {
         });
 
         test('send 500 if payload does not contain payload data for exportExpense', async () => {
-            const expire = new Date();
-            expire.setHours(expire.getHours() + 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const accessToken = createAccessToken();
             const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -288,9 +244,7 @@ describe('Controller', () => {
         });
 
         test('send 500 if payload does not contain payload data for exportTransfers', async () => {
-            const expire = new Date();
-            expire.setHours(expire.getHours() + 1);
-            const accessToken: AccessToken = { oauth_token: 'auth token', oauth_token_secret: 'secret', oauth_expires_at: expire };
+            const accessToken = createAccessToken();
             const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -310,7 +264,7 @@ describe('Controller', () => {
             const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessToken));
+                .returns(async () => ({} as ITokenSet));
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
@@ -330,7 +284,7 @@ describe('Controller', () => {
             const err = new Error('expected error');
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessToken));
+                .returns(async () => ({} as ITokenSet));
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
@@ -352,7 +306,7 @@ describe('Controller', () => {
         test('returns true if token is valid and request succeeds', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+                .returns(async () => createAccessToken());
 
             integrationManagerMock
                 .setup(m => m.getOrganisationName())
@@ -383,15 +337,11 @@ describe('Controller', () => {
         test('returns disconnected remotely if request fails', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+                .returns(async () => createAccessToken());
 
             integrationManagerMock
                 .setup(m => m.getOrganisationName())
-                .throws(new XeroError(
-                    401,
-                    'oauth_problem=token_rejected&oauth_problem_advice=The%20access%20token%20has%20not%20been%20authorized%2C%20or%20has%20been%20revoked%20by%20the%20user',
-                    'XeroError: token_rejected (The access token has not been authorized, or has been revoked by the user)',
-                ))
+                .throws(new DisconnectedRemotelyError())
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
@@ -403,7 +353,7 @@ describe('Controller', () => {
         });
 
         test('returns token expired', async () => {
-            const token = { oauth_expires_at: new Date(2009, 1, 1) } as AccessToken;
+            const token = createAccessToken(true);
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => token);
@@ -416,28 +366,34 @@ describe('Controller', () => {
             await controller.getConnectionStatus(req, responseMock.object);
         });
 
-        test('rethrows if it fails with unexpected error', async () => {
+        test('logs unexpected error and return isAlive: false', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({ oauth_expires_at: new Date(2099, 1, 1) } as AccessToken));
+                .returns(async () => createAccessToken());
 
-            const errorMessage = 'Oops, something broke...';
+            const error = new Error('Oops, something broke...');
             integrationManagerMock
                 .setup(m => m.getOrganisationName())
-                .throws(new Error(errorMessage))
+                .throws(error)
                 .verifiable(TypeMoq.Times.once());
 
             const req = { query: { accountId } } as restify.Request;
 
-            let error: Error | undefined;
-            try {
-                await controller.getConnectionStatus(req, responseMock.object);
-            } catch (err) {
-                error = err;
-            }
+            responseMock
+                .setup(r => r.send(200, { isAlive: false }))
+                .verifiable(TypeMoq.Times.once());
 
-            expect(error).toBeDefined();
-            expect(error!.message).toEqual(errorMessage);
+            loggerMock.setup(l => l.error(error))
+                .verifiable(TypeMoq.Times.once());
+
+            await controller.getConnectionStatus(req, responseMock.object);
         });
     });
 });
+
+function createAccessToken(expired: boolean = false): ITokenSet {
+    return new TokenSet({
+        access_token: 'token',
+        expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,
+    });
+}

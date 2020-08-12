@@ -1,5 +1,6 @@
+import { TokenSet } from 'openid-client';
+
 import { KeyNameMap } from '../../utils';
-import { IDbRecord } from './IDbRecord';
 
 export interface INewUserTokenSetRecord {
     account_id: string;
@@ -8,18 +9,14 @@ export interface INewUserTokenSetRecord {
     token_set: ITokenSet;
 }
 
-export interface ITokenSet {
-    access_token: string;
-    refresh_token: string;
-    expires_in: string;
-    token_type: 'Bearer';
-    xero_tenant_id: string;
+export type ITokenSet = TokenSet;
+
+export interface IUserTokenSetRecord extends INewUserTokenSetRecord {
+    created_at: Date;
+    updated_at: Date;
 }
 
-export type IUserTokenSetRecord = INewUserTokenSetRecord & IDbRecord;
-
 export const UserTokenSetRecordKeys: KeyNameMap<IUserTokenSetRecord> = {
-    id: 'id',
     created_at: 'created_at',
     token_set: 'token_set',
     updated_at: 'updated_at',

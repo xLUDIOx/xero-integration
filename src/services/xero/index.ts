@@ -1,8 +1,8 @@
-import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { AccessToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { XeroClient } from 'xero-node';
 
-import { createDocumentSanitizer, Throttler } from '../../utils';
-import { Auth, IAuth } from './auth';
+import { ITokenSet } from '../../store';
+import { createDocumentSanitizer, ILogger } from '../../utils';
+import { Auth, IAccessToken, IAuth } from './auth';
 import {
     AccountType,
     BankAccountStatusCode,
@@ -19,6 +19,7 @@ import {
     IUpdateTransactionData,
 } from './client';
 import { getXeroConfig } from './Config';
+import { createXeroHttpClient } from './http';
 
 export {
     AccountType,
@@ -27,6 +28,7 @@ export {
     IAccountingItemData,
     IAttachment,
     IAuth,
+    IAccessToken,
     IBankAccount,
     IClient,
     ICreateBillData,
@@ -35,22 +37,19 @@ export {
     IUpdateTransactionData,
     IBillPaymentData,
 };
-export { AppType } from './Config';
 
-const XERO_MAX_REQUESTS_COUNT = 40;
-const THROTTLER_PERIOD_IN_SECONDS = 60;
-
-const throttler = new Throttler(XERO_MAX_REQUESTS_COUNT, THROTTLER_PERIOD_IN_SECONDS);
-
-export const createAuth = (accountId: string, returnUrl?: string): IAuth => {
-    return new Auth(accountId, returnUrl);
+export const createAuth = ({ accountId, returnUrl }: IAuthParams, logger: ILogger): IAuth => {
+    return new Auth(accountId, returnUrl, logger);
 };
 
-export const createClient = (accountId: string, accessToken: AccessToken): IClient => {
-    const originalClient = new XeroClient(getXeroConfig(accountId), accessToken);
-    const wrappedClient = throttler.getThrottledWrap(accountId, originalClient);
+export const createClient = (accountId: string, accessToken: ITokenSet, tenantId: string, logger: ILogger): IClient => {
+    const originalClient = new XeroClient(getXeroConfig(accountId));
+    originalClient.setTokenSet(accessToken);
 
-    return new Client(wrappedClient, createDocumentSanitizer());
+    return new Client(createXeroHttpClient(originalClient, logger), tenantId, createDocumentSanitizer(), logger);
 };
 
-export * from './auth-v2';
+export interface IAuthParams {
+    accountId: string;
+    returnUrl?: string;
+}

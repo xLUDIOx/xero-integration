@@ -1,4 +1,4 @@
-import { BankTransaction, Contact, Currency, Invoice } from 'xero-node/lib/AccountingAPI-models';
+import { BankTransaction, Contact, Currency, Invoice } from 'xero-node';
 
 import { KeyNameMap } from '../../../../utils';
 
@@ -67,16 +67,16 @@ export enum LineAmountType {
     NoTax = 'NoTax',
 }
 
-export const CurrencyKeys: KeyNameMap<Pick<Required<Currency>, 'Code'>> = {
-    Code: 'Code',
+export const CurrencyKeys: KeyNameMap<Pick<Required<Currency>, 'code'>> = {
+    code: 'code',
 };
 
-export const ContactKeys: KeyNameMap<Pick<Required<Contact>, 'Name' | 'TaxNumber'>> = {
-    Name: 'Name',
-    TaxNumber: 'TaxNumber',
+export const ContactKeys: KeyNameMap<Pick<Required<Contact>, 'name' | 'taxNumber'>> = {
+    name: 'name',
+    taxNumber: 'taxNumber',
 };
 
-export const AccountingItemKeys: KeyNameMap<Pick<Required<BankTransaction & Invoice>, 'Url' | 'Status'>> = {
-    Status: 'Status',
-    Url: 'Url',
+export const AccountingItemKeys: KeyNameMap<Pick<Required<BankTransaction & Invoice>, 'url' | 'status'>> = {
+    status: 'status',
+    url: 'url',
 };

@@ -1,42 +1,76 @@
-import { AccountingAPIClient as XeroClient } from 'xero-node';
-import { AccessToken, IOAuth1HttpClient, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
+import { URL } from 'url';
 
-import { AppType, getXeroConfig } from '../Config';
-import { IAuth } from './IAuth';
-import { IAuthRequest } from './IAuthRequest';
+import { IXeroClientConfig, XeroClient } from 'xero-node';
+
+import { ITokenSet } from '../../../store';
+import { ILogger, parseToken } from '../../../utils';
+import { ITenant } from '../client';
+import { getXeroConfig } from '../Config';
+import { createXeroHttpClient, IXeroHttpClient } from '../http';
+import { IAccessToken, IAuth } from './IAuth';
 
 export class Auth implements IAuth {
-    constructor(private readonly accountId: string, private readonly returnUrl?: string) {
+    private readonly config: IXeroClientConfig;
+
+    constructor(accountId: string, returnUrl: string | undefined, private readonly logger: ILogger) {
+        this.config = getXeroConfig(accountId, returnUrl);
     }
 
-    async getAuthUrl(): Promise<IAuthRequest> {
-        const oauthClient = this.getOAuthClient();
-        const requestToken = await oauthClient.getRequestToken();
-        return {
-            requestToken,
-            url: oauthClient.buildAuthoriseUrl(requestToken),
-        };
-    }
-
-    async getAccessToken(requestToken: RequestToken, verifier: string): Promise<AccessToken> {
-        const oauthClient = this.getOAuthClient();
-        // cspell:disable-next-line
-        return await oauthClient.swapRequestTokenforAccessToken(requestToken, verifier);
-    }
-
-    async refreshAccessToken(currentToken?: AccessToken): Promise<AccessToken | undefined> {
-        if (AppType !== 'partner') {
-            return undefined;
+    async getAuthUrl(): Promise<string> {
+        const authClient = await this.createClient();
+        const consentUrlString = await authClient.makeSafeRequest<string>(x => x.buildConsentUrl());
+        const consentUrl = new URL(consentUrlString);
+        if (!consentUrl.searchParams.has('state') && this.config.state !== undefined) {
+            consentUrl.searchParams.set('state', this.config.state);
         }
 
-        const oauthClient = this.getOAuthClient(currentToken);
-        const newToken = await oauthClient.refreshAccessToken();
-        return newToken;
+        return consentUrl.toString();
     }
 
-    private getOAuthClient(currentState?: AccessToken): IOAuth1HttpClient {
-        const xerConfig = getXeroConfig(this.accountId, this.returnUrl);
-        const xeroClient = new XeroClient(xerConfig, currentState);
-        return xeroClient.oauth1Client;
+    async getAccessToken(verifier: string): Promise<IAccessToken> {
+        const authClient = await this.createClient();
+
+        const tokenSet = await authClient.makeSafeRequest<ITokenSet>(x => x.apiCallback(verifier));
+        return this.buildAccessTokenData(authClient, tokenSet);
+    }
+
+    async refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined> {
+        const authClient = await this.createClient(currentToken);
+        const newToken = await authClient.makeSafeRequest<ITokenSet>(x => x.refreshToken());
+        return this.buildAccessTokenData(authClient, newToken);
+    }
+
+    private async createClient(accessToken?: ITokenSet): Promise<IXeroHttpClient> {
+        const client = new XeroClient(this.config);
+        const httpClient = createXeroHttpClient(client, this.logger);
+
+        await httpClient.makeSafeRequest(x => x.initialize());
+
+        if (accessToken) {
+            client.setTokenSet(accessToken);
+        }
+
+        return httpClient;
+    }
+
+    private async buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet): Promise<IAccessToken> {
+        const tenants = await client.makeSafeRequest<ITenant[]>(x => x.updateTenants());
+        if (tenants.length === 0) {
+            throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
+        }
+
+        const tokenPayload = parseToken(tokenSet);
+        if (!tokenPayload) {
+            throw Error('Could not parse token payload. Unable to extract Xero user ID');
+        }
+
+        return {
+            xeroUserId: tokenPayload.xero_userid,
+            // TODO: tenants[0].id OR tenants[0].tenantId
+            // tenantId MUST be used to pass around for API calls
+            // id is used for disconnection
+            tenantId: tenants[0].tenantId,
+            tokenSet,
+        };
     }
 }

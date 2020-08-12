@@ -1,9 +1,13 @@
-import { AccessToken, RequestToken } from 'xero-node/lib/internals/OAuth1HttpClient';
-
-import { IAuthRequest } from './IAuthRequest';
+import { ITokenSet } from '../../../store';
 
 export interface IAuth {
-    getAuthUrl(): Promise<IAuthRequest>;
-    getAccessToken(requestToken: RequestToken, verifier: string): Promise<AccessToken>;
-    refreshAccessToken(currentToken?: AccessToken): Promise<AccessToken | undefined>;
+    getAuthUrl(): Promise<string>;
+    getAccessToken(verifier: string): Promise<IAccessToken>;
+    refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined>;
+}
+
+export interface IAccessToken {
+    xeroUserId: string;
+    tenantId: string;
+    tokenSet: ITokenSet;
 }

@@ -7,5 +7,5 @@ export { Controller };
 
 export const create = () => {
     const logger = createLogger();
-    return new Controller(logger, XeroConnection.createManager, Integration.createManager, config);
+    return new Controller(XeroConnection.createManager, Integration.createManager, config, logger);
 };

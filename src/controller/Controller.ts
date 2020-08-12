@@ -1,84 +1,98 @@
-import { URL } from 'url';
+import { URL, URLSearchParams } from 'url';
 
 import * as restify from 'restify';
-import { XeroError } from 'xero-node';
 
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ILogger, isTokenExpired, OperationNotAllowedError } from '../utils';
+import { DisconnectedRemotelyError, fromBase64, ILogger, OperationNotAllowedError, requiredQueryParams } from '../utils';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
 
 export class Controller {
     constructor(
-        private readonly baseLogger: ILogger,
         private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
         private readonly integrationManagerFactory: Integration.IManagerFactory,
         private readonly config: IConfig,
+        private readonly baseLogger: ILogger,
     ) {
     }
 
+    @requiredQueryParams('accountId')
     async connect(req: restify.Request, res: restify.Response, next: restify.Next) {
-        if (!req.query.accountId) {
-            res.send(400, 'Missing accountId query parameter');
-            return;
-        }
+        const { accountId, returnUrl: queryReturnUrl } = req.query;
+        const returnUrl = queryReturnUrl || '/';
 
-        const returnUrl = req.query.returnUrl || '/';
+        const logger = this.baseLogger.child({ accountId, returnUrl }, req);
 
-        const accountId = req.query.accountId;
-        const logger = this.baseLogger.child({ accountId }, req);
+        logger.info('Connect started');
 
         try {
-            const authoriseUrl = await this.connectionManagerFactory(accountId, returnUrl).getAuthorizationUrl();
-            res.redirect(authoriseUrl, next);
+            const connectionManager = this.connectionManagerFactory({ accountId, returnUrl }, logger);
+            const authorizationUrl = await connectionManager.getAuthorizationUrl();
+            res.redirect(authorizationUrl, next);
+
+            logger.info('Connect completed');
         } catch (err) {
             logger.error(err);
             res.send(500);
         }
     }
 
+    @requiredQueryParams('state')
     async callback(req: restify.Request, res: restify.Response, next: restify.Next) {
-        if (!req.query.accountId) {
-            res.send(400, 'Missing accountId query parameter');
+        const { code, error, state: encodedState } = req.query;
+
+        const state = new URLSearchParams(fromBase64(encodedState));
+        const accountId = state.get('accountId');
+        const returnUrl = state.get('returnUrl');
+        if (!accountId || !returnUrl) {
+            this.baseLogger.error(Error('State param does not contain required account ID and return URL'));
+            res.send(500);
             return;
         }
 
-        if (!req.query.oauth_verifier) {
-            res.send(400, 'Missing oauth_verifier query parameter');
-            return;
-        }
-
-        if (!req.query.returnUrl) {
-            res.send(400, 'Missing returnUrl query parameter');
-            return;
-        }
-
-        const accountId: string = req.query.accountId;
-        const oauthVerifier: string = req.query.oauth_verifier;
-        const returnUrl: string = req.query.returnUrl;
+        const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
+        const url = new URL(absoluteReturnUrl);
 
         const logger = this.baseLogger.child({ accountId }, req);
+        if (error) {
+            logger.info('Xero authorization declined. Redirecting to portal...');
+
+            url.searchParams.set('error', error);
+            res.redirect(url.toString(), next);
+            return;
+        }
+
+        logger.info('Callback start');
+
+        if (!code) {
+            logger.error(Error('Auth code is required for retrieving access token'));
+            res.send(500);
+            return;
+        }
 
         try {
-            const connectionManager = this.connectionManagerFactory(accountId);
-            const accessToken = await connectionManager.authenticate(oauthVerifier);
-            if (accessToken) {
-                const integrationManager = this.integrationManagerFactory(accessToken, accountId, ''); // payhawk api key is not needed here
-                const organisation = await integrationManager.getOrganisationName();
-
-                const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
-                const url = new URL(absoluteReturnUrl);
-                url.searchParams.append('connection', 'xero');
-                if (organisation) {
-                    url.searchParams.append('label', organisation);
-                }
-
-                res.redirect(url.toString(), next);
-            } else {
+            const connectionManager = this.connectionManagerFactory({ accountId }, logger);
+            const accessToken = await connectionManager.authenticate(req.url!);
+            if (!accessToken) {
+                logger.error(Error('Could not create access token from callback'));
                 res.send(401);
+                return;
             }
+
+            const tenantId = await connectionManager.getActiveTenantId();
+            const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger); // payhawk api key is not needed here
+            const organisation = await integrationManager.getOrganisationName();
+
+            url.searchParams.append('connection', 'xero');
+            if (organisation) {
+                url.searchParams.append('label', organisation);
+            }
+
+            res.redirect(url.toString(), next);
+
+            logger.info('Callback complete');
         } catch (err) {
             logger.error(err);
             res.send(500);
@@ -87,18 +101,23 @@ export class Controller {
 
     async payhawk(req: restify.Request, res: restify.Response) {
         const payload = req.body as IPayhawkPayload;
-        const connectionManager = this.connectionManagerFactory(payload.accountId);
+
+        let logger = this.baseLogger.child({ accountId: payload.accountId, event: payload.event }, req);
+
+        const connectionManager = this.connectionManagerFactory({ accountId: payload.accountId }, logger);
         const xeroAccessToken = await connectionManager.getAccessToken();
         if (!xeroAccessToken) {
-            res.send(400, 'Unable to execute request because you do not have a valid Xero auth session');
+            logger.error(new Error('Unable to handle event because there is no valid access token'));
+
+            res.send(401);
             return;
         }
 
-        let logger = this.baseLogger.child({ accountId: payload.accountId }, req);
-        const integrationManager = this.integrationManagerFactory(xeroAccessToken, payload.accountId, payload.apiKey);
+        const tenantId = await connectionManager.getActiveTenantId();
+
+        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId: payload.accountId, payhawkApiKey: payload.apiKey }, logger);
 
         try {
-            logger = logger.child({ event: payload.event });
             switch (payload.event) {
                 case PayhawkEvent.ExportExpense:
                     if (!payload.data) {
@@ -164,42 +183,48 @@ export class Controller {
         }
     }
 
+    @requiredQueryParams('accountId')
     async getConnectionStatus(req: restify.Request, res: restify.Response) {
         const { accountId } = req.query;
-        const connectionStatus = await this.resolveConnectionStatus(accountId);
+
+        const logger = this.baseLogger.child({ accountId }, req);
+
+        const connectionStatus = await this.resolveConnectionStatus(accountId, logger);
 
         res.send(200, connectionStatus);
     }
 
-    private async resolveConnectionStatus(accountId: string): Promise<IConnectionStatus> {
+    private async resolveConnectionStatus(accountId: string, logger: ILogger): Promise<IConnectionStatus> {
         if (!accountId) {
             return { isAlive: false };
         }
 
         try {
-            const connectionManager = this.connectionManagerFactory(accountId);
+            const connectionManager = this.connectionManagerFactory({ accountId }, logger);
             const xeroAccessToken = await connectionManager.getAccessToken();
             if (!xeroAccessToken) {
                 return { isAlive: false };
             }
 
-            const isExpired = isTokenExpired(xeroAccessToken);
-            if (isExpired) {
+            if (xeroAccessToken.expired()) {
                 return { isAlive: false, message: ConnectionMessage.TokenExpired };
             }
 
+            const tenantId = await connectionManager.getActiveTenantId();
+
             // try get some information from Xero to validate whether the token is still valid
-            const integrationManager = this.integrationManagerFactory(xeroAccessToken!, accountId, '');
+            const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId }, logger);
             await integrationManager.getOrganisationName();
 
             return { isAlive: true };
         } catch (err) {
-            if (err instanceof XeroError && err.message.includes('token_rejected')) {
+            if (err instanceof DisconnectedRemotelyError) {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };
             }
 
-            // rethrow if error is not expected
-            throw err;
+            logger.error(err);
+
+            return { isAlive: false };
         }
     }
 }

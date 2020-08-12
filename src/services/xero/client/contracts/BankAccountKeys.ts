@@ -1,10 +1,11 @@
-import { KeyNameMap } from '../../../../utils';
-import { IBankAccount } from './IBankAccount';
+import { Account } from 'xero-node';
 
-export const BankAccountKeys: KeyNameMap<Pick<Required<IBankAccount>, 'AccountID' | 'CurrencyCode' | 'Code' | 'Type' | 'Status'>> = {
-    AccountID: 'AccountID',
-    Code: 'Code',
-    CurrencyCode: 'CurrencyCode',
-    Type: 'Type',
-    Status: 'Status',
+import { KeyNameMap } from '../../../../utils';
+
+export const BankAccountKeys: KeyNameMap<Pick<Account, 'accountID' | 'currencyCode' | 'code' | 'type' | 'status'>> = {
+    accountID: 'accountID',
+    code: 'code',
+    currencyCode: 'currencyCode',
+    type: 'type',
+    status: 'status',
 };
