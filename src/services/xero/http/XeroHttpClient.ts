@@ -1,7 +1,7 @@
-import { ObjectSerializer, XeroClient } from 'xero-node';
+import { XeroClient } from 'xero-node';
 
 import { DisconnectedRemotelyError, ILogger } from '../../../utils';
-import { EntityResponseType, IApiResponse, IErrorResponse, IValidationErrorsItem, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
+import { EntityResponseType, IApiResponse, IErrorResponse, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
 
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
@@ -49,29 +49,17 @@ export class XeroHttpClient implements IXeroHttpClient {
                         throw err;
                     }
 
-                    let errorBody: any = (errorResponseData.response as IErrorResponse).body;
-                    if (errorBody.Type === ResponseErrorType.Validation) {
-                        try {
-                            const failedItemsDeserialized = ObjectSerializer.deserialize(
-                                {
-                                    [responseType.toString()]: errorBody.Elements,
-                                },
-                                responseType.toString(),
-                            );
+                    const errorBody = (errorResponseData.response as IErrorResponse).body;
 
-                            const serializedResponseType = toSerializedEntityResponseType(responseType);
-                            const failedItems = failedItemsDeserialized[serializedResponseType] as any[];
-                            const failedItem = failedItems[0] as IValidationErrorsItem;
-                            if (failedItem && failedItem.validationErrors) {
-                                errorBody = failedItem.validationErrors;
-                            }
-                            // tslint:disable-next-line: no-empty
-                        } catch (err) {
+                    let errorObj: any = errorBody;
+                    if (errorBody.Type === ResponseErrorType.Validation) {
+                        const validationErrors = errorBody.Elements.map(e => e.ValidationErrors).filter(x => x !== undefined);
+                        if (validationErrors.length > 0) {
+                            errorObj = validationErrors;
                         }
                     }
 
-                    const errorMessage = JSON.stringify(errorBody, undefined, 2);
-                    throw Error(errorMessage);
+                    throw createError(action, errorObj);
                 case 403:
                     throw new DisconnectedRemotelyError();
                 case 404:
@@ -92,21 +80,26 @@ export class XeroHttpClient implements IXeroHttpClient {
                     return new Promise((resolve, reject) => {
                         const handledRetry = () =>
                             this.makeRequest<TResult>(action, nextRetryCount)
-                                .then(resolve, reject);
+                                .then(d => resolve(d))
+                                .catch(e => reject(e));
 
                         setTimeout(handledRetry, millisecondsToRetryAfter);
                     });
                 default:
-                    throw Error(JSON.stringify(err, undefined, 2));
+                    throw createError(action, err);
             }
         }
 
-        throw err;
+        throw createError(action, err);
     }
 }
 
 function toSerializedEntityResponseType(responseType: EntityResponseType): string {
     return responseType[0].toLowerCase() + responseType.slice(1);
+}
+
+function createError(action: any, err: any): Error {
+    return Error(JSON.stringify({ action: action.toString(), error: err}, undefined, 2));
 }
 
 const MAX_RETRIES = 3;

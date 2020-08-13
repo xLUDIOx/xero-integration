@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
 import { IDocumentSanitizer, ILogger, Intersection, OperationNotAllowedError } from '../../../utils';
-import { EntityResponseType, IApiResponse, IErrorResponse, IXeroHttpClient } from '../http';
+import { EntityResponseType, IXeroHttpClient } from '../http';
 import {
     AccountClassType,
     AccountingItemKeys,
@@ -91,8 +91,7 @@ export class Client implements IClient {
                 EntityResponseType.Contacts,
             );
         } catch (err) {
-            const errResponse = (err as IApiResponse).response as IErrorResponse;
-            if (errResponse.body && errResponse.body.Message && errResponse.body.Message.includes('The contact name must be unique across all active contacts.')) {
+            if (err.message && err.message.includes('The contact name must be unique across all active contacts.')) {
                 const existing = await this.findContact(name, vat);
                 if (existing) {
                     return existing;
@@ -417,8 +416,7 @@ export class Client implements IClient {
             EntityResponseType.Currencies,
         );
 
-        const currency = currencies[0];
-        if (!currency) {
+        if (!currencies.length) {
             const createdCurrencies = await this.xeroClient.makeSafeRequest<Currency[]>(
                 x => x.accountingApi.createCurrency(
                     this.tenantId,

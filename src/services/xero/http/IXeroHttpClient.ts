@@ -13,8 +13,7 @@ export interface IApiResponse<T = any> {
 }
 
 export interface IValidationErrorsItem {
-    hasErrors?: boolean;
-    validationErrors?: ValidationError[];
+    ValidationErrors?: ValidationError[];
 }
 
 export interface IErrorResponse extends Response {
@@ -25,7 +24,7 @@ interface IErrorResponseBody {
     ErrorNumber: number;
     Message: string;
     Type: ResponseErrorType;
-    Elements: any[];
+    Elements: IValidationErrorsItem[];
 }
 
 export enum ResponseErrorType {
