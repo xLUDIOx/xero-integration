@@ -136,8 +136,13 @@ export class Controller {
                     }
 
                     logger = logger.child({ expenseId });
+
+                    logger.info(`Export expense started`);
+
                     try {
                         await integrationManager.exportExpense(expenseId);
+
+                        logger.info(`Export expense completed`);
                     } catch (err) {
                         if (err instanceof OperationNotAllowedError) {
                             logger.warn(`[${err.name}]: ${err.message}`);
@@ -163,13 +168,27 @@ export class Controller {
                         return;
                     }
 
+                    logger = logger.child({ startDate: payload.data.startDate, endDate: payload.data.endDate });
+
+                    logger.info('Export transfers started');
+
                     await integrationManager.exportTransfers(payload.data.startDate, payload.data.endDate);
+
+                    logger.info('Export transfers completed');
                     break;
                 case PayhawkEvent.SynchronizeChartOfAccount:
+                    logger.info('Sync chart of accounts started');
+
                     await integrationManager.synchronizeChartOfAccounts();
+
+                    logger.info('Sync chart of accounts completed');
                     break;
                 case PayhawkEvent.SynchronizeBankAccounts:
+                    logger.info('Sync bank accounts started');
+
                     await integrationManager.synchronizeBankAccounts();
+
+                    logger.info('Sync bank accounts completed');
                     break;
                 default:
                     res.send(400, 'Unknown event');
