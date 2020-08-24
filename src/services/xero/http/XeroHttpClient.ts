@@ -66,7 +66,10 @@ export class XeroHttpClient implements IXeroHttpClient {
 
                     throw createError(action, errorObj);
                 case 403:
-                    throw createError(action, errorObj, m => new DisconnectedRemotelyError(m));
+                    const errBody = errorResponseData.response ?
+                        (errorResponseData.response as IErrorResponse).body :
+                        errorResponseData;
+                    throw createError(action, errBody, m => new DisconnectedRemotelyError(m));
                 case 404:
                     return undefined as any;
                 case 429:
