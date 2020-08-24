@@ -31,8 +31,13 @@ export class XeroHttpClient implements IXeroHttpClient {
         }
 
         const { response, body } = actionResult as IApiResponse;
-        if (!response || !body) {
-            throw Error(`No response or body in response data for '${responseType}'`);
+
+        if (!response) {
+            throw Error(`No error was caught but also no response data was found required by '${responseType}' api request`);
+        }
+
+        if (!body) {
+            throw Error(`No error was caught but also no response body was found required by '${responseType}'. Status code: ${response.statusCode}`);
         }
 
         const serializedResponseType = toSerializedEntityResponseType(responseType);
@@ -61,7 +66,7 @@ export class XeroHttpClient implements IXeroHttpClient {
 
                     throw createError(action, errorObj);
                 case 403:
-                    throw new DisconnectedRemotelyError();
+                    throw createError(action, errorObj, m => new DisconnectedRemotelyError(m));
                 case 404:
                     return undefined as any;
                 case 429:
@@ -98,8 +103,8 @@ function toSerializedEntityResponseType(responseType: EntityResponseType): strin
     return responseType[0].toLowerCase() + responseType.slice(1);
 }
 
-function createError(action: any, err: any): Error {
-    return Error(JSON.stringify({ action: action.toString(), error: err}, undefined, 2));
+function createError(action: any, err: any, errorConstructor: (m?: string) => Error = Error): Error {
+    return errorConstructor(JSON.stringify({ action: action.toString(), error: err }, undefined, 2));
 }
 
 const MAX_RETRIES = 3;

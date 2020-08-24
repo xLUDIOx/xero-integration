@@ -134,7 +134,7 @@ export class Manager implements IManager {
             }
 
             const files = await this.xeroClient.getBillAttachments(billId);
-            const existingFileNames = (files).map(f => f.fileName);
+            const existingFileNames = files.map(f => f.fileName);
 
             filesToUpload = filesToUpload.filter(f => {
                 const filePath = f.fileName;
