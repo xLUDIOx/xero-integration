@@ -24,6 +24,7 @@ import {
     IInvoice,
     InvoiceStatusCode,
     IOrganisation,
+    ITenant,
     IUpdateBillData,
     IUpdateTransactionData,
 } from './contracts';
@@ -39,16 +40,16 @@ export class Client implements IClient {
     }
 
     async getOrganisation(): Promise<IOrganisation | undefined> {
-        const organisations = await this.xeroClient.makeSafeRequest<IOrganisation[]>(
-            x => x.accountingApi.getOrganisations(this.tenantId),
-            EntityResponseType.Organisations,
+        const tenants = await this.xeroClient.makeSafeRequest<ITenant[]>(
+            x => x.updateTenants(),
         );
 
-        const organisation = organisations[0];
-        if (!organisation) {
+        const tenant = tenants[0];
+        if (!tenant) {
             return undefined;
         }
 
+        const organisation = tenant.orgData;
         return organisation;
     }
 
