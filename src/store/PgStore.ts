@@ -22,9 +22,10 @@ export class PgStore implements IStore {
                     "${UserTokenSetRecordKeys.token_set}"
                 )
                 VALUES ($1, $2, $3, $4)
-                ON CONFLICT ("${UserTokenSetRecordKeys.account_id}", "${UserTokenSetRecordKeys.user_id}")
+                ON CONFLICT ("${UserTokenSetRecordKeys.account_id}")
                 DO
                     UPDATE SET
+                        "${UserTokenSetRecordKeys.user_id}" = $2,
                         "${UserTokenSetRecordKeys.tenant_id}" = $3,
                         "${UserTokenSetRecordKeys.token_set}" = $4,
                         "${UserTokenSetRecordKeys.updated_at}" = now();
