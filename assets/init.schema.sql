@@ -1,7 +1,7 @@
 CREATE SCHEMA IF NOT EXISTS "xero_integration";
 
 CREATE TABLE IF NOT EXISTS "oauth2_access_tokens" (
-    "account_id" PRIMARY KEY text NOT NULL,
+    "account_id" text PRIMARY KEY NOT NULL,
     "user_id" text NOT NULL,
     "tenant_id" text NOT NULL,
     "token_set" jsonb NOT NULL,
