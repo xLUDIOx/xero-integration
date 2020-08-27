@@ -23,7 +23,10 @@ export class XeroHttpClient implements IXeroHttpClient {
         try {
             actionResult = await action(this.inner);
         } catch (err) {
-            return this.handleFailedRequest(err, action, retryCount, responseType);
+            actionResult = await this.handleFailedRequest(err, action, retryCount, responseType);
+            if (!actionResult) {
+                return undefined as any;
+            }
         }
 
         if (!responseType) {

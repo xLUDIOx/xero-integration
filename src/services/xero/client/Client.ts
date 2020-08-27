@@ -39,14 +39,14 @@ export class Client implements IClient {
     ) {
     }
 
-    async getOrganisation(): Promise<IOrganisation | undefined> {
+    async getOrganisation(): Promise<IOrganisation> {
         const tenants = await this.xeroClient.makeSafeRequest<ITenant[]>(
             x => x.updateTenants(),
         );
 
         const tenant = tenants[0];
         if (!tenant) {
-            return undefined;
+            throw Error('Could not retrieve connected organisation');
         }
 
         const organisation = tenant.orgData;

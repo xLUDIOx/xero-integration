@@ -14,9 +14,9 @@ export class Manager implements IManager {
         private readonly logger: ILogger,
     ) { }
 
-    async getOrganisationName(): Promise<string | undefined> {
+    async getOrganisationName(): Promise<string> {
         const organisation = await this.xeroEntities.getOrganisation();
-        return organisation ? organisation.name : undefined;
+        return organisation.name;
     }
 
     async synchronizeChartOfAccounts(): Promise<void> {
@@ -105,7 +105,9 @@ export class Manager implements IManager {
             transactionIds.push(transactionId);
         }
 
-        const transactionUrls = transactionIds.map(id => XeroEntities.getTransactionExternalUrl(id, bankAccountId));
+        const organisation = await this.xeroEntities.getOrganisation();
+
+        const transactionUrls = transactionIds.map(id => XeroEntities.getTransactionExternalUrl(organisation.shortCode, id));
         await this.updateExpenseLinks(expense.id, transactionUrls);
     }
 
@@ -135,6 +137,8 @@ export class Manager implements IManager {
         let fxRate: number | undefined;
         let bankAccountId: string | undefined;
 
+        const organisation = await this.xeroEntities.getOrganisation();
+
         if (expense.isPaid && expense.paymentData.source) {
             const potentialBankAccountId = expense.paymentData.source;
             const bankAccount = await this.xeroEntities.getBankAccountById(potentialBankAccountId);
@@ -145,9 +149,6 @@ export class Manager implements IManager {
                 if (expenseCurrency === bankAccountCurrency.toString()) {
                     bankAccountId = potentialBankAccountId;
                 } else {
-                    const organisation = await this.xeroEntities.getOrganisation();
-
-                    if (organisation) {
                         const organisationBaseCurrency = organisation.baseCurrency;
                         if (organisationBaseCurrency === bankAccountCurrency) {
                             fxRate = await this.fxRateService.getByDate(
@@ -160,7 +161,6 @@ export class Manager implements IManager {
                         }
                     }
                 }
-            }
         }
 
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
@@ -185,7 +185,7 @@ export class Manager implements IManager {
         };
 
         const billId = await this.xeroEntities.createOrUpdateBill(newBill);
-        const billUrl = XeroEntities.getBillExternalUrl(billId);
+        const billUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
 
         await this.updateExpenseLinks(expense.id, [billUrl]);
     }
