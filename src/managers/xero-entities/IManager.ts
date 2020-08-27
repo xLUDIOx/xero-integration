@@ -6,7 +6,7 @@ import { INewBill } from './INewBill';
 import { IOrganisation } from './IOrganisation';
 
 export interface IManager {
-    getOrganisation(): Promise<IOrganisation | undefined>;
+    getOrganisation(): Promise<IOrganisation>;
     getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string>;
     getBankAccounts(): Promise<IBankAccount[]>;
     getExpenseAccounts(): Promise<IAccountCode[]>;

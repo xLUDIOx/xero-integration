@@ -11,7 +11,7 @@ import { IOrganisation } from './IOrganisation';
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
 
-    async getOrganisation(): Promise<IOrganisation | undefined> {
+    async getOrganisation(): Promise<IOrganisation> {
         const organisation = await this.xeroClient.getOrganisation();
         return organisation;
     }
@@ -230,12 +230,12 @@ export class Manager implements IManager {
     }
 }
 
-export const getTransactionExternalUrl = (transactionId: string, bankAccountId: string): string => {
-    return `https://go.xero.com/Bank/ViewTransaction.aspx?bankTransactionId=${encodeURIComponent(transactionId)}&accountId=${encodeURIComponent(bankAccountId)}`;
+export const getTransactionExternalUrl = (organisationShortCode: string, transactionId: string): string => {
+    return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=${encodeURIComponent(transactionId)}`;
 };
 
-export const getBillExternalUrl = (invoiceId: string): string => {
-    return `https://go.xero.com/AccountsPayable/View.aspx?invoiceId=${encodeURIComponent(invoiceId)}`;
+export const getBillExternalUrl = (organisationShortCode: string, invoiceId: string): string => {
+    return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=${encodeURIComponent(invoiceId)}`;
 };
 
 const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account code '.+' has been archived|Account must be valid/;

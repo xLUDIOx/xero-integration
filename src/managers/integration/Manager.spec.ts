@@ -1,6 +1,6 @@
 import * as TypeMoq from 'typemoq';
 
-import { FxRates, Payhawk } from '../../services';
+import { FxRates, Payhawk, Xero } from '../../services';
 import { ILogger } from '../../utils';
 import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
@@ -194,6 +194,22 @@ describe('integrations/Manager', () => {
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=1`,
+                            }],
+                        }));
+
                 await manager.exportExpense(expenseId);
             });
         });
@@ -249,6 +265,22 @@ describe('integrations/Manager', () => {
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
+                            }],
+                        }));
+
                 await manager.exportExpense(expenseId);
             });
 
@@ -302,6 +334,22 @@ describe('integrations/Manager', () => {
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
+                            }],
+                        }));
 
                 await manager.exportExpense(expenseId);
             });

@@ -8,7 +8,7 @@ import { IInvoice } from './IInvoice';
 import { IOrganisation } from './IOrganisation';
 
 export interface IClient {
-    getOrganisation(): Promise<IOrganisation | undefined>;
+    getOrganisation(): Promise<IOrganisation>;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     getOrCreateContact(name: string, vat?: string): Promise<Contact>;
