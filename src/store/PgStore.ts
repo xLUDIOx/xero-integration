@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 
 import { ILogger } from '../utils';
 import { SCHEMA } from './Config';
-import { INewUserTokenSetRecord, IStore, IUserTokenSetRecord, UserTokenSetRecordKeys } from './contracts';
+import { INewUserTokenSetRecord, IStore, IUserTokenSetRecord, PayhawkApiKeyRecordKeys, UserTokenSetRecordKeys } from './contracts';
 
 export class PgStore implements IStore {
 
@@ -56,6 +56,35 @@ export class PgStore implements IStore {
         }
 
         return record;
+    }
+
+    async getApiKey(accountId: string): Promise<string|undefined> {
+        const query = await this.pgClient.query<{ key: string }>({
+            text: `
+                SELECT "${PayhawkApiKeyRecordKeys.key}" FROM "${SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS}"
+                WHERE "${PayhawkApiKeyRecordKeys.account_id}" = $1
+            `,
+            values: [accountId],
+        });
+
+        if (query.rows.length > 0) {
+            return query.rows[0].key;
+        } else {
+            return undefined;
+        }
+    }
+
+    async setApiKey(accountId: string, key: string): Promise<void> {
+        await this.pgClient.query<{ payhawk_api_key: string }>({
+            text: `
+                INSERT INTO "${SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS}" ("${PayhawkApiKeyRecordKeys.account_id}", "${PayhawkApiKeyRecordKeys.key}")
+                VALUES ($1, $2)
+                ON CONFLICT ("${PayhawkApiKeyRecordKeys.account_id}")
+                DO
+                    UPDATE SET "${PayhawkApiKeyRecordKeys.key}" = $2, "${PayhawkApiKeyRecordKeys.updated_at}" = NOW()
+            `,
+            values: [accountId, key],
+        });
     }
 
     async initSchema(): Promise<void> {

@@ -54,6 +54,10 @@ export class Manager implements IManager {
         return 'dummy api key';
     }
 
+    async setPayhawkApiKey(key: string): Promise<void> {
+        return;
+    }
+
     private async tryRefreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {

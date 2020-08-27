@@ -122,6 +122,10 @@ export class Controller {
 
         try {
             switch (payload.event) {
+                case PayhawkEvent.ApiKeySet:
+                    logger.info('New API key received');
+                    await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+                    break;
                 case PayhawkEvent.ExpenseExport:
                     if (!payload.data) {
                         const error = new Error('No payload provided for ExpenseExport event');

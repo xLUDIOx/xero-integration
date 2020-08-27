@@ -6,4 +6,5 @@ export interface IManager {
     getAccessToken(): Promise<ITokenSet | undefined>;
     getActiveTenantId(): Promise<string>;
     getPayhawkApiKey(): Promise<string>;
+    setPayhawkApiKey(key: string): Promise<void>;
 }
