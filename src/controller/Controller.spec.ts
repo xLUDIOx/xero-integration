@@ -172,7 +172,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -197,7 +197,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -222,7 +222,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: exportData } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.TransfersExport, data: exportData } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -239,7 +239,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportExpense, data: undefined } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -256,7 +256,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExportTransfers, data: undefined } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.TransfersExport, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -275,7 +275,7 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
@@ -297,7 +297,7 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.SynchronizeChartOfAccount } } as restify.Request;
+            const req = { body: { accountId, apiKey, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
     });

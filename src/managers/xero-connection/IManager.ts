@@ -5,4 +5,5 @@ export interface IManager {
     authenticate(verifier: string): Promise<ITokenSet | undefined>;
     getAccessToken(): Promise<ITokenSet | undefined>;
     getActiveTenantId(): Promise<string>;
+    getPayhawkApiKey(): Promise<string>;
 }
