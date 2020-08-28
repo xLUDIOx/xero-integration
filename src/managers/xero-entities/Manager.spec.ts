@@ -6,7 +6,7 @@ import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
-import { Manager } from './Manager';
+import { DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, Manager } from './Manager';
 
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
@@ -44,12 +44,18 @@ describe('XeroEntities.Manager', () => {
         test('returns account codes from client', async () => {
             const accountCodes: IAccountCode[] = [
                 {
+                    accountID: '1',
                     code: '429',
                     name: 'General Expenses',
+                    status: Account.StatusEnum.ACTIVE,
+                    addToWatchlist: false,
                 },
                 {
+                    accountID: '2',
                     code: '300',
                     name: 'Advertisement',
+                    status: Account.StatusEnum.ACTIVE,
+                    addToWatchlist: false,
                 },
             ];
 
@@ -435,7 +441,7 @@ describe('XeroEntities.Manager', () => {
                     description: '(no note)',
                     reference: newAccountTx.reference,
                     amount: newAccountTx.totalAmount,
-                    accountCode: '429',
+                    accountCode: DEFAULT_ACCOUNT_CODE,
                     url: newAccountTx.url,
                 }))
                 .returns(async () => newTxId)
@@ -510,7 +516,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     url: newBill.url,
                 },
-                existingBill))
+                    existingBill))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -587,7 +593,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     url: newBill.url,
                 },
-                existingBill))
+                    existingBill))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -672,7 +678,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     url: newBill.url,
                 },
-                existingBill))
+                    existingBill))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -917,7 +923,7 @@ describe('XeroEntities.Manager', () => {
                     currency: newBill.currency,
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
-                    accountCode: '429',
+                    accountCode: DEFAULT_ACCOUNT_CODE,
                     url: newBill.url,
                 }))
                 .returns(async () => newBillId)
@@ -986,6 +992,20 @@ describe('XeroEntities.Manager', () => {
                         .verifiable(TypeMoq.Times.exactly(2));
 
                     xeroClientMock
+                        .setup(x => x.getOrCreateExpenseAccount({
+                            name: DEFAULT_ACCOUNT_NAME,
+                            code: DEFAULT_ACCOUNT_CODE,
+                            addToWatchlist: true,
+                        }))
+                        .returns(async () => ({
+                            accountID: '1',
+                            code: DEFAULT_ACCOUNT_CODE,
+                            name: DEFAULT_ACCOUNT_NAME,
+                            status: Account.StatusEnum.ACTIVE,
+                            addToWatchlist: false,
+                        }));
+
+                    xeroClientMock
                         .setup(x => x.createBill({
                             date: newBill.date,
                             dueDate: newBill.date,
@@ -995,7 +1015,7 @@ describe('XeroEntities.Manager', () => {
                             currency: newBill.currency,
                             amount: newBill.totalAmount,
                             fxRate: newBill.fxRate,
-                            accountCode: '429',
+                            accountCode: DEFAULT_ACCOUNT_CODE,
                             url: newBill.url,
                         }))
                         .returns(async () => newBillId)

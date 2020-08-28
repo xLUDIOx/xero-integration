@@ -1,6 +1,6 @@
 import { Contact } from 'xero-node';
 
-import { IAccountCode } from './IAccountCode';
+import { IAccountCode, INewAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
@@ -20,6 +20,7 @@ export interface IClient {
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
 
     getExpenseAccounts(): Promise<IAccountCode[]>;
+    getOrCreateExpenseAccount(account: INewAccountCode): Promise<IAccountCode>;
 
     getTransactionByUrl(url: string): Promise<IBankTransaction | undefined>;
     createTransaction(data: ICreateTransactionData): Promise<string>;

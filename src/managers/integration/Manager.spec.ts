@@ -1,4 +1,5 @@
 import * as TypeMoq from 'typemoq';
+import { Account } from 'xero-node';
 
 import { FxRates, Payhawk, Xero } from '../../services';
 import { ILogger } from '../../utils';
@@ -44,12 +45,18 @@ describe('integrations/Manager', () => {
         test('gets expense accounts from xero and puts them on payhawk', async () => {
             const xeroAccounts: XeroEntities.IAccountCode[] = [
                 {
+                    accountID: '1',
                     name: 'Account 1',
                     code: '400',
+                    status: Account.StatusEnum.ACTIVE,
+                    addToWatchlist: false,
                 },
                 {
+                    accountID: '2',
                     name: 'Account 2',
                     code: '370',
+                    status: Account.StatusEnum.ACTIVE,
+                    addToWatchlist: false,
                 },
             ];
 

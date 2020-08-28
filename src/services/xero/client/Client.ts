@@ -7,7 +7,7 @@ import { EntityResponseType, IXeroHttpClient } from '../http';
 import {
     AccountClassType,
     AccountingItemKeys,
-    BankAccountKeys,
+    AccountKeys,
     BankAccountStatusCode,
     BankAccountType,
     BankTransactionStatusCode,
@@ -22,6 +22,7 @@ import {
     ICreateBillData,
     ICreateTransactionData,
     IInvoice,
+    INewAccountCode,
     InvoiceStatusCode,
     IOrganisation,
     ITenant,
@@ -112,7 +113,7 @@ export class Client implements IClient {
     }
 
     async getBankAccounts(): Promise<IBankAccount[]> {
-        const where = `${BankAccountKeys.status}=="${BankAccountStatusCode.Active}"&&${BankAccountKeys.type}=="${BankAccountType.Bank}"`;
+        const where = `${AccountKeys.status}=="${BankAccountStatusCode.Active}"&&${AccountKeys.type}=="${BankAccountType.Bank}"`;
 
         const result = await this.xeroClient.makeSafeRequest<IBankAccount[]>(
             x => x.accountingApi.getAccounts(this.tenantId, undefined, where),
@@ -182,7 +183,7 @@ export class Client implements IClient {
             x => x.accountingApi.getAccounts(
                 this.tenantId,
                 undefined,
-                `${BankAccountKeys.type}=="${AccountType.BANK}" && ${BankAccountKeys.code}=="${escapeParam(code)}"`,
+                `${AccountKeys.type}=="${AccountType.BANK}" && ${AccountKeys.code}=="${escapeParam(code)}"`,
             ),
             EntityResponseType.Accounts,
         );
@@ -201,6 +202,53 @@ export class Client implements IClient {
         );
 
         return expenseAccounts;
+    }
+
+    async getOrCreateExpenseAccount({ name, code, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
+        let expenseAccount = (await this.getExpenseAccounts()).find(x => x.code === code);
+        if (!expenseAccount) {
+            const expenseAccountModel: Account = {
+                name,
+                code,
+                type: AccountType.EXPENSE,
+            };
+
+            const createResult = await this.xeroClient.makeSafeRequest<IAccountCode[]>(
+                x => x.accountingApi.createAccount(
+                    this.tenantId,
+                    expenseAccountModel,
+                ),
+                EntityResponseType.Accounts,
+            );
+
+            if (createResult.length === 0) {
+                throw Error(`Did not create expense account: ${name} - ${code}`);
+            }
+
+            expenseAccount = createResult[0];
+        }
+
+        if (addToWatchlist && !expenseAccount.addToWatchlist) {
+            // Adding to watchlist can be executed only in update request
+            const updateResult = await this.xeroClient.makeSafeRequest<IAccountCode[]>(
+                x => x.accountingApi.updateAccount(
+                    this.tenantId,
+                    expenseAccount!.accountID,
+                    {
+                        accounts: [{
+                            addToWatchlist: true,
+                        }],
+                    }
+                ),
+                EntityResponseType.Accounts,
+            );
+
+            if (updateResult.length === 0) {
+                this.logger.error(Error('Unable to add expense code to watchlist'));
+            }
+        }
+
+        return expenseAccount;
     }
 
     async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {
