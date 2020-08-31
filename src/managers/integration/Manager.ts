@@ -21,8 +21,12 @@ export class Manager implements IManager {
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
+        const accountCodeModels = xeroAccountCodes.map(x => ({
+            code: x.code,
+            name: x.name,
+        }));
 
-        await this.payhawkClient.synchronizeChartOfAccounts(xeroAccountCodes);
+        await this.payhawkClient.synchronizeChartOfAccounts(accountCodeModels);
     }
 
     async synchronizeBankAccounts(): Promise<void> {

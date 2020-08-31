@@ -69,7 +69,7 @@ export class Manager implements IManager {
             try {
                 transactionId = await this.xeroClient.createTransaction(createData);
             } catch (err) {
-                const createDataFallback = this.tryFallbackItemData(err, createData);
+                const createDataFallback = await this.tryFallbackItemData(err, createData);
                 transactionId = await this.xeroClient.createTransaction(createDataFallback);
             }
         } else {
@@ -81,7 +81,7 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateTransaction(updateData);
             } catch (err) {
-                const updateDataFallback = this.tryFallbackItemData(err, updateData);
+                const updateDataFallback = await this.tryFallbackItemData(err, updateData);
                 await this.xeroClient.updateTransaction(updateDataFallback);
             }
 
@@ -115,7 +115,7 @@ export class Manager implements IManager {
             try {
                 billId = await this.xeroClient.createBill(billData);
             } catch (err) {
-                const createDataFallback = this.tryFallbackItemData(err, billData);
+                const createDataFallback = await this.tryFallbackItemData(err, billData);
                 billId = await this.xeroClient.createBill(createDataFallback);
             }
         } else {
@@ -129,7 +129,7 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateBill(updateData, bill);
             } catch (err) {
-                const updateDataFallback = this.tryFallbackItemData(err, updateData);
+                const updateDataFallback = await this.tryFallbackItemData(err, updateData);
                 await this.xeroClient.updateBill(updateDataFallback, bill);
             }
 
@@ -170,9 +170,11 @@ export class Manager implements IManager {
         return billId;
     }
 
-    private tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): TData {
+    private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): Promise<TData> {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             // Force default account code
+            await this.ensureDefaultAccountCodeExists();
+
             data.accountCode = DEFAULT_ACCOUNT_CODE;
         } else {
             throw error;
@@ -228,6 +230,18 @@ export class Manager implements IManager {
             url,
         };
     }
+
+    private async ensureDefaultAccountCodeExists() {
+        const defaultExpenseAccount = await this.xeroClient.getOrCreateExpenseAccount({
+            name: DEFAULT_ACCOUNT_NAME,
+            code: DEFAULT_ACCOUNT_CODE,
+            addToWatchlist: true,
+        });
+
+        if (defaultExpenseAccount.status !== Account.StatusEnum.ACTIVE) {
+            throw Error(`Default expense account is required but it is currently of status '${defaultExpenseAccount.status}'`);
+        }
+    }
 }
 
 export const getTransactionExternalUrl = (organisationShortCode: string, transactionId: string): string => {
@@ -240,7 +254,9 @@ export const getBillExternalUrl = (organisationShortCode: string, invoiceId: str
 
 const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account code '.+' has been archived|Account must be valid/;
 
-const DEFAULT_ACCOUNT_CODE = '429';
+export const DEFAULT_ACCOUNT_CODE = '999999';
+export const DEFAULT_ACCOUNT_NAME = 'PAYHAWK GENERAL';
+
 const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 

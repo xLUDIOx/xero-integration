@@ -82,12 +82,13 @@ export class Controller {
             }
 
             const tenantId = await connectionManager.getActiveTenantId();
-            const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger); // payhawk api key is not needed here
-            const organisation = await integrationManager.getOrganisationName();
+            const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
+
+            const organisationName = await integrationManager.getOrganisationName();
 
             url.searchParams.append('connection', 'xero');
-            if (organisation) {
-                url.searchParams.append('label', organisation);
+            if (organisationName) {
+                url.searchParams.append('label', organisationName);
             }
 
             res.redirect(url.toString(), next);
