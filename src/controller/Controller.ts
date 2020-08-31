@@ -115,18 +115,14 @@ export class Controller {
             return;
         }
 
-        const tenantId = await connectionManager.getActiveTenantId();
-        const payhawkApiKey = await connectionManager.getPayhawkApiKey();
-
-        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
-
         try {
             switch (payload.event) {
-                case PayhawkEvent.ApiKeySet:
+                case PayhawkEvent.ApiKeySet: {
                     logger.info('New API key received');
                     await connectionManager.setPayhawkApiKey(payload.data.apiKey);
                     break;
-                case PayhawkEvent.ExpenseExport:
+                }
+                case PayhawkEvent.ExpenseExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for ExpenseExport event');
                         logger.error(error);
@@ -147,6 +143,9 @@ export class Controller {
                     logger.info(`Export expense started`);
 
                     try {
+                        const tenantId = await connectionManager.getActiveTenantId();
+                        const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                         await integrationManager.exportExpense(expenseId);
 
                         logger.info(`Export expense completed`);
@@ -160,7 +159,8 @@ export class Controller {
                         }
                     }
                     break;
-                case PayhawkEvent.TransfersExport:
+                }
+                case PayhawkEvent.TransfersExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for TransfersExport event');
                         logger.error(error);
@@ -179,24 +179,36 @@ export class Controller {
 
                     logger.info('Export transfers started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.exportTransfers(payload.data.startDate, payload.data.endDate);
 
                     logger.info('Export transfers completed');
                     break;
-                case PayhawkEvent.ChartOfAccountSynchronize:
+                }
+                case PayhawkEvent.ChartOfAccountSynchronize: {
                     logger.info('Sync chart of accounts started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.synchronizeChartOfAccounts();
 
                     logger.info('Sync chart of accounts completed');
                     break;
-                case PayhawkEvent.BankAccountsSynchronize:
+                }
+                case PayhawkEvent.BankAccountsSynchronize: {
                     logger.info('Sync bank accounts started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.synchronizeBankAccounts();
 
                     logger.info('Sync bank accounts completed');
                     break;
+                }
                 default:
                     res.send(400, 'Unknown event');
                     return;

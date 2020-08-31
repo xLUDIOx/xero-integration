@@ -51,11 +51,16 @@ export class Manager implements IManager {
     }
 
     async getPayhawkApiKey(): Promise<string> {
-        return 'dummy api key';
+        const result = await this.store.getApiKey(this.accountId);
+        if (!result) {
+            throw Error('No API key for account');
+        } else {
+            return result;
+        }
     }
 
     async setPayhawkApiKey(key: string): Promise<void> {
-        return;
+        await this.store.setApiKey(this.accountId, key);
     }
 
     private async tryRefreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet | undefined> {
