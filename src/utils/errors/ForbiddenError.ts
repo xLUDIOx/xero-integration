@@ -1,4 +1,4 @@
-export class DisconnectedRemotelyError extends Error {
+export class ForbiddenError extends Error {
     constructor(message?: string) {
         super(message);
 

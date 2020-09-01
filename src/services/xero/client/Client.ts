@@ -41,7 +41,7 @@ export class Client implements IClient {
     }
 
     async getOrganisation(): Promise<IOrganisation> {
-        const tenants = await this.xeroClient.makeSafeRequest<ITenant[]>(
+        const tenants = await this.xeroClient.makeClientRequest<ITenant[]>(
             x => x.updateTenants(),
         );
 
@@ -59,7 +59,7 @@ export class Client implements IClient {
 
         if (vat) {
             const where = `${ContactKeys.taxNumber}=="${escapeParam(vat.trim())}"`;
-            contacts = await this.xeroClient.makeSafeRequest<Contact[]>(
+            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.getContacts(this.tenantId, undefined, where),
                 EntityResponseType.Contacts
             );
@@ -67,7 +67,7 @@ export class Client implements IClient {
 
         if (!contacts || contacts.length === 0) {
             const where = `${ContactKeys.name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
-            contacts = await this.xeroClient.makeSafeRequest<Contact[]>(
+            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.getContacts(this.tenantId, undefined, where),
                 EntityResponseType.Contacts,
             );
@@ -88,7 +88,7 @@ export class Client implements IClient {
         let contacts: Contact[] | undefined;
 
         try {
-            contacts = await this.xeroClient.makeSafeRequest<Contact[]>(
+            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.createContacts(this.tenantId, { contacts: [payload] }),
                 EntityResponseType.Contacts,
             );
@@ -115,7 +115,7 @@ export class Client implements IClient {
     async getBankAccounts(): Promise<IBankAccount[]> {
         const where = `${AccountKeys.status}=="${BankAccountStatusCode.Active}"&&${AccountKeys.type}=="${BankAccountType.Bank}"`;
 
-        const result = await this.xeroClient.makeSafeRequest<IBankAccount[]>(
+        const result = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.getAccounts(this.tenantId, undefined, where),
             EntityResponseType.Accounts,
         );
@@ -124,7 +124,7 @@ export class Client implements IClient {
     }
 
     async getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined> {
-        const bankAccounts = await this.xeroClient.makeSafeRequest<IBankAccount[] | undefined>(
+        const bankAccounts = await this.xeroClient.makeClientRequest<IBankAccount[] | undefined>(
             x => x.accountingApi.getAccount(this.tenantId, bankAccountId),
             EntityResponseType.Accounts,
         );
@@ -133,7 +133,7 @@ export class Client implements IClient {
     }
 
     async activateBankAccount(bankAccountId: string): Promise<IBankAccount> {
-        const bankAccountsResult = await this.xeroClient.makeSafeRequest<IBankAccount[]>(
+        const bankAccountsResult = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.updateAccount(
                 this.tenantId,
                 bankAccountId,
@@ -155,7 +155,7 @@ export class Client implements IClient {
     async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount> {
         await this.ensureCurrency(currencyCode);
 
-        const bankAccounts = await this.xeroClient.makeSafeRequest<IBankAccount[]>(
+        const bankAccounts = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.createAccount(
                 this.tenantId,
                 {
@@ -179,7 +179,7 @@ export class Client implements IClient {
     }
 
     async getBankAccountByCode(code: string): Promise<IBankAccount | undefined> {
-        const accounts = await this.xeroClient.makeSafeRequest<IBankAccount[]>(
+        const accounts = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.getAccounts(
                 this.tenantId,
                 undefined,
@@ -192,7 +192,7 @@ export class Client implements IClient {
     }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
-        const expenseAccounts = await this.xeroClient.makeSafeRequest<IAccountCode[]>(
+        const expenseAccounts = await this.xeroClient.makeClientRequest<IAccountCode[]>(
             x => x.accountingApi.getAccounts(
                 this.tenantId,
                 undefined,
@@ -213,7 +213,7 @@ export class Client implements IClient {
                 type: AccountType.EXPENSE,
             };
 
-            const createResult = await this.xeroClient.makeSafeRequest<IAccountCode[]>(
+            const createResult = await this.xeroClient.makeClientRequest<IAccountCode[]>(
                 x => x.accountingApi.createAccount(
                     this.tenantId,
                     expenseAccountModel,
@@ -230,7 +230,7 @@ export class Client implements IClient {
 
         if (addToWatchlist && !expenseAccount.addToWatchlist) {
             // Adding to watchlist can be executed only in update request
-            const updateResult = await this.xeroClient.makeSafeRequest<IAccountCode[]>(
+            const updateResult = await this.xeroClient.makeClientRequest<IAccountCode[]>(
                 x => x.accountingApi.updateAccount(
                     this.tenantId,
                     expenseAccount!.accountID,
@@ -252,7 +252,7 @@ export class Client implements IClient {
     }
 
     async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {
-        const transactions = await this.xeroClient.makeSafeRequest<IBankTransaction[] | undefined>(
+        const transactions = await this.xeroClient.makeClientRequest<IBankTransaction[] | undefined>(
             x => x.accountingApi.getBankTransactions(
                 this.tenantId,
                 undefined,
@@ -276,7 +276,7 @@ export class Client implements IClient {
     async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, url }: ICreateTransactionData): Promise<string> {
         const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
 
-        const bankTransactions = await this.xeroClient.makeSafeRequest<IBankTransaction[]>(
+        const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
                 this.tenantId,
                 { bankTransactions: [transaction] },
@@ -295,7 +295,7 @@ export class Client implements IClient {
     async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, url }: IUpdateTransactionData): Promise<void> {
         const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
 
-        await this.xeroClient.makeSafeRequest<IBankTransaction[]>(
+        await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
                 this.tenantId,
                 transactionId,
@@ -307,7 +307,7 @@ export class Client implements IClient {
 
     async getBillByUrl(url: string): Promise<IInvoice | undefined> {
         const where = `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${InvoiceStatusCode.Deleted}"`;
-        const invoices = await this.xeroClient.makeSafeRequest<IInvoice[] | undefined>(
+        const invoices = await this.xeroClient.makeClientRequest<IInvoice[] | undefined>(
             x => x.accountingApi.getInvoices(this.tenantId, undefined, where),
             EntityResponseType.Invoices
         );
@@ -330,7 +330,7 @@ export class Client implements IClient {
 
         const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid);
 
-        const invoices = await this.xeroClient.makeSafeRequest<Invoice[]>(
+        const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.createInvoices(
                 this.tenantId,
                 { invoices: [bill] },
@@ -355,7 +355,7 @@ export class Client implements IClient {
             throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
         }
 
-        await this.xeroClient.makeSafeRequest<Invoice[]>(
+        await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.updateInvoice(
                 this.tenantId,
                 billId,
@@ -367,7 +367,7 @@ export class Client implements IClient {
 
     async uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string) {
         await this.documentSanitizer.sanitize(filePath);
-        await this.xeroClient.makeSafeRequest<Attachment[]>(
+        await this.xeroClient.makeClientRequest<Attachment[]>(
             x => x.accountingApi.createBankTransactionAttachmentByFileName(
                 this.tenantId,
                 transactionId,
@@ -382,11 +382,10 @@ export class Client implements IClient {
     }
 
     async getTransactionAttachments(entityId: string): Promise<IAttachment[]> {
-        const attachments = await this.xeroClient.makeSafeRequest<Attachment[]>(
-            x => x.accountingApi.getBankTransactionAttachments(
-                this.tenantId,
-                entityId,
-            ),
+        const attachments = await this.xeroClient.makeRawRequest<Attachment[]>(
+            'GET',
+            `/BankTransactions/${encodeURIComponent(entityId)}/Attachments`,
+            this.tenantId,
             EntityResponseType.Attachments,
         );
 
@@ -395,7 +394,7 @@ export class Client implements IClient {
 
     async uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string) {
         await this.documentSanitizer.sanitize(filePath);
-        await this.xeroClient.makeSafeRequest<Attachment[]>(
+        await this.xeroClient.makeClientRequest<Attachment[]>(
             x => x.accountingApi.createInvoiceAttachmentByFileName(
                 this.tenantId,
                 billId,
@@ -411,11 +410,10 @@ export class Client implements IClient {
     }
 
     async getBillAttachments(entityId: string): Promise<IAttachment[]> {
-        const attachmentsResponse = await this.xeroClient.makeSafeRequest<Attachment[]>(
-            x => x.accountingApi.getInvoiceAttachments(
-                this.tenantId,
-                entityId,
-            ),
+        const attachmentsResponse = await this.xeroClient.makeRawRequest<Attachment[]>(
+            'GET',
+            `/Invoices/${encodeURIComponent(entityId)}/Attachments`,
+            this.tenantId,
             EntityResponseType.Attachments,
         );
 
@@ -423,7 +421,7 @@ export class Client implements IClient {
     }
 
     async payBill({ date, bankAccountId, amount, fxRate, billId }: IBillPaymentData): Promise<void> {
-        const invoices = await this.xeroClient.makeSafeRequest<Invoice[]>(
+        const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.getInvoice(
                 this.tenantId,
                 billId,
@@ -442,7 +440,7 @@ export class Client implements IClient {
             throw new OperationNotAllowedError('Bill is already paid. Payment cannot be updated.');
         }
 
-        const payments = await this.xeroClient.makeSafeRequest<Payment[]>(
+        const payments = await this.xeroClient.makeClientRequest<Payment[]>(
             x => x.accountingApi.createPayment(
                 this.tenantId,
                 paymentModel,
@@ -457,7 +455,7 @@ export class Client implements IClient {
     }
 
     private async ensureCurrency(currencyCode: string): Promise<void> {
-        const currencies = await this.xeroClient.makeSafeRequest<Currency[]>(
+        const currencies = await this.xeroClient.makeClientRequest<Currency[]>(
             x => x.accountingApi.getCurrencies(
                 this.tenantId,
                 `${CurrencyKeys.code}=="${escapeParam(currencyCode)}"`,
@@ -466,7 +464,7 @@ export class Client implements IClient {
         );
 
         if (!currencies.length) {
-            const createdCurrencies = await this.xeroClient.makeSafeRequest<Currency[]>(
+            const createdCurrencies = await this.xeroClient.makeClientRequest<Currency[]>(
                 x => x.accountingApi.createCurrency(
                     this.tenantId,
                     {

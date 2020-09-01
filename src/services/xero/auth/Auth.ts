@@ -18,7 +18,7 @@ export class Auth implements IAuth {
 
     async getAuthUrl(): Promise<string> {
         const authClient = await this.createClient();
-        const consentUrlString = await authClient.makeSafeRequest<string>(x => x.buildConsentUrl());
+        const consentUrlString = await authClient.makeClientRequest<string>(x => x.buildConsentUrl());
         const consentUrl = new URL(consentUrlString);
         if (!consentUrl.searchParams.has('state') && this.config.state !== undefined) {
             consentUrl.searchParams.set('state', this.config.state);
@@ -30,13 +30,13 @@ export class Auth implements IAuth {
     async getAccessToken(verifier: string): Promise<IAccessToken> {
         const authClient = await this.createClient();
 
-        const tokenSet = await authClient.makeSafeRequest<ITokenSet>(x => x.apiCallback(verifier));
+        const tokenSet = await authClient.makeClientRequest<ITokenSet>(x => x.apiCallback(verifier));
         return this.buildAccessTokenData(authClient, tokenSet);
     }
 
     async refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined> {
         const authClient = await this.createClient(currentToken);
-        const newToken = await authClient.makeSafeRequest<ITokenSet>(x => x.refreshToken());
+        const newToken = await authClient.makeClientRequest<ITokenSet>(x => x.refreshToken());
         return this.buildAccessTokenData(authClient, newToken);
     }
 
@@ -44,7 +44,7 @@ export class Auth implements IAuth {
         const client = new XeroClient(this.config);
         const httpClient = createXeroHttpClient(client, this.logger);
 
-        await httpClient.makeSafeRequest(x => x.initialize());
+        await httpClient.makeClientRequest(x => x.initialize());
 
         if (accessToken) {
             client.setTokenSet(accessToken);
@@ -54,7 +54,7 @@ export class Auth implements IAuth {
     }
 
     private async buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet): Promise<IAccessToken> {
-        const tenants = await client.makeSafeRequest<ITenant[]>(x => x.updateTenants());
+        const tenants = await client.makeClientRequest<ITenant[]>(x => x.updateTenants());
         if (tenants.length === 0) {
             throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
         }

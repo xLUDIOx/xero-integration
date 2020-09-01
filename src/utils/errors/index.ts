@@ -1,2 +1,2 @@
 export * from './OperationNotAllowedError';
-export * from './DisconnectedRemotelyError';
+export * from './ForbiddenError';

@@ -4,7 +4,7 @@ import * as restify from 'restify';
 
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { DisconnectedRemotelyError, fromBase64, ILogger, OperationNotAllowedError, requiredQueryParams } from '../utils';
+import { ForbiddenError, fromBase64, ILogger, OperationNotAllowedError, requiredQueryParams } from '../utils';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -238,7 +238,7 @@ export class Controller {
 
             return { isAlive: true };
         } catch (err) {
-            if (err instanceof DisconnectedRemotelyError) {
+            if (err instanceof ForbiddenError) {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };
             }
 

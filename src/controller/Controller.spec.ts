@@ -5,7 +5,7 @@ import * as TypeMoq from 'typemoq';
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
 import { ITokenSet } from '../store';
-import { DisconnectedRemotelyError, ILogger, OperationNotAllowedError } from '../utils';
+import { ForbiddenError, ILogger, OperationNotAllowedError } from '../utils';
 import { Controller } from './Controller';
 import { ConnectionMessage } from './IConnectionStatus';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -341,7 +341,7 @@ describe('Controller', () => {
 
             integrationManagerMock
                 .setup(m => m.getOrganisationName())
-                .throws(new DisconnectedRemotelyError())
+                .throws(new ForbiddenError())
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
