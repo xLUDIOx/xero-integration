@@ -16,12 +16,18 @@ export interface IXeroHttpClient {
 
     /**
      * Makes a raw request against the Xero API on the provided path, with error handling
-     * @param method The HTTP method of the request
-     * @param path The path to make request on
+     * @param requestOptions Request options such as the HTTP method, API path and headers of the request
      * @param tenantId The Xero tenant ID
      * @param responseType The entity type that should be returned from the client action
      */
-    makeRawRequest<TResult extends any>(method: string, path: string, tenantId: string, responseType?: EntityResponseType): Promise<TResult>;
+    makeRawRequest<TResult extends any>(requestOptions: IRequestOptions, tenantId: string, responseType?: EntityResponseType): Promise<TResult>;
+}
+
+export interface IRequestOptions {
+    method: string;
+    path: string;
+    body?: any;
+    contentType?: string;
 }
 
 export interface IApiResponse<T = any> {

@@ -367,24 +367,27 @@ export class Client implements IClient {
 
     async uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string) {
         await this.documentSanitizer.sanitize(filePath);
-        await this.xeroClient.makeClientRequest<Attachment[]>(
-            x => x.accountingApi.createBankTransactionAttachmentByFileName(
-                this.tenantId,
-                transactionId,
-                fileName,
-                createReadStream(filePath),
-                {
-                    headers: { 'Content-Type': contentType },
-                },
-            ),
+
+        const body = await getFileContents(filePath);
+
+        await this.xeroClient.makeRawRequest<Attachment[]>(
+            {
+                path: `/BankTransactions/${encodeURIComponent(transactionId)}/Attachments/${encodeURIComponent(fileName)}`,
+                method: 'PUT',
+                body,
+                contentType,
+            },
+            this.tenantId,
             EntityResponseType.Attachments,
         );
     }
 
     async getTransactionAttachments(entityId: string): Promise<IAttachment[]> {
         const attachments = await this.xeroClient.makeRawRequest<Attachment[]>(
-            'GET',
-            `/BankTransactions/${encodeURIComponent(entityId)}/Attachments`,
+            {
+                method: 'GET',
+                path: `/BankTransactions/${encodeURIComponent(entityId)}/Attachments`,
+            },
             this.tenantId,
             EntityResponseType.Attachments,
         );
@@ -394,25 +397,27 @@ export class Client implements IClient {
 
     async uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string) {
         await this.documentSanitizer.sanitize(filePath);
-        await this.xeroClient.makeClientRequest<Attachment[]>(
-            x => x.accountingApi.createInvoiceAttachmentByFileName(
-                this.tenantId,
-                billId,
-                fileName,
-                createReadStream(filePath),
-                false,
-                {
-                    headers: { 'Content-Type': contentType },
-                },
-            ),
+
+        const body = await getFileContents(filePath);
+
+        await this.xeroClient.makeRawRequest(
+            {
+                path: `/Invoices/${encodeURIComponent(billId)}/Attachments/${encodeURIComponent(fileName)}`,
+                method: 'PUT',
+                body,
+                contentType,
+            },
+            this.tenantId,
             EntityResponseType.Attachments,
         );
     }
 
     async getBillAttachments(entityId: string): Promise<IAttachment[]> {
         const attachmentsResponse = await this.xeroClient.makeRawRequest<Attachment[]>(
-            'GET',
-            `/Invoices/${encodeURIComponent(entityId)}/Attachments`,
+            {
+                method: 'GET',
+                path: `/Invoices/${encodeURIComponent(entityId)}/Attachments`,
+            },
             this.tenantId,
             EntityResponseType.Attachments,
         );
@@ -479,6 +484,18 @@ export class Client implements IClient {
             }
         }
     }
+}
+
+async function getFileContents(filePath: string): Promise<any[]> {
+    const fileStream = createReadStream(filePath);
+
+    return new Promise((resolve, reject) => {
+        const result: any[] = [];
+
+        fileStream.on('data', chunk => result.push(chunk));
+        fileStream.on('end', () => resolve(result));
+        fileStream.on('error', err => reject(err));
+    });
 }
 
 function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {

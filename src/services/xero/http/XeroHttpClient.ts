@@ -1,10 +1,10 @@
-import { Response } from 'request';
+import { Headers, Response } from 'request';
 import * as request from 'request-promise';
 import { StatusCodeError } from 'request-promise/errors';
 import { ObjectSerializer, XeroClient } from 'xero-node';
 
 import { ForbiddenError, ILogger } from '../../../utils';
-import { EntityResponseType, IApiResponse, IErrorResponse, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
+import { EntityResponseType, IApiResponse, IErrorResponse, IRequestOptions, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
 
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
@@ -26,11 +26,10 @@ export class XeroHttpClient implements IXeroHttpClient {
         return this.makeRequest(action, 0, responseType);
     }
 
-    async makeRawRequest<TResult extends any>(method: string, path: string, tenantId: string, responseType?: EntityResponseType): Promise<TResult> {
+    async makeRawRequest<TResult extends any>(requestOptions: IRequestOptions, tenantId: string, responseType?: EntityResponseType): Promise<TResult> {
         return this.makeClientRequest<TResult>(
             () => makeRawAuthorizedRequest(
-                method,
-                path,
+                requestOptions,
                 tenantId,
                 this.accessToken,
                 responseType,
@@ -133,38 +132,46 @@ export class XeroHttpClient implements IXeroHttpClient {
     }
 }
 
-async function makeRawAuthorizedRequest(method: string, path: string, tenantId: string, accessToken: string, responseType?: EntityResponseType): Promise<IApiResponse> {
-    let body;
-    try {
-        const response: Response = await request(
-            `${BASE_PATH}/${path}`,
-            {
-                method,
-                headers: {
-                    [XERO_TENANT_ID_HEADER]: tenantId,
-                },
-                auth: {
-                    bearer: accessToken,
-                },
-                json: true,
-                resolveWithFullResponse: true,
-            }
-        );
+async function makeRawAuthorizedRequest({ method, path, body, contentType }: IRequestOptions, tenantId: string, accessToken: string, responseType?: EntityResponseType): Promise<IApiResponse> {
+    let resBody;
 
-        body = response.body;
+    try {
+        const headers: Headers = {
+            [AUTHORIZATION_HEADER]: `Bearer ${accessToken}`,
+            [CONTENT_TYPE_HEADER]: contentType,
+            [XERO_TENANT_ID_HEADER]: tenantId,
+        };
+
+        if (contentType) {
+            headers[CONTENT_TYPE_HEADER] = contentType;
+        }
+
+        const response: Response = await request({
+            uri: `${BASE_PATH}/${path}`,
+            method,
+            body,
+            headers,
+            resolveWithFullResponse: true,
+        });
+
+        resBody = JSON.parse(response.body);
 
         if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
             if (responseType) {
-                body = ObjectSerializer.deserialize(response.body, responseType.toString());
+                resBody = ObjectSerializer.deserialize(resBody, responseType.toString());
             }
 
-            return { response, body };
+            return { response, body: resBody };
         } else {
-            throw { response, body };
+            throw { response, body: resBody };
         }
     } catch (err) {
-        const { response, ...error } = err as StatusCodeError;
-        throw { response, body: error };
+        if (err instanceof StatusCodeError) {
+            const { response, ...error } = err as StatusCodeError;
+            throw { response, body: error };
+        } else {
+            throw err;
+        }
     }
 }
 
@@ -178,6 +185,8 @@ function createError(action: any, err: any, errorConstructor: (m?: string) => Er
 
 const BASE_PATH = 'https://api.xero.com/api.xro/2.0';
 const XERO_TENANT_ID_HEADER = 'xero-tenant-id';
+const AUTHORIZATION_HEADER = 'authorization';
+const CONTENT_TYPE_HEADER = 'content-type';
 
 const MAX_RETRIES = 3;
 const DEFAULT_SECONDS_TO_RETRY_AFTER = 1;
