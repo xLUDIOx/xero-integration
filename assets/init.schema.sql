@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS "oauth2_access_tokens" (
     "updated_at" timestamp without time zone DEFAULT NOW() NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS "payhaw_api_keys" (
+CREATE TABLE IF NOT EXISTS "payhawk_api_keys" (
     "account_id" text PRIMARY KEY NOT NULL,
     "key" text,
     "created_at" timestamp without time zone DEFAULT NOW() NOT NULL,
