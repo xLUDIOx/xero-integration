@@ -1,7 +1,10 @@
-import { XeroClient } from 'xero-node';
+import { Headers, Response } from 'request';
+import * as request from 'request-promise';
+import { StatusCodeError } from 'request-promise/errors';
+import { ObjectSerializer, XeroClient } from 'xero-node';
 
-import { DisconnectedRemotelyError, ILogger } from '../../../utils';
-import { EntityResponseType, IApiResponse, IErrorResponse, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
+import { ForbiddenError, ILogger } from '../../../utils';
+import { EntityResponseType, IApiResponse, IErrorResponse, IRequestOptions, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
 
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
@@ -9,8 +12,30 @@ export class XeroHttpClient implements IXeroHttpClient {
         private readonly logger: ILogger,
     ) { }
 
-    async makeSafeRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: EntityResponseType): Promise<TResult> {
+    private get accessToken(): string {
+        const tokenSet = this.inner.readTokenSet();
+        const accessToken = tokenSet.access_token;
+        if (!accessToken) {
+            throw Error('Client has no access token');
+        }
+
+        return accessToken;
+    }
+
+    async makeClientRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: EntityResponseType): Promise<TResult> {
         return this.makeRequest(action, 0, responseType);
+    }
+
+    async makeRawRequest<TResult extends any>(requestOptions: IRequestOptions, tenantId: string, responseType?: EntityResponseType): Promise<TResult> {
+        return this.makeClientRequest<TResult>(
+            () => makeRawAuthorizedRequest(
+                requestOptions,
+                tenantId,
+                this.accessToken,
+                responseType,
+            ),
+            responseType,
+        );
     }
 
     private async makeRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: EntityResponseType): Promise<TResult> {
@@ -48,6 +73,8 @@ export class XeroHttpClient implements IXeroHttpClient {
     }
 
     private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: EntityResponseType): Promise<TResult> {
+        const logger = this.logger.child({ action: action.toString() });
+
         const errorResponseData = err as IApiResponse;
         if (errorResponseData.response) {
             const statusCode = errorResponseData.response.statusCode;
@@ -72,7 +99,7 @@ export class XeroHttpClient implements IXeroHttpClient {
                     const errBody = errorResponseData.response ?
                         (errorResponseData.response as IErrorResponse).body :
                         errorResponseData;
-                    throw createError(action, errBody, m => new DisconnectedRemotelyError(m));
+                    throw createError(action, errBody, m => new ForbiddenError(m));
                 case 404:
                     return undefined as any;
                 case 429:
@@ -86,7 +113,7 @@ export class XeroHttpClient implements IXeroHttpClient {
                     const millisecondsToRetryAfter = secondsToRetryAfter * 1000;
                     const nextRetryCount = retryCount + 1;
 
-                    this.logger.info(`Rate limit exceeded. Retrying again after ${secondsToRetryAfter} seconds (${nextRetryCount})`);
+                    logger.info(`Rate limit exceeded. Retrying again after ${secondsToRetryAfter} seconds (${nextRetryCount})`);
 
                     return new Promise((resolve, reject) => {
                         const handledRetry = () =>
@@ -105,6 +132,49 @@ export class XeroHttpClient implements IXeroHttpClient {
     }
 }
 
+async function makeRawAuthorizedRequest({ method, path, body, contentType }: IRequestOptions, tenantId: string, accessToken: string, responseType?: EntityResponseType): Promise<IApiResponse> {
+    let resBody;
+
+    try {
+        const headers: Headers = {
+            [AUTHORIZATION_HEADER]: `Bearer ${accessToken}`,
+            [CONTENT_TYPE_HEADER]: contentType,
+            [XERO_TENANT_ID_HEADER]: tenantId,
+        };
+
+        if (contentType) {
+            headers[CONTENT_TYPE_HEADER] = contentType;
+        }
+
+        const response: Response = await request({
+            uri: `${BASE_PATH}/${path}`,
+            method,
+            body,
+            headers,
+            resolveWithFullResponse: true,
+        });
+
+        resBody = JSON.parse(response.body);
+
+        if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+            if (responseType) {
+                resBody = ObjectSerializer.deserialize(resBody, responseType.toString());
+            }
+
+            return { response, body: resBody };
+        } else {
+            throw { response, body: resBody };
+        }
+    } catch (err) {
+        if (err instanceof StatusCodeError) {
+            const { response, ...error } = err as StatusCodeError;
+            throw { response, body: error };
+        } else {
+            throw err;
+        }
+    }
+}
+
 function toSerializedEntityResponseType(responseType: EntityResponseType): string {
     return responseType[0].toLowerCase() + responseType.slice(1);
 }
@@ -112,6 +182,11 @@ function toSerializedEntityResponseType(responseType: EntityResponseType): strin
 function createError(action: any, err: any, errorConstructor: (m?: string) => Error = Error): Error {
     return errorConstructor(JSON.stringify({ action: action.toString(), error: err }, undefined, 2));
 }
+
+const BASE_PATH = 'https://api.xero.com/api.xro/2.0';
+const XERO_TENANT_ID_HEADER = 'xero-tenant-id';
+const AUTHORIZATION_HEADER = 'authorization';
+const CONTENT_TYPE_HEADER = 'content-type';
 
 const MAX_RETRIES = 3;
 const DEFAULT_SECONDS_TO_RETRY_AFTER = 1;
