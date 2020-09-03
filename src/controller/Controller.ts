@@ -106,8 +106,12 @@ export class Controller {
         const accountId = payload.accountId;
 
         let logger = this.baseLogger.child({ accountId: payload.accountId, event: payload.event }, req);
-
         const connectionManager = this.connectionManagerFactory({ accountId: payload.accountId }, logger);
+        if (payload.event === PayhawkEvent.ApiKeySet) {
+            logger.info('New API key received');
+            await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+        }
+
         const xeroAccessToken = await connectionManager.getAccessToken();
         if (!xeroAccessToken) {
             logger.error(new Error('Unable to handle event because there is no valid access token'));
@@ -119,8 +123,7 @@ export class Controller {
         try {
             switch (payload.event) {
                 case PayhawkEvent.ApiKeySet: {
-                    logger.info('New API key received');
-                    await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+                    // Handled before getting an access token
                     break;
                 }
                 case PayhawkEvent.ExpenseExport: {
