@@ -44,7 +44,10 @@
             "skipFiles": [
                 "<node_internals>/**/*.js",
                 "${workspaceFolder}/node_modules/**/*.js"
-            ]
+            ],
+            "env": {
+                "TESTING": "true"
+            }
         },
     ]
 }

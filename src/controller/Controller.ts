@@ -4,7 +4,7 @@ import * as restify from 'restify';
 
 import { IConfig } from '../Config';
 import { Integration, XeroConnection } from '../managers';
-import { ForbiddenError, fromBase64, ILogger, OperationNotAllowedError, requiredQueryParams } from '../utils';
+import { ForbiddenError, fromBase64, ILogger, OperationNotAllowedError, payhawkSigned, requiredQueryParams } from '../utils';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -100,8 +100,10 @@ export class Controller {
         }
     }
 
+    @payhawkSigned
     async payhawk(req: restify.Request, res: restify.Response) {
         const payload = req.body as IPayhawkPayload;
+        const accountId = payload.accountId;
 
         let logger = this.baseLogger.child({ accountId: payload.accountId, event: payload.event }, req);
 
@@ -114,15 +116,16 @@ export class Controller {
             return;
         }
 
-        const tenantId = await connectionManager.getActiveTenantId();
-
-        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId: payload.accountId, payhawkApiKey: payload.apiKey }, logger);
-
         try {
             switch (payload.event) {
-                case PayhawkEvent.ExportExpense:
+                case PayhawkEvent.ApiKeySet: {
+                    logger.info('New API key received');
+                    await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+                    break;
+                }
+                case PayhawkEvent.ExpenseExport: {
                     if (!payload.data) {
-                        const error = new Error('No payload provided for ExportExpense event');
+                        const error = new Error('No payload provided for ExpenseExport event');
                         logger.error(error);
                         res.send(500);
                         return;
@@ -130,7 +133,7 @@ export class Controller {
 
                     const expenseId = payload.data.expenseId;
                     if (!expenseId) {
-                        const error = new Error('No expense ID provided in payload for ExportExpense event');
+                        const error = new Error('No expense ID provided in payload for ExpenseExport event');
                         logger.error(error);
                         res.send(500);
                         return;
@@ -141,6 +144,9 @@ export class Controller {
                     logger.info(`Export expense started`);
 
                     try {
+                        const tenantId = await connectionManager.getActiveTenantId();
+                        const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                         await integrationManager.exportExpense(expenseId);
 
                         logger.info(`Export expense completed`);
@@ -154,16 +160,17 @@ export class Controller {
                         }
                     }
                     break;
-                case PayhawkEvent.ExportTransfers:
+                }
+                case PayhawkEvent.TransfersExport: {
                     if (!payload.data) {
-                        const error = new Error('No payload provided for ExportTransfers event');
+                        const error = new Error('No payload provided for TransfersExport event');
                         logger.error(error);
                         res.send(500);
                         return;
                     }
 
                     if (!payload.data.startDate || !payload.data.endDate) {
-                        const error = new Error('No start or end date provided in payload for ExportTransfers event');
+                        const error = new Error('No start or end date provided in payload for TransfersExport event');
                         logger.error(error);
                         res.send(500);
                         return;
@@ -173,24 +180,36 @@ export class Controller {
 
                     logger.info('Export transfers started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.exportTransfers(payload.data.startDate, payload.data.endDate);
 
                     logger.info('Export transfers completed');
                     break;
-                case PayhawkEvent.SynchronizeChartOfAccount:
+                }
+                case PayhawkEvent.ChartOfAccountSynchronize: {
                     logger.info('Sync chart of accounts started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.synchronizeChartOfAccounts();
 
                     logger.info('Sync chart of accounts completed');
                     break;
-                case PayhawkEvent.SynchronizeBankAccounts:
+                }
+                case PayhawkEvent.BankAccountsSynchronize: {
                     logger.info('Sync bank accounts started');
 
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
                     await integrationManager.synchronizeBankAccounts();
 
                     logger.info('Sync bank accounts completed');
                     break;
+                }
                 default:
                     res.send(400, 'Unknown event');
                     return;

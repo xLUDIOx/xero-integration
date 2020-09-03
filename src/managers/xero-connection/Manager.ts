@@ -50,6 +50,19 @@ export class Manager implements IManager {
         return xeroAccessTokenRecord.tenant_id;
     }
 
+    async getPayhawkApiKey(): Promise<string> {
+        const result = await this.store.getApiKey(this.accountId);
+        if (!result) {
+            throw Error('No API key for account');
+        } else {
+            return result;
+        }
+    }
+
+    async setPayhawkApiKey(key: string): Promise<void> {
+        await this.store.setApiKey(this.accountId, key);
+    }
+
     private async tryRefreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {
