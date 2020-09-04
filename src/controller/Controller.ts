@@ -106,10 +106,20 @@ export class Controller {
         const accountId = payload.accountId;
 
         let logger = this.baseLogger.child({ accountId: payload.accountId, event: payload.event }, req);
+
         const connectionManager = this.connectionManagerFactory({ accountId: payload.accountId }, logger);
         if (payload.event === PayhawkEvent.ApiKeySet) {
             logger.info('New API key received');
-            await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+
+            try {
+                await connectionManager.setPayhawkApiKey(payload.data.apiKey);
+                res.send(204);
+            } catch (err) {
+                logger.error(err);
+                res.send(500);
+            }
+
+            return;
         }
 
         const xeroAccessToken = await connectionManager.getAccessToken();
@@ -122,10 +132,6 @@ export class Controller {
 
         try {
             switch (payload.event) {
-                case PayhawkEvent.ApiKeySet: {
-                    // Handled before getting an access token
-                    break;
-                }
                 case PayhawkEvent.ExpenseExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for ExpenseExport event');

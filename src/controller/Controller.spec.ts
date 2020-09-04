@@ -157,7 +157,6 @@ describe('Controller', () => {
 
         test('send 204 and call exportExpense for that event', async () => {
             const accessToken = createAccessToken();
-            const apiKey = 'payhawk api key';
             const expenseId = 'expId';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -172,13 +171,12 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('logs warning if operation is not allowed', async () => {
             const accessToken = createAccessToken();
-            const apiKey = 'payhawk api key';
             const expenseId = 'expId';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -197,13 +195,12 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 204 and call exportTransfers for that event', async () => {
             const accessToken = createAccessToken();
-            const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -222,13 +219,12 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.TransfersExport, data: exportData } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.TransfersExport, data: exportData } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 500 if payload does not contain payload data for exportExpense', async () => {
             const accessToken = createAccessToken();
-            const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -239,13 +235,12 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ExpenseExport, data: undefined } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 500 if payload does not contain payload data for exportTransfers', async () => {
             const accessToken = createAccessToken();
-            const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -256,12 +251,11 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.TransfersExport, data: undefined } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.TransfersExport, data: undefined } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 204 and call synchronizeChartOfAccounts for that event', async () => {
-            const apiKey = 'payhawk api key';
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => ({} as ITokenSet));
@@ -275,12 +269,11 @@ describe('Controller', () => {
                 .setup(r => r.send(204))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
             await controller.payhawk(req, responseMock.object);
         });
 
         test('send 500 and logs error if manager throws', async () => {
-            const apiKey = 'payhawk api key';
             const err = new Error('expected error');
             connectionManagerMock
                 .setup(m => m.getAccessToken())
@@ -297,7 +290,28 @@ describe('Controller', () => {
                 .setup(r => r.send(500))
                 .verifiable(TypeMoq.Times.once());
 
-            const req = { body: { accountId, apiKey, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
+            const req = { body: { accountId, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
+            await controller.payhawk(req, responseMock.object);
+        });
+
+        test('handles ApiKeySet and does not throw', async () => {
+            const apiKey = 'payhawk api key';
+
+            connectionManagerMock
+                .setup(m => m.getAccessToken())
+                .returns(async () => undefined);
+
+            connectionManagerMock
+                .setup(m => m.setPayhawkApiKey(apiKey))
+                .returns(async () => {/** */ })
+                .verifiable(TypeMoq.Times.once());
+
+            responseMock
+                .setup(r => r.send(204))
+                .verifiable(TypeMoq.Times.once());
+
+            const req = { body: { accountId, event: PayhawkEvent.ApiKeySet, data: { apiKey } } } as restify.Request;
+
             await controller.payhawk(req, responseMock.object);
         });
     });
