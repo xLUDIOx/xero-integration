@@ -67,7 +67,7 @@ export function payhawkSigned(target: any, key: string, descriptor: TypedPropert
 
         const publicKey = await request(`${config.payhawkUrl}/api/v2/rsa-public-key`);
         const rsaKey = new NodeRSA(publicKey);
-        const urlToSign = req.path() + (req.query && req.query() ? '?' + req.query() : '');
+        const urlToSign = req.path() + (req.getQuery() ? '?' + req.getQuery() : '');
         const dataToSign = `${timestampString}:${urlToSign}:${req.body ? JSON.stringify(req.body) : ''}`;
         rsaKey.verify(Buffer.from(dataToSign), signature, 'buffer', 'base64');
 
