@@ -4,6 +4,7 @@ export interface IAuth {
     getAuthUrl(): Promise<string>;
     getAccessToken(verifier: string): Promise<IAccessToken>;
     refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined>;
+    disconnect(tenantId: string, currentToken: ITokenSet): Promise<void>;
 }
 
 export interface IAccessToken {

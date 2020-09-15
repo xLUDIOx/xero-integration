@@ -132,6 +132,15 @@ export class Controller {
 
         try {
             switch (payload.event) {
+                case PayhawkEvent.Disconnect:
+                    logger.info('Disconnect received');
+
+                    await connectionManager.disconnectActiveTenant();
+
+                    logger.info('Disconnect processed');
+
+                    res.send(204);
+                    return;
                 case PayhawkEvent.ExpenseExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for ExpenseExport event');

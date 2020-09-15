@@ -12,8 +12,12 @@ import { IAccessToken, IAuth } from './IAuth';
 export class Auth implements IAuth {
     private readonly config: IXeroClientConfig;
 
-    constructor(accountId: string, returnUrl: string | undefined, private readonly logger: ILogger) {
-        this.config = getXeroConfig(accountId, returnUrl);
+    constructor(
+        private readonly accountId: string,
+        private readonly returnUrl: string | undefined,
+        private readonly logger: ILogger,
+    ) {
+        this.config = getXeroConfig(this.accountId, this.returnUrl);
     }
 
     async getAuthUrl(): Promise<string> {
@@ -38,6 +42,18 @@ export class Auth implements IAuth {
         const authClient = await this.createClient(currentToken);
         const newToken = await authClient.makeClientRequest<ITokenSet>(x => x.refreshToken());
         return this.buildAccessTokenData(authClient, newToken);
+    }
+
+    async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
+        const authClient = await this.createClient(currentToken);
+        const connectedTenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants());
+        const tenant = connectedTenants.find(t => t.tenantId === tenantId);
+        if (!tenant) {
+            return;
+        }
+
+        const connectionId = tenant.id;
+        await authClient.makeClientRequest(x => x.disconnect(connectionId));
     }
 
     private async createClient(accessToken?: ITokenSet): Promise<IXeroHttpClient> {

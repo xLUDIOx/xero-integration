@@ -50,6 +50,20 @@ export class Manager implements IManager {
         return xeroAccessTokenRecord.tenant_id;
     }
 
+    async disconnectActiveTenant(): Promise<void> {
+        try {
+            const accessToken = await this.getAccessToken();
+            if (accessToken) {
+                const tenantId = await this.getActiveTenantId();
+                await this.authClient.disconnect(tenantId, accessToken);
+            }
+        } catch (err) {
+            this.logger.error(err);
+        } finally {
+            await this.store.deleteAccessToken(this.accountId);
+        }
+    }
+
     async getPayhawkApiKey(): Promise<string> {
         const result = await this.store.getApiKey(this.accountId);
         if (!result) {
