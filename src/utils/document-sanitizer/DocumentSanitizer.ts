@@ -81,7 +81,12 @@ export class DocumentSanitizer implements IDocumentSanitizer {
         }
 
         const lowered = input.toLowerCase();
-        if (lowered.endsWith('.jpg') || lowered.endsWith('.jpeg') || lowered.endsWith('.png')) {
+        if (
+            lowered.endsWith('.jpg') ||
+            lowered.endsWith('.jpeg') ||
+            lowered.endsWith('.png') ||
+            lowered.endsWith('.bmp')
+        ) {
             // Shrink more than expected. Better chance to fit
             const ratio = (FILE_SIZE_LIMIT / fileSize) * 0.75;
             await this.shrinkImage(input, ratio);
