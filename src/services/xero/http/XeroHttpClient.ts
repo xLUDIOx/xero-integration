@@ -105,7 +105,18 @@ export class XeroHttpClient implements IXeroHttpClient {
                 case 429:
                     const headers = errorResponseData.response.headers;
                     const retryAfterHeaderValue = headers['retry-after'];
-                    const secondsToRetryAfter = Number(retryAfterHeaderValue) || DEFAULT_SECONDS_TO_RETRY_AFTER;
+
+                    let secondsToRetryAfter = Number(retryAfterHeaderValue);
+                    if (!secondsToRetryAfter) {
+                        logger.error(Error(`No Retry-After header found. Falling back to default value - ${DEFAULT_SECONDS_TO_RETRY_AFTER}s`));
+                        secondsToRetryAfter = DEFAULT_SECONDS_TO_RETRY_AFTER;
+                    }
+
+                    if (secondsToRetryAfter < MIN_SECONDS_TO_WAIT_THRESHOLD) {
+                        logger.info(`Retry time below threshold. Falling back to default retry time - ${DEFAULT_SECONDS_TO_RETRY_AFTER}`);
+                        secondsToRetryAfter = DEFAULT_SECONDS_TO_RETRY_AFTER;
+                    }
+
                     if (secondsToRetryAfter <= 0) {
                         throw Error(`Invalid 'Retry-After' header: '${retryAfterHeaderValue}'`);
                     }
@@ -188,5 +199,6 @@ const XERO_TENANT_ID_HEADER = 'xero-tenant-id';
 const AUTHORIZATION_HEADER = 'authorization';
 const CONTENT_TYPE_HEADER = 'content-type';
 
-const MAX_RETRIES = 3;
-const DEFAULT_SECONDS_TO_RETRY_AFTER = 1;
+const MAX_RETRIES = 5;
+const MIN_SECONDS_TO_WAIT_THRESHOLD = 10;
+const DEFAULT_SECONDS_TO_RETRY_AFTER = 60; // be absolutely sure request should succeed
