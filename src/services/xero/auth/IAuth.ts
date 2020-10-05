@@ -3,7 +3,7 @@ import { ITokenSet } from '../../../store';
 export interface IAuth {
     getAuthUrl(): Promise<string>;
     getAccessToken(verifier: string): Promise<IAccessToken>;
-    refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined>;
+    refreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<IAccessToken | undefined>;
     disconnect(tenantId: string, currentToken: ITokenSet): Promise<void>;
 }
 

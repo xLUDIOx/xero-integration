@@ -35,7 +35,7 @@ export class Manager implements IManager {
 
         const isExpired = xeroAccessToken.expired();
         if (isExpired) {
-            xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken);
+            xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken, xeroAccessTokenRecord.tenant_id);
         }
 
         return xeroAccessToken;
@@ -77,15 +77,14 @@ export class Manager implements IManager {
         await this.store.setApiKey(this.accountId, key);
     }
 
-    private async tryRefreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet | undefined> {
+    private async tryRefreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {
                 this.logger.info('Current token is expired and cannot be refreshed. Must re-authenticate.');
                 return undefined;
             }
 
-            const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
-
+            const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken, tenantId);
             if (!refreshedAccessToken) {
                 return undefined;
             }

@@ -38,10 +38,10 @@ export class Auth implements IAuth {
         return this.buildAccessTokenData(authClient, tokenSet);
     }
 
-    async refreshAccessToken(currentToken?: ITokenSet): Promise<IAccessToken | undefined> {
+    async refreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<IAccessToken | undefined> {
         const authClient = await this.createClient(currentToken);
         const newToken = await authClient.makeClientRequest<ITokenSet>(x => x.refreshToken());
-        return this.buildAccessTokenData(authClient, newToken);
+        return this.buildAccessTokenData(authClient, newToken, tenantId);
     }
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
@@ -69,7 +69,7 @@ export class Auth implements IAuth {
         return httpClient;
     }
 
-    private async buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet): Promise<IAccessToken> {
+    private async buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet, tenantId?: string): Promise<IAccessToken> {
         const tenants = await client.makeClientRequest<ITenant[]>(x => x.updateTenants());
         if (tenants.length === 0) {
             throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
@@ -80,12 +80,19 @@ export class Auth implements IAuth {
             throw Error('Could not parse token payload. Unable to extract Xero user ID');
         }
 
+        let activeTenantId = tenantId;
+        if (!activeTenantId) {
+            activeTenantId = tenants[0].id;
+        }
+
+        const tenant = tenants.find(t => t.id === activeTenantId);
+        if (!tenant) {
+            throw Error('There is no authorized tenant for this tenant ID');
+        }
+
         return {
             xeroUserId: tokenPayload.xero_userid,
-            // TODO: tenants[0].id OR tenants[0].tenantId
-            // tenantId MUST be used to pass around for API calls
-            // id is used for disconnection
-            tenantId: tenants[0].tenantId,
+            tenantId: activeTenantId,
             tokenSet,
         };
     }
