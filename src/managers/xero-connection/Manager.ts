@@ -20,7 +20,7 @@ export class Manager implements IManager {
     async authenticate(verifier: string): Promise<ITokenSet | undefined> {
         const accessToken = await this.authClient.getAccessToken(verifier);
 
-        await this.saveAccessToken(accessToken);
+        await this.createAccessToken(accessToken);
 
         return accessToken.tokenSet;
     }
@@ -51,16 +51,17 @@ export class Manager implements IManager {
     }
 
     async disconnectActiveTenant(): Promise<void> {
+        const tenantId = await this.getActiveTenantId();
+
         try {
             const accessToken = await this.getAccessToken();
             if (accessToken) {
-                const tenantId = await this.getActiveTenantId();
                 await this.authClient.disconnect(tenantId, accessToken);
             }
         } catch (err) {
             this.logger.error(err);
         } finally {
-            await this.store.deleteAccessToken(this.accountId);
+            await this.store.deleteAccessToken(tenantId);
         }
     }
 
@@ -80,7 +81,7 @@ export class Manager implements IManager {
     private async tryRefreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {
-                this.logger.info('Current token is expired and cannot be refreshed. Must re-authenticate.');
+                this.logger.info('Refresh token is missing. Must re-authenticate.');
                 return undefined;
             }
 
@@ -89,7 +90,7 @@ export class Manager implements IManager {
                 return undefined;
             }
 
-            await this.saveAccessToken(refreshedAccessToken);
+            await this.updateAccessToken(refreshedAccessToken);
             return refreshedAccessToken.tokenSet;
         } catch (err) {
             const error = Error(`Failed to refresh access token - ${err.toString()}`);
@@ -99,12 +100,22 @@ export class Manager implements IManager {
         return undefined;
     }
 
-    private async saveAccessToken(accessToken: Xero.IAccessToken) {
-        await this.store.saveAccessToken({
+    private async createAccessToken(accessToken: Xero.IAccessToken) {
+        await this.store.createAccessToken({
             account_id: this.accountId,
             tenant_id: accessToken.tenantId,
             user_id: accessToken.xeroUserId,
             token_set: accessToken.tokenSet,
         });
+    }
+
+    private async updateAccessToken(accessToken: Xero.IAccessToken) {
+        await this.store.updateAccessToken(
+            this.accountId,
+            {
+                user_id: accessToken.xeroUserId,
+                token_set: accessToken.tokenSet,
+            },
+        );
     }
 }

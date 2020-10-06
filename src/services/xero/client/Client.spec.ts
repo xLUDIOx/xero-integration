@@ -12,8 +12,11 @@ describe('Xero client', () => {
     const xeroClientMock = TypeMoq.Mock.ofType<AccountingApi>();
     const loggerMock = TypeMoq.Mock.ofType<ILogger>();
     const tenantId = '00000000-0000-0000-0000-000000000000';
+    const secondTenantId = '00000000-0000-0000-0000-000000000001';
 
-    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object } as XeroClient, loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
+    const tenants: any[] = [{ id: secondTenantId }, { id: tenantId, orgData: { name: 'Test' } }];
+
+    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object, updateTenants: async () => tenants} as XeroClient, loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
 
     beforeEach(() => {
         xeroClientMock
@@ -31,6 +34,11 @@ describe('Xero client', () => {
                     }],
                 },
             }) as any);
+    });
+
+    it('should get correct organisation', async () => {
+        const org = await client.getOrganisation();
+        expect(org.name).toEqual('Test');
     });
 
     afterEach(() => {

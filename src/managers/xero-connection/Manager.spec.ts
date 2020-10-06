@@ -86,7 +86,7 @@ describe('xero-connection/Manager', () => {
                 .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
 
             storeMock
-                .setup(s => s.saveAccessToken({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
+                .setup(s => s.createAccessToken({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 

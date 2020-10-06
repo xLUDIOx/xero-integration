@@ -45,7 +45,7 @@ export class Client implements IClient {
             x => x.updateTenants(),
         );
 
-        const tenant = tenants[0];
+        const tenant = tenants.find(t => t.id === this.tenantId);
         if (!tenant) {
             throw Error('Could not retrieve connected organisation');
         }

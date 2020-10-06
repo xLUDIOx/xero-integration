@@ -14,28 +14,8 @@ export class PgStore implements IStore {
     constructor(private readonly pgClient: Pool, private readonly logger: ILogger) {
     }
 
-    async saveAccessToken({ account_id, user_id, tenant_id, token_set }: INewUserTokenSetRecord): Promise<void> {
-        const otherNonDemoAccountsWithSameTenant = await this.pgClient.query<{ count: number }>({
-            text: `
-                SELECT COUNT(*) FROM "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}"
-                WHERE
-                    "${UserTokenSetRecordKeys.account_id}"!=$1 AND
-                    "${UserTokenSetRecordKeys.account_id}" NOT LIKE '%_demo' AND
-                    "${UserTokenSetRecordKeys.tenant_id}"=$2
-            `,
-            values: [
-                account_id,
-                tenant_id,
-            ],
-        });
-
-        const hasOtherNonDemoAccountsWithSameTenant = otherNonDemoAccountsWithSameTenant.rows[0].count > 0;
-        if (hasOtherNonDemoAccountsWithSameTenant && !account_id.endsWith(DEMO_SUFFIX)) {
-            this.logger.child({ tenantId: tenant_id })
-                .error(Error('Another active account already uses the same tenant ID'));
-            return;
-        }
-
+    async createAccessToken({ account_id, user_id, tenant_id, token_set }: INewUserTokenSetRecord): Promise<void> {
+        await this.ensureNoOtherActiveAccountIsConnectedToTenant(account_id, tenant_id);
         await this.pgClient.query({
             text: `
                 INSERT INTO "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}" (
@@ -61,6 +41,24 @@ export class PgStore implements IStore {
         });
     }
 
+    async updateAccessToken(accountId: string, { user_id, token_set }: Pick<INewUserTokenSetRecord, 'user_id' | 'token_set'>): Promise<void> {
+        await this.pgClient.query({
+            text: `
+                UPDATE "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}"
+                SET
+                    "${UserTokenSetRecordKeys.user_id}" = $2,
+                    "${UserTokenSetRecordKeys.token_set}" = $3,
+                    "${UserTokenSetRecordKeys.updated_at}" = now()
+                WHERE "${UserTokenSetRecordKeys.account_id}"=$1
+            `,
+            values: [
+                accountId,
+                user_id,
+                token_set,
+            ],
+        });
+    }
+
     async getAccessToken(accountId: string): Promise<IUserTokenSetRecord | undefined> {
         const query = await this.pgClient.query<IUserTokenSetRecord>({
             text: `
@@ -80,19 +78,19 @@ export class PgStore implements IStore {
         return record;
     }
 
-    async deleteAccessToken(accountId: string): Promise<void> {
+    async deleteAccessToken(tenantId: string): Promise<void> {
         await this.pgClient.query({
             text: `
                 DELETE FROM "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}"
-                WHERE "${UserTokenSetRecordKeys.account_id}"=$1
+                WHERE "${UserTokenSetRecordKeys.tenant_id}"=$1
             `,
             values: [
-                accountId,
+                tenantId,
             ],
         });
     }
 
-    async getApiKey(accountId: string): Promise<string|undefined> {
+    async getApiKey(accountId: string): Promise<string | undefined> {
         const query = await this.pgClient.query<{ key: string }>({
             text: `
                 SELECT "${PayhawkApiKeyRecordKeys.key}" FROM "${SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS}"
@@ -127,6 +125,29 @@ export class PgStore implements IStore {
 
     async ensureSchemaVersion(): Promise<void> {
         await this.applyMigration();
+    }
+
+    private async ensureNoOtherActiveAccountIsConnectedToTenant(accountId: string, tenantId: string): Promise<void> {
+        const otherNonDemoAccountsWithSameTenant = await this.pgClient.query<{ count: number }>({
+            text: `
+                SELECT COUNT(*) FROM "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}"
+                WHERE
+                    "${UserTokenSetRecordKeys.account_id}"!=$1 AND
+                    "${UserTokenSetRecordKeys.account_id}" NOT LIKE '%_demo' AND
+                    "${UserTokenSetRecordKeys.tenant_id}"=$2
+            `,
+            values: [
+                accountId,
+                tenantId,
+            ],
+        });
+
+        const hasOtherNonDemoAccountsWithSameTenant = otherNonDemoAccountsWithSameTenant.rows[0].count > 0;
+        if (hasOtherNonDemoAccountsWithSameTenant && !accountId.endsWith(DEMO_SUFFIX)) {
+            this.logger.child({ tenantId })
+                .error(Error('Another active account already uses the same tenant ID'));
+            return;
+        }
     }
 
     private async applyMigration(): Promise<void> {
