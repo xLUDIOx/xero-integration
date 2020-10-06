@@ -5,12 +5,11 @@ import { Pool } from 'pg';
 
 import { ILogger } from '../utils';
 import { SCHEMA } from './Config';
-import { INewUserTokenSetRecord, IStore, IUserTokenSetRecord, PayhawkApiKeyRecordKeys, UserTokenSetRecordKeys } from './contracts';
+import { INewUserTokenSetRecord, IStore, ITokenSet, IUserTokenSetRecord, PayhawkApiKeyRecordKeys, UserTokenSetRecordKeys } from './contracts';
 
 const DEMO_SUFFIX = '_demo';
 
 export class PgStore implements IStore {
-
     constructor(private readonly pgClient: Pool, private readonly logger: ILogger) {
     }
 
@@ -41,22 +40,30 @@ export class PgStore implements IStore {
         });
     }
 
-    async updateAccessToken(accountId: string, { user_id, token_set }: Pick<INewUserTokenSetRecord, 'user_id' | 'token_set'>): Promise<void> {
-        await this.pgClient.query({
+    async updateAccessToken(accountId: string, tenantId: string, tokenSet: ITokenSet): Promise<void> {
+        const result = await this.pgClient.query({
             text: `
                 UPDATE "${SCHEMA.TABLE_NAMES.ACCESS_TOKENS}"
                 SET
-                    "${UserTokenSetRecordKeys.user_id}" = $2,
                     "${UserTokenSetRecordKeys.token_set}" = $3,
                     "${UserTokenSetRecordKeys.updated_at}" = now()
-                WHERE "${UserTokenSetRecordKeys.account_id}"=$1
+                WHERE "${UserTokenSetRecordKeys.account_id}"=$1 AND "${UserTokenSetRecordKeys.tenant_id}"=$2
+                RETURNING *
             `,
             values: [
                 accountId,
-                user_id,
-                token_set,
+                tenantId,
+                tokenSet,
             ],
         });
+
+        if (result.rows.length === 0) {
+            this.logger.child({
+                accountId,
+                tenantId,
+                tokenSet,
+            }).error(Error('Failed to update token'));
+        }
     }
 
     async getAccessToken(accountId: string): Promise<IUserTokenSetRecord | undefined> {

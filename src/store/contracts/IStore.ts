@@ -1,8 +1,8 @@
-import { INewUserTokenSetRecord, IUserTokenSetRecord } from './IUserTokenSet';
+import { INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord } from './IUserTokenSet';
 
 export interface IStore {
     createAccessToken(record: INewUserTokenSetRecord): Promise<void>;
-    updateAccessToken(accountId: string, record: Pick<INewUserTokenSetRecord, 'user_id' | 'token_set'>): Promise<void>;
+    updateAccessToken(accountId: string, tenantId: string, tokenSet: ITokenSet): Promise<void>;
     getAccessToken(accountId: string): Promise<IUserTokenSetRecord | undefined>;
     deleteAccessToken(accountId: string): Promise<void>;
     getApiKey(accountId: string): Promise<string|undefined>;

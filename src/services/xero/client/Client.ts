@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
-import { IDocumentSanitizer, ILogger, Intersection, OperationNotAllowedError } from '../../../utils';
+import { ForbiddenError, IDocumentSanitizer, ILogger, Intersection, OperationNotAllowedError } from '../../../utils';
 import { EntityResponseType, IXeroHttpClient } from '../http';
 import {
     AccountClassType,
@@ -47,7 +47,7 @@ export class Client implements IClient {
 
         const tenant = tenants.find(t => t.id === this.tenantId);
         if (!tenant) {
-            throw Error('Could not retrieve connected organisation');
+            throw new ForbiddenError('Disconnected remotely');
         }
 
         const organisation = tenant.orgData;

@@ -85,13 +85,14 @@ export class Manager implements IManager {
                 return undefined;
             }
 
-            const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken, tenantId);
+            const refreshedAccessToken = await this.authClient.refreshAccessToken(currentToken);
             if (!refreshedAccessToken) {
                 return undefined;
             }
 
-            await this.updateAccessToken(refreshedAccessToken);
-            return refreshedAccessToken.tokenSet;
+            await this.updateAccessToken(tenantId, refreshedAccessToken);
+
+            return refreshedAccessToken;
         } catch (err) {
             const error = Error(`Failed to refresh access token - ${err.toString()}`);
             this.logger.error(error);
@@ -109,13 +110,7 @@ export class Manager implements IManager {
         });
     }
 
-    private async updateAccessToken(accessToken: Xero.IAccessToken) {
-        await this.store.updateAccessToken(
-            this.accountId,
-            {
-                user_id: accessToken.xeroUserId,
-                token_set: accessToken.tokenSet,
-            },
-        );
+    private async updateAccessToken(tenantId: string, accessToken: ITokenSet) {
+        await this.store.updateAccessToken(this.accountId, tenantId, accessToken);
     }
 }

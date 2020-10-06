@@ -38,14 +38,22 @@ export class Auth implements IAuth {
         return buildAccessTokenData(authClient, tokenSet);
     }
 
-    async refreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<IAccessToken | undefined> {
+    async refreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet> {
         const authClient = await this.createClient(currentToken);
         const newToken = await authClient.makeClientRequest<ITokenSet>(x => x.refreshToken());
-        return buildAccessTokenData(authClient, newToken, tenantId);
+        return newToken;
     }
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
         const authClient = await this.createClient(currentToken);
+        const tenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants());
+
+        const isTenantConnectionActive = tenants.find(t => t.id === tenantId) !== undefined;
+        if (!isTenantConnectionActive) {
+            this.logger.info('Connection has been terminated remotely');
+            return;
+        }
+
         await authClient.makeClientRequest(x => x.disconnect(tenantId));
     }
 
@@ -63,7 +71,7 @@ export class Auth implements IAuth {
     }
 }
 
-export async function buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet, tenantId?: string): Promise<IAccessToken> {
+export async function buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet): Promise<IAccessToken> {
     const tenants = await client.makeClientRequest<ITenant[]>(x => x.updateTenants());
     if (tenants.length === 0) {
         throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
@@ -74,19 +82,12 @@ export async function buildAccessTokenData(client: IXeroHttpClient, tokenSet: IT
         throw Error('Could not parse token payload. Unable to extract Xero user ID');
     }
 
-    let activeTenantId = tenantId;
-    if (!activeTenantId) {
-        activeTenantId = tenants[0].id;
-    }
-
-    const tenant = tenants.find(t => t.id === activeTenantId);
-    if (!tenant) {
-        throw Error('There is no authorized tenant for this tenant ID');
-    }
+    const xeroUserId = tokenPayload.xero_userid;
+    const tenantId = tenants[0].id;
 
     return {
-        xeroUserId: tokenPayload.xero_userid,
-        tenantId: activeTenantId,
+        xeroUserId,
+        tenantId,
         tokenSet,
     };
 }
