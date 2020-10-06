@@ -46,14 +46,7 @@ export class Auth implements IAuth {
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
         const authClient = await this.createClient(currentToken);
-        const connectedTenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants());
-        const tenant = connectedTenants.find(t => t.tenantId === tenantId);
-        if (!tenant) {
-            return;
-        }
-
-        const connectionId = tenant.id;
-        await authClient.makeClientRequest(x => x.disconnect(connectionId));
+        await authClient.makeClientRequest(x => x.disconnect(tenantId));
     }
 
     private async createClient(accessToken?: ITokenSet): Promise<IXeroHttpClient> {
