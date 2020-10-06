@@ -35,13 +35,13 @@ export class Auth implements IAuth {
         const authClient = await this.createClient();
 
         const tokenSet = await authClient.makeClientRequest<ITokenSet>(x => x.apiCallback(verifier));
-        return this.buildAccessTokenData(authClient, tokenSet);
+        return buildAccessTokenData(authClient, tokenSet);
     }
 
     async refreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<IAccessToken | undefined> {
         const authClient = await this.createClient(currentToken);
         const newToken = await authClient.makeClientRequest<ITokenSet>(x => x.refreshToken());
-        return this.buildAccessTokenData(authClient, newToken, tenantId);
+        return buildAccessTokenData(authClient, newToken, tenantId);
     }
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
@@ -68,32 +68,32 @@ export class Auth implements IAuth {
 
         return httpClient;
     }
+}
 
-    private async buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet, tenantId?: string): Promise<IAccessToken> {
-        const tenants = await client.makeClientRequest<ITenant[]>(x => x.updateTenants());
-        if (tenants.length === 0) {
-            throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
-        }
-
-        const tokenPayload = parseToken(tokenSet);
-        if (!tokenPayload) {
-            throw Error('Could not parse token payload. Unable to extract Xero user ID');
-        }
-
-        let activeTenantId = tenantId;
-        if (!activeTenantId) {
-            activeTenantId = tenants[0].id;
-        }
-
-        const tenant = tenants.find(t => t.id === activeTenantId);
-        if (!tenant) {
-            throw Error('There is no authorized tenant for this tenant ID');
-        }
-
-        return {
-            xeroUserId: tokenPayload.xero_userid,
-            tenantId: activeTenantId,
-            tokenSet,
-        };
+export async function buildAccessTokenData(client: IXeroHttpClient, tokenSet: ITokenSet, tenantId?: string): Promise<IAccessToken> {
+    const tenants = await client.makeClientRequest<ITenant[]>(x => x.updateTenants());
+    if (tenants.length === 0) {
+        throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
     }
+
+    const tokenPayload = parseToken(tokenSet);
+    if (!tokenPayload) {
+        throw Error('Could not parse token payload. Unable to extract Xero user ID');
+    }
+
+    let activeTenantId = tenantId;
+    if (!activeTenantId) {
+        activeTenantId = tenants[0].id;
+    }
+
+    const tenant = tenants.find(t => t.id === activeTenantId);
+    if (!tenant) {
+        throw Error('There is no authorized tenant for this tenant ID');
+    }
+
+    return {
+        xeroUserId: tokenPayload.xero_userid,
+        tenantId: activeTenantId,
+        tokenSet,
+    };
 }
