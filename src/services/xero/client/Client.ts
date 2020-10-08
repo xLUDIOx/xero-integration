@@ -45,7 +45,7 @@ export class Client implements IClient {
             x => x.updateTenants(),
         );
 
-        const tenant = tenants.find(t => t.id === this.tenantId);
+        const tenant = tenants.find(t => t.tenantId === this.tenantId);
         if (!tenant) {
             throw new ForbiddenError('Disconnected remotely');
         }

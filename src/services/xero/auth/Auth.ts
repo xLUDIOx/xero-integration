@@ -46,15 +46,15 @@ export class Auth implements IAuth {
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
         const authClient = await this.createClient(currentToken);
-        const tenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants());
+        const tenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants(false));
 
-        const isTenantConnectionActive = tenants.find(t => t.id === tenantId) !== undefined;
-        if (!isTenantConnectionActive) {
+        const connection = tenants.find(t => t.tenantId === tenantId);
+        if (!connection) {
             this.logger.info('Connection has been terminated remotely');
             return;
         }
 
-        await authClient.makeClientRequest(x => x.disconnect(tenantId));
+        await authClient.makeClientRequest(x => x.disconnect(connection.id));
     }
 
     private async createClient(accessToken?: ITokenSet): Promise<IXeroHttpClient> {
@@ -83,7 +83,7 @@ export async function buildAccessTokenData(client: IXeroHttpClient, tokenSet: IT
     }
 
     const xeroUserId = tokenPayload.xero_userid;
-    const tenantId = tenants[0].id;
+    const tenantId = tenants[0].tenantId;
 
     return {
         xeroUserId,

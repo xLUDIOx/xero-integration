@@ -14,7 +14,7 @@ describe('Xero client', () => {
     const tenantId = '00000000-0000-0000-0000-000000000000';
     const secondTenantId = '00000000-0000-0000-0000-000000000001';
 
-    const tenants: any[] = [{ id: secondTenantId }, { id: tenantId, orgData: { name: 'Test' } }];
+    const tenants: any[] = [{ tenantId: secondTenantId }, { tenantId, orgData: { name: 'Test' } }];
 
     const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object, updateTenants: async () => tenants} as XeroClient, loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
 

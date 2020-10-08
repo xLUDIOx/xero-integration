@@ -122,6 +122,17 @@ export class Controller {
             return;
         }
 
+        if (payload.event === PayhawkEvent.Disconnect) {
+            logger.info('Disconnect received');
+
+            await connectionManager.disconnectActiveTenant();
+
+            logger.info('Disconnect processed');
+
+            res.send(204);
+            return;
+        }
+
         const xeroAccessToken = await connectionManager.getAccessToken();
         if (!xeroAccessToken) {
             logger.error(new Error('Unable to handle event because there is no valid access token'));
@@ -132,15 +143,6 @@ export class Controller {
 
         try {
             switch (payload.event) {
-                case PayhawkEvent.Disconnect:
-                    logger.info('Disconnect received');
-
-                    await connectionManager.disconnectActiveTenant();
-
-                    logger.info('Disconnect processed');
-
-                    res.send(204);
-                    return;
                 case PayhawkEvent.ExpenseExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for ExpenseExport event');
