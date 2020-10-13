@@ -305,6 +305,21 @@ export class Client implements IClient {
         );
     }
 
+    async deleteTransaction(bankTransactionId: string): Promise<void> {
+        await this.xeroClient.makeClientRequest<IBankTransaction[]>(
+            x => x.accountingApi.updateBankTransaction(
+                this.tenantId,
+                bankTransactionId,
+                {
+                    bankTransactions: [{
+                        status: BankTransaction.StatusEnum.DELETED,
+                    } as any],
+                },
+            ),
+            EntityResponseType.BankTransactions
+        );
+    }
+
     async getBillByUrl(url: string): Promise<IInvoice | undefined> {
         const where = `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${InvoiceStatusCode.Deleted}"`;
         const invoices = await this.xeroClient.makeClientRequest<IInvoice[] | undefined>(
@@ -360,6 +375,17 @@ export class Client implements IClient {
                 this.tenantId,
                 billId,
                 { invoices: [billModel] },
+            ),
+            EntityResponseType.Invoices
+        );
+    }
+
+    async deleteBill(billId: string): Promise<void> {
+        await this.xeroClient.makeClientRequest<Invoice[]>(
+            x => x.accountingApi.updateInvoice(
+                this.tenantId,
+                billId,
+                { invoices: [{ status: Invoice.StatusEnum.DELETED}] },
             ),
             EntityResponseType.Invoices
         );

@@ -1,17 +1,20 @@
+/** @typedef {import('ts-jest')} */
+/** @type {import('@jest/types').Config.InitialOptions} */
+
+process.env.TESTING = true;
+
 module.exports = {
-    "transform": {
-        "^.+\\.tsx?$": "ts-jest"
-    },
+    "preset": "ts-jest",
     "testMatch": [
-        "**/src/**/*.spec.ts"
+        "**/src/**/*.spec.ts",
     ],
     "testPathIgnorePatterns": [
         "/node_modules/",
-        "/integration-tests/"
+        "/integration-tests/",
     ],
     "collectCoverage": true,
     "collectCoverageFrom": [
-        "src/**/*.ts"
+        "src/**/*.ts",
     ],
     "moduleFileExtensions": [
         "ts",
@@ -19,6 +22,6 @@ module.exports = {
         "js",
         "jsx",
         "json",
-        "node"
+        "node",
     ],
 };

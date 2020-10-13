@@ -13,5 +13,7 @@ export interface IManager {
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
     getBankAccountIdForCurrency(currency: string): Promise<string>;
     createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<string>;
+    deleteAccountTransaction(transactionUrl: string): Promise<void>;
     createOrUpdateBill(input: INewBill): Promise<string>;
+    deleteBill(billUrl: string): Promise<void>;
 }

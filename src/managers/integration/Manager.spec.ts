@@ -2,6 +2,7 @@ import * as TypeMoq from 'typemoq';
 import { Account } from 'xero-node';
 
 import { FxRates, Payhawk, Xero } from '../../services';
+import { IStore } from '../../store';
 import { ILogger } from '../../utils';
 import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
@@ -14,6 +15,7 @@ describe('integrations/Manager', () => {
     let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
+    let storeMock: TypeMoq.IMock<IStore>;
 
     let manager: Manager;
 
@@ -23,8 +25,14 @@ describe('integrations/Manager', () => {
         fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
+        storeMock = TypeMoq.Mock.ofType<IStore>();
+
+        storeMock
+            .setup(s => s.getExpenseTransactions(accountId, TypeMoq.It.isAnyString()))
+            .returns(async () => []);
 
         manager = new Manager(
+            storeMock.object,
             payhawkClientMock.object,
             xeroEntitiesMock.object,
             fxRatesServiceMock.object,

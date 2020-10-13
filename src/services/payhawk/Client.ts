@@ -45,6 +45,18 @@ export class Client implements IClient {
             });
     }
 
+    async getTransfer(balanceId: string, transferId: string): Promise<IBalanceTransfer | undefined> {
+        const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/balances/${encodeURIComponent(balanceId)}/transfers/${encodeURIComponent(transferId)}`;
+
+        const result = await request(url, {
+            method: 'GET',
+            json: true,
+            headers: this.headers,
+        });
+
+        return result;
+    }
+
     async getTransfers(startDate: string, endDate: string): Promise<IBalanceTransfer[]> {
         const queryString = `startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}`;
         const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/transfers?${queryString}`;

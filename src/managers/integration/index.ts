@@ -2,7 +2,7 @@ import * as fs from 'fs';
 
 import { config } from '../../Config';
 import { FxRates, Payhawk } from '../../services';
-import { ITokenSet } from '../../store';
+import { createStore, ITokenSet } from '../../store';
 import { ILogger } from '../../utils';
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
@@ -24,6 +24,7 @@ export const createManager: IManagerFactory = ({ accessToken, tenantId, accountI
     const deleteFile = (filePath: string): Promise<void> => new Promise((resolve) => fs.unlink(filePath, () => resolve()));
 
     return new Manager(
+        createStore(logger),
         Payhawk.createPayhawkClient(accountId, payhawkApiKey || ''),
         xeroEntitiesManager,
         FxRates.createService(),

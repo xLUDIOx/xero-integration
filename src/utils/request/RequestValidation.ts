@@ -7,7 +7,7 @@ import { config } from '../../Config';
 
 export function requiredQueryParams<TQuery>(...params: (keyof TQuery)[]) {
     // tslint:disable-next-line:only-arrow-functions
-    return function (target: any, key: string, descriptor: TypedPropertyDescriptor<(request: Request, response: Response) => Promise<void>> | TypedPropertyDescriptor<(request: Request, response: Response, next: Next) => Promise<void>>): any {
+    return function (target: any, key: string, descriptor: IRequestHandlerDescriptor): any {
         if (descriptor === undefined) {
             descriptor = Object.getOwnPropertyDescriptor(target, key)!;
         }
@@ -38,7 +38,7 @@ export function requiredQueryParams<TQuery>(...params: (keyof TQuery)[]) {
 // a minute
 const REQUEST_DELAY_TOLERANCE_MS = 60 * 1000;
 
-export function payhawkSigned(target: any, key: string, descriptor: TypedPropertyDescriptor<(request: Request, response: Response) => Promise<void>> | TypedPropertyDescriptor<(request: Request, response: Response, next: Next) => Promise<void>>): any {
+export function payhawkSigned(target: any, key: string, descriptor: IRequestHandlerDescriptor): any {
     if (descriptor === undefined) {
         descriptor = Object.getOwnPropertyDescriptor(target, key)!;
     }
@@ -77,3 +77,5 @@ export function payhawkSigned(target: any, key: string, descriptor: TypedPropert
 
     return descriptor;
 }
+
+type IRequestHandlerDescriptor = TypedPropertyDescriptor<(request: Request, response: Response) => Promise<void>> | TypedPropertyDescriptor<(request: Request, response: Response, next: Next) => Promise<void>>;

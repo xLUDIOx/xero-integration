@@ -5,7 +5,7 @@ import { Pool } from 'pg';
 
 import { ILogger } from '../utils';
 import { SCHEMA } from './Config';
-import { INewUserTokenSetRecord, IStore, ITokenSet, IUserTokenSetRecord, PayhawkApiKeyRecordKeys, UserTokenSetRecordKeys } from './contracts';
+import { ExpenseTransactionRecordKeys, IExpenseTransactionRecord, INewUserTokenSetRecord, IStore, ITokenSet, IUserTokenSetRecord, PayhawkApiKeyRecordKeys, UserTokenSetRecordKeys } from './contracts';
 
 const DEMO_SUFFIX = '_demo';
 
@@ -123,6 +123,52 @@ export class PgStore implements IStore {
                     UPDATE SET "${PayhawkApiKeyRecordKeys.key}" = $2, "${PayhawkApiKeyRecordKeys.updated_at}" = NOW()
             `,
             values: [accountId, key],
+        });
+    }
+
+    async createExpenseTransactionRecord(accountId: string, expenseId: string, transactionId: string): Promise<void> {
+        await this.pgClient.query({
+            text: `
+                    INSERT INTO "${SCHEMA.TABLE_NAMES.EXPENSE_TRANSACTIONS}"
+                        ("${ExpenseTransactionRecordKeys.account_id}", "${ExpenseTransactionRecordKeys.expense_id}", "${ExpenseTransactionRecordKeys.transaction_id}")
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT ("${ExpenseTransactionRecordKeys.account_id}", "${ExpenseTransactionRecordKeys.expense_id}", "${ExpenseTransactionRecordKeys.transaction_id}")
+                    DO NOTHING
+                `,
+            values: [
+                accountId,
+                expenseId,
+                transactionId,
+            ],
+        });
+    }
+
+    async getExpenseTransactions(accountId: string, expenseId: string): Promise<IExpenseTransactionRecord[]> {
+        const result = await this.pgClient.query<IExpenseTransactionRecord>({
+            text: `
+                    SELECT * FROM "${SCHEMA.TABLE_NAMES.EXPENSE_TRANSACTIONS}"
+                    WHERE "${ExpenseTransactionRecordKeys.account_id}"=$1 AND "${ExpenseTransactionRecordKeys.expense_id}"=$2
+                `,
+            values: [
+                accountId,
+                expenseId,
+            ],
+        });
+
+        return result.rows;
+    }
+
+    async deleteExpenseTransaction(accountId: string, expenseId: string, transactionId: string): Promise<void> {
+        await this.pgClient.query<IExpenseTransactionRecord>({
+            text: `
+                    DELETE FROM "${SCHEMA.TABLE_NAMES.EXPENSE_TRANSACTIONS}"
+                    WHERE "${ExpenseTransactionRecordKeys.account_id}"=$1 AND "${ExpenseTransactionRecordKeys.expense_id}"=$2 AND "${ExpenseTransactionRecordKeys.transaction_id}"=$3
+                `,
+            values: [
+                accountId,
+                expenseId,
+                transactionId,
+            ],
         });
     }
 

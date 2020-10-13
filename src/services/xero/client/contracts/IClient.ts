@@ -25,15 +25,17 @@ export interface IClient {
     getTransactionByUrl(url: string): Promise<IBankTransaction | undefined>;
     createTransaction(data: ICreateTransactionData): Promise<string>;
     updateTransaction(data: IUpdateTransactionData): Promise<void>;
-    getTransactionAttachments(entityId: string): Promise<IAttachment[]>;
+    deleteTransaction(transactionId: string): Promise<void>;
+    getTransactionAttachments(billId: string): Promise<IAttachment[]>;
     uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
 
     getBillByUrl(url: string): Promise<IInvoice | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
     updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void>;
+    deleteBill(billId: string): Promise<void>;
     payBill(data: IBillPaymentData): Promise<void>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
-    getBillAttachments(entityId: string): Promise<IAttachment[]>;
+    getBillAttachments(billId: string): Promise<IAttachment[]>;
 }
 
 export interface IAccountingItemData {

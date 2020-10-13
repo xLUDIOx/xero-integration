@@ -181,6 +181,72 @@ export class Controller {
                     }
                     break;
                 }
+                case PayhawkEvent.ExpenseDelete: {
+                    if (!payload.data) {
+                        const error = new Error('No payload provided for ExpenseDelete event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    const expenseId = payload.data.expenseId;
+                    if (!expenseId) {
+                        const error = new Error('No expense ID provided in payload for ExpenseDelete event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    logger = logger.child({ expenseId });
+
+                    logger.info(`Delete expense started`);
+
+                    try {
+                        const tenantId = await connectionManager.getActiveTenantId();
+                        const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                        const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
+                        await integrationManager.deleteExpense(expenseId);
+
+                        logger.info(`Delete expense completed`);
+                    } catch (err) {
+                        if (err instanceof OperationNotAllowedError) {
+                            logger.warn(`[${err.name}]: ${err.message}`);
+                        } else {
+                            logger.error(err);
+                            res.send(500);
+                            return;
+                        }
+                    }
+                    break;
+                }
+                case PayhawkEvent.TransferExport: {
+                    if (!payload.data) {
+                        const error = new Error('No payload provided for TransferExport event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    const { balanceId, transferId } = payload.data;
+                    if (!balanceId || ! transferId) {
+                        const error = new Error('No balance ID or transfer ID provided in payload for TransferExport event');
+                        logger.error(error);
+                        res.send(500);
+                        return;
+                    }
+
+                    logger = logger.child({ balanceId, transferId });
+
+                    logger.info('Export transfer started');
+
+                    const tenantId = await connectionManager.getActiveTenantId();
+                    const payhawkApiKey = await connectionManager.getPayhawkApiKey();
+                    const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId, payhawkApiKey }, logger);
+                    await integrationManager.exportTransfer(balanceId, transferId);
+
+                    logger.info('Export transfer completed');
+                    break;
+                }
                 case PayhawkEvent.TransfersExport: {
                     if (!payload.data) {
                         const error = new Error('No payload provided for TransfersExport event');

@@ -1,4 +1,4 @@
-import { Account } from 'xero-node';
+import { Account, Invoice } from 'xero-node';
 
 import { Payhawk, Xero } from '../../services';
 import { IAccountCode } from './IAccountCode';
@@ -104,6 +104,19 @@ export class Manager implements IManager {
         return transactionId;
     }
 
+    async deleteAccountTransaction(transactionUrl: string): Promise<void> {
+        const transaction = await this.xeroClient.getTransactionByUrl(transactionUrl);
+        if (!transaction) {
+            return;
+        }
+
+        if (transaction.isReconciled) {
+            throw Error('Transaction is reconciled and cannot be deleted');
+        }
+
+        await this.xeroClient.deleteTransaction(transaction.bankTransactionID);
+    }
+
     async createOrUpdateBill(newBill: INewBill): Promise<string> {
         const bill = await this.xeroClient.getBillByUrl(newBill.url);
 
@@ -168,6 +181,19 @@ export class Manager implements IManager {
         }
 
         return billId;
+    }
+
+    async deleteBill(billUrl: string) {
+        const bill = await this.xeroClient.getBillByUrl(billUrl);
+        if (!bill) {
+            return;
+        }
+
+        if (bill.status === Invoice.StatusEnum.PAID) {
+            throw Error('Paid bill cannot be deleted');
+        }
+
+        await this.xeroClient.deleteBill(bill.invoiceID);
     }
 
     private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): Promise<TData> {
