@@ -1,7 +1,8 @@
 import { XeroClient } from 'xero-node';
 
-import { ITokenSet } from '../../store';
-import { createDocumentSanitizer, ILogger } from '../../utils';
+import { AccessTokens } from '@stores';
+import { createDocumentSanitizer, ILogger } from '@utils';
+
 import { Auth, IAccessToken, IAuth } from './auth';
 import {
     AccountType,
@@ -11,11 +12,15 @@ import {
     IAccountingItemData,
     IAttachment,
     IBankAccount,
+    IBankTransaction,
     IBillPaymentData,
     IClient,
     ICreateBillData,
     ICreateTransactionData,
+    IInvoice,
+    InvoiceStatus,
     IOrganisation,
+    IPayment,
     IUpdateBillData,
     IUpdateTransactionData,
 } from './client';
@@ -38,13 +43,17 @@ export {
     IUpdateTransactionData,
     IBillPaymentData,
     IOrganisation,
+    IInvoice,
+    InvoiceStatus,
+    IBankTransaction,
+    IPayment,
 };
 
 export const createAuth = ({ accountId, returnUrl }: IAuthParams, logger: ILogger): IAuth => {
     return new Auth(accountId, returnUrl, logger);
 };
 
-export const createClient = (accountId: string, accessToken: ITokenSet, tenantId: string, logger: ILogger): IClient => {
+export const createClient = (accountId: string, accessToken: AccessTokens.ITokenSet, tenantId: string, logger: ILogger): IClient => {
     const originalClient = new XeroClient(getXeroConfig(accountId));
     originalClient.setTokenSet(accessToken);
 

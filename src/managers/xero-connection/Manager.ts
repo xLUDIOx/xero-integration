@@ -1,11 +1,12 @@
-import { Xero } from '../../services';
-import { IStore, ITokenSet } from '../../store';
-import { ILogger } from '../../utils';
+import { Xero } from '@services';
+import { AccessTokens, ISchemaStore } from '@stores';
+import { ILogger } from '@utils';
+
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
-        private readonly store: IStore,
+        private readonly store: ISchemaStore,
         private readonly authClient: Xero.IAuth,
         private readonly accountId: string,
         private readonly logger: ILogger,
@@ -17,7 +18,7 @@ export class Manager implements IManager {
         return url;
     }
 
-    async authenticate(verifier: string): Promise<ITokenSet | undefined> {
+    async authenticate(verifier: string): Promise<AccessTokens.ITokenSet | undefined> {
         const accessToken = await this.authClient.getAccessToken(verifier);
 
         await this.createAccessToken(accessToken);
@@ -25,13 +26,13 @@ export class Manager implements IManager {
         return accessToken.tokenSet;
     }
 
-    async getAccessToken(): Promise<ITokenSet | undefined> {
-        const xeroAccessTokenRecord = await this.store.getAccessToken(this.accountId);
+    async getAccessToken(): Promise<AccessTokens.ITokenSet | undefined> {
+        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
         if (xeroAccessTokenRecord === undefined) {
             return undefined;
         }
 
-        let xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
+        let xeroAccessToken: AccessTokens.ITokenSet | undefined = xeroAccessTokenRecord.token_set;
 
         const isExpired = xeroAccessToken.expired();
         if (isExpired) {
@@ -42,7 +43,7 @@ export class Manager implements IManager {
     }
 
     async getActiveTenantId(): Promise<string> {
-        const xeroAccessTokenRecord = await this.store.getAccessToken(this.accountId);
+        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
         if (xeroAccessTokenRecord === undefined) {
             throw Error('Unable to get active tenant ID because token is undefined');
         }
@@ -61,12 +62,12 @@ export class Manager implements IManager {
         } catch (err) {
             this.logger.error(err);
         } finally {
-            await this.store.deleteAccessToken(tenantId);
+            await this.store.accessTokens.delete(tenantId);
         }
     }
 
     async getPayhawkApiKey(): Promise<string> {
-        const result = await this.store.getApiKey(this.accountId);
+        const result = await this.store.apiKeys.getByAccountId(this.accountId);
         if (!result) {
             throw Error('No API key for account');
         } else {
@@ -75,10 +76,10 @@ export class Manager implements IManager {
     }
 
     async setPayhawkApiKey(key: string): Promise<void> {
-        await this.store.setApiKey(this.accountId, key);
+        await this.store.apiKeys.set({ account_id: this.accountId, key });
     }
 
-    private async tryRefreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<ITokenSet | undefined> {
+    private async tryRefreshAccessToken(currentToken: AccessTokens.ITokenSet, tenantId: string): Promise<AccessTokens.ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {
                 this.logger.info('Refresh token is missing. Must re-authenticate.');
@@ -102,7 +103,7 @@ export class Manager implements IManager {
     }
 
     private async createAccessToken(accessToken: Xero.IAccessToken) {
-        await this.store.createAccessToken({
+        await this.store.accessTokens.create({
             account_id: this.accountId,
             tenant_id: accessToken.tenantId,
             user_id: accessToken.xeroUserId,
@@ -110,7 +111,7 @@ export class Manager implements IManager {
         });
     }
 
-    private async updateAccessToken(tenantId: string, accessToken: ITokenSet) {
-        await this.store.updateAccessToken(this.accountId, tenantId, accessToken);
+    private async updateAccessToken(tenantId: string, accessToken: AccessTokens.ITokenSet) {
+        await this.store.accessTokens.update(this.accountId, tenantId, accessToken);
     }
 }

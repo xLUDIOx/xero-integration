@@ -1,9 +1,10 @@
 import * as TypeMoq from 'typemoq';
 import { Account } from 'xero-node';
 
-import { FxRates, Payhawk, Xero } from '../../services';
-import { IStore } from '../../store';
-import { ILogger } from '../../utils';
+import { FxRates, Payhawk, Xero } from '@services';
+import { ExpenseTransactions, ISchemaStore } from '@stores';
+import { ILogger } from '@utils';
+
 import * as XeroEntities from '../xero-entities';
 import { Manager } from './Manager';
 
@@ -12,27 +13,33 @@ describe('integrations/Manager', () => {
     const portalUrl = 'https://portal.payhawk.io';
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
+    let bankAccountsManagerMock: TypeMoq.IMock<XeroEntities.BankAccounts.IManager>;
     let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
-    let storeMock: TypeMoq.IMock<IStore>;
+    let storeMock: TypeMoq.IMock<ExpenseTransactions.IStore>;
 
     let manager: Manager;
 
     beforeEach(() => {
         payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
+        bankAccountsManagerMock = TypeMoq.Mock.ofType<XeroEntities.BankAccounts.IManager>();
         fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
-        storeMock = TypeMoq.Mock.ofType<IStore>();
+        storeMock = TypeMoq.Mock.ofType<ExpenseTransactions.IStore>();
+
+        xeroEntitiesMock
+            .setup(x => x.bankAccounts)
+            .returns(() => bankAccountsManagerMock.object);
 
         storeMock
-            .setup(s => s.getExpenseTransactions(accountId, TypeMoq.It.isAnyString()))
+            .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
             .returns(async () => []);
 
         manager = new Manager(
-            storeMock.object,
+            { expenseTransactions: storeMock.object } as ISchemaStore,
             payhawkClientMock.object,
             xeroEntitiesMock.object,
             fxRatesServiceMock.object,
@@ -148,6 +155,7 @@ describe('integrations/Manager', () => {
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
+                            date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
                             fees: 1,
                         },
@@ -160,6 +168,7 @@ describe('integrations/Manager', () => {
                             description: txDescription,
                             paidAmount: 5.64,
                             paidCurrency: 'USD',
+                            date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
                             fees: 2,
                         },
@@ -177,9 +186,9 @@ describe('integrations/Manager', () => {
                     .setup(p => p.downloadFiles(expense))
                     .returns(async () => files);
 
-                xeroEntitiesMock
-                    .setup(x => x.getBankAccountIdForCurrency(expense.transactions[0].cardCurrency))
-                    .returns(async () => bankAccountId);
+                bankAccountsManagerMock
+                    .setup(x => x.getOrCreateByCurrency(expense.transactions[0].cardCurrency))
+                    .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
 
                 xeroEntitiesMock
                     .setup(x => x.getContactIdForSupplier(supplier))
@@ -188,7 +197,7 @@ describe('integrations/Manager', () => {
                 expense.transactions.forEach(t =>
                     xeroEntitiesMock
                         .setup(x => x.createOrUpdateAccountTransaction({
-                            date: t.settlementDate,
+                            date: t.settlementDate || t.date,
                             accountCode: reconciliation.accountCode,
                             bankAccountId,
                             contactId,
@@ -473,14 +482,14 @@ describe('integrations/Manager', () => {
 
             const uniqueCurrencies = new Set(transfers.map(t => t.currency));
             uniqueCurrencies.forEach(t => {
-                xeroEntitiesMock
-                    .setup(e => e.getBankAccountIdForCurrency(t))
-                    .returns(async () => bankAccountId)
+                bankAccountsManagerMock
+                    .setup(e => e.getOrCreateByCurrency(t))
+                    .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount))
                     .verifiable(TypeMoq.Times.once());
             });
 
-            xeroEntitiesMock
-                .setup(e => e.getBankAccountIdForCurrency(TypeMoq.It.isAny()))
+            bankAccountsManagerMock
+                .setup(e => e.getOrCreateByCurrency(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(uniqueCurrencies.size));
 
             xeroEntitiesMock

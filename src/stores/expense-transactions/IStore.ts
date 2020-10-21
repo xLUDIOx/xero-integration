@@ -1,0 +1,7 @@
+import { IExpenseTransactionRecord } from './IExpenseTransactionRecord';
+
+export interface IStore {
+    create(accountId: string, expenseId: string, transactionId: string): Promise<void>;
+    getByAccountId(accountId: string, expenseId: string): Promise<IExpenseTransactionRecord[]>;
+    delete(accountId: string, expenseId: string, transactionId: string): Promise<void>;
+}

@@ -1,9 +1,8 @@
-import * as moment from 'moment';
 import * as request from 'request-promise';
 
-import { IClient, IHistoricalDataResponse } from './IClient';
+import { formatDate } from '@utils';
 
-const DATE_FORMAT = 'YYYY-MM-DD';
+import { IClient, IHistoricalDataResponse } from './IClient';
 
 export class Client implements IClient {
     constructor(
@@ -13,7 +12,7 @@ export class Client implements IClient {
     }
 
     async getByDate(fromCurrency: string, toCurrency: string, date: Date): Promise<number | undefined> {
-        const dateString = moment.utc(date).format(DATE_FORMAT);
+        const dateString = formatDate(date);
 
         const result: IHistoricalDataResponse = await request(
             `${this.url}/historical?access_key=${encodeURIComponent(this.accessKey)}&source=${encodeURIComponent(fromCurrency)}&currencies=${encodeURIComponent(toCurrency)}&date=${encodeURIComponent(dateString)}`,

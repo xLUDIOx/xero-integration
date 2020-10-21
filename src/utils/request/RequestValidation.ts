@@ -43,33 +43,31 @@ export function payhawkSigned(target: any, key: string, descriptor: IRequestHand
         descriptor = Object.getOwnPropertyDescriptor(target, key)!;
     }
 
-    if (process.env.TESTING) {
-        return descriptor.value;
-    }
-
     const originalMethod: any = descriptor.value!;
 
     descriptor.value = async function (this: any, req: Request, response: Response, next: Next) {
-        const timestampString = req.headers['x-payhawk-timestamp'];
-        if (!timestampString || typeof timestampString !== 'string') {
-            throw new ForbiddenError();
-        }
+        if (!process.env.TESTING) {
+            const timestampString = req.headers['x-payhawk-timestamp'];
+            if (!timestampString || typeof timestampString !== 'string') {
+                throw new ForbiddenError();
+            }
 
-        const timestamp = new Date(timestampString);
-        if (new Date().getTime() - timestamp.getTime() > REQUEST_DELAY_TOLERANCE_MS) {
-            throw new ForbiddenError();
-        }
+            const timestamp = new Date(timestampString);
+            if (new Date().getTime() - timestamp.getTime() > REQUEST_DELAY_TOLERANCE_MS) {
+                throw new ForbiddenError();
+            }
 
-        const signature = req.headers['x-payhawk-signature'];
-        if (!signature || typeof signature !== 'string') {
-            throw new ForbiddenError();
-        }
+            const signature = req.headers['x-payhawk-signature'];
+            if (!signature || typeof signature !== 'string') {
+                throw new ForbiddenError();
+            }
 
-        const publicKey = await request(`${config.payhawkUrl}/api/v2/rsa-public-key`);
-        const rsaKey = new NodeRSA(publicKey);
-        const urlToSign = req.path() + (req.getQuery() ? '?' + req.getQuery() : '');
-        const dataToSign = `${timestampString}:${urlToSign}:${req.body ? JSON.stringify(req.body) : ''}`;
-        rsaKey.verify(Buffer.from(dataToSign), signature, 'buffer', 'base64');
+            const publicKey = await request(`${config.payhawkUrl}/api/v2/rsa-public-key`);
+            const rsaKey = new NodeRSA(publicKey);
+            const urlToSign = req.path() + (req.getQuery() ? '?' + req.getQuery() : '');
+            const dataToSign = `${timestampString}:${urlToSign}:${req.body ? JSON.stringify(req.body) : ''}`;
+            rsaKey.verify(Buffer.from(dataToSign), signature, 'buffer', 'base64');
+        }
 
         // eslint-disable-next-line prefer-rest-params
         return originalMethod.apply(this, arguments);

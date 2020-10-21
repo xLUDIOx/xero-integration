@@ -1,4 +1,5 @@
-import { Contact } from 'xero-node';
+import { Account, Contact } from 'xero-node';
+import { CurrencyCode } from 'xero-node/dist/gen/model/bankfeeds/currencyCode';
 
 import { IAccountCode, INewAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
@@ -6,6 +7,7 @@ import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
 import { IInvoice } from './IInvoice';
 import { IOrganisation } from './IOrganisation';
+import { IPayment } from './IPayment';
 
 export interface IClient {
     getOrganisation(): Promise<IOrganisation>;
@@ -34,8 +36,28 @@ export interface IClient {
     updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void>;
     deleteBill(billId: string): Promise<void>;
     payBill(data: IBillPaymentData): Promise<void>;
+    getBillPayment(paymentId: string): Promise<IPayment | undefined>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(billId: string): Promise<IAttachment[]>;
+
+    getOrCreateConnection(data: ICreateFeedConnectionModel): Promise<string>;
+    createBankStatementLine(statement: ICreateBankStatementModel): Promise<string>;
+}
+
+export interface ICreateFeedConnectionModel {
+    accountId: string,
+    accountToken: string,
+    accountType: Account.BankAccountTypeEnum,
+    currency: CurrencyCode;
+}
+
+export interface ICreateBankStatementModel {
+    feedConnectionId: string;
+    bankTransactionId: string;
+    date: string;
+    amount: number;
+    contactName: string;
+    description: string;
 }
 
 export interface IAccountingItemData {

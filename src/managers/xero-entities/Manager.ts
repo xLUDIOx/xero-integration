@@ -1,15 +1,23 @@
-import { Account, Invoice } from 'xero-node';
+import { Account } from 'xero-node';
 
-import { Payhawk, Xero } from '../../services';
+import { Payhawk, Xero } from '@services';
+
+import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
+import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
 import { IAccountCode } from './IAccountCode';
-import { IBankAccount } from './IBankAccount';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 import { IOrganisation } from './IOrganisation';
 
 export class Manager implements IManager {
-    constructor(private readonly xeroClient: Xero.IClient) { }
+    bankAccounts: IBankAccountsManager;
+    bankFeeds: IBankFeedsManager;
+
+    constructor(private readonly xeroClient: Xero.IClient) {
+        this.bankAccounts = createBankAccountsManager(this.xeroClient);
+        this.bankFeeds = createBankFeedsManager(this.xeroClient);
+    }
 
     async getOrganisation(): Promise<IOrganisation> {
         const organisation = await this.xeroClient.getOrganisation();
@@ -18,14 +26,6 @@ export class Manager implements IManager {
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         return await this.xeroClient.getExpenseAccounts();
-    }
-
-    async getBankAccounts(): Promise<IBankAccount[]> {
-        return await this.xeroClient.getBankAccounts();
-    }
-
-    async getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined> {
-        return await this.xeroClient.getBankAccountById(bankAccountId);
     }
 
     async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {
@@ -38,22 +38,6 @@ export class Manager implements IManager {
         return contact.contactID!;
     }
 
-    async getBankAccountIdForCurrency(currency: string): Promise<string> {
-        const bankAccountCode = defBankAccountCode(currency);
-        const bankAccountNumber = defBankAccountNumber(currency);
-        const bankAccountName = defBankAccountName(currency);
-        let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode);
-        if (bankAccount) {
-            if (bankAccount.status === Account.StatusEnum.ARCHIVED) {
-                bankAccount = await this.xeroClient.activateBankAccount(bankAccount.accountID);
-            }
-        } else {
-            bankAccount = await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
-        }
-
-        return bankAccount.accountID!;
-    }
-
     async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<string> {
         const transaction = await this.xeroClient.getTransactionByUrl(newTransaction.url);
         if (transaction && transaction.isReconciled) {
@@ -62,6 +46,8 @@ export class Manager implements IManager {
 
         let transactionId = transaction ? transaction.bankTransactionID : undefined;
         let filesToUpload = newTransaction.files;
+
+        let existingFileNames: string[] = [];
 
         if (!transactionId) {
             const createData = this.getTransactionData(newTransaction);
@@ -85,14 +71,15 @@ export class Manager implements IManager {
                 await this.xeroClient.updateTransaction(updateDataFallback);
             }
 
-            const existingFileNames = (await this.xeroClient.getTransactionAttachments(transactionId)).map(f => f.fileName);
+            const existingFiles = await this.xeroClient.getTransactionAttachments(transactionId);
+            existingFileNames = existingFiles.map(f => f.fileName);
 
             filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+        }
 
-            const totalAttachments = filesToUpload.length + existingFileNames.length;
-            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-                throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
-            }
+        const totalAttachments = filesToUpload.length + existingFileNames.length;
+        if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+            throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
         }
 
         // Files should be uploaded in the right order so Promise.all is no good
@@ -102,6 +89,16 @@ export class Manager implements IManager {
         }
 
         return transactionId;
+    }
+
+    async getBankTransactionByUrl(url: string): Promise<Xero.IBankTransaction | undefined> {
+        const bankTransaction = await this.xeroClient.getTransactionByUrl(url);
+        return bankTransaction ? bankTransaction : undefined;
+    }
+
+    async getBillByUrl(url: string): Promise<Xero.IInvoice | undefined> {
+        const bill = await this.xeroClient.getBillByUrl(url);
+        return bill ? bill : undefined;
     }
 
     async deleteAccountTransaction(transactionUrl: string): Promise<void> {
@@ -122,6 +119,8 @@ export class Manager implements IManager {
 
         let billId: string;
         let filesToUpload = newBill.files;
+
+        let existingFileNames: string[] = [];
 
         const billData = this.getBillData(newBill);
         if (!bill) {
@@ -146,19 +145,15 @@ export class Manager implements IManager {
                 await this.xeroClient.updateBill(updateDataFallback, bill);
             }
 
-            const files = await this.xeroClient.getBillAttachments(billId);
-            const existingFileNames = files.map(f => f.fileName);
+            const existingFiles = await this.xeroClient.getBillAttachments(billId);
+            existingFileNames = existingFiles.map(f => f.fileName);
 
-            filesToUpload = filesToUpload.filter(f => {
-                const filePath = f.fileName;
-                const isAlreadyUploaded = existingFileNames.includes(filePath);
-                return !isAlreadyUploaded;
-            });
+            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+        }
 
-            const totalAttachments = filesToUpload.length + existingFileNames.length;
-            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-                throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
-            }
+        const totalAttachments = filesToUpload.length + existingFileNames.length;
+        if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+            throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
         }
 
         if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId && newBill.totalAmount > 0) {
@@ -183,13 +178,17 @@ export class Manager implements IManager {
         return billId;
     }
 
+    async getBillPayment(paymentId: string): Promise<Xero.IPayment | undefined> {
+        return this.xeroClient.getBillPayment(paymentId);
+    }
+
     async deleteBill(billUrl: string) {
         const bill = await this.xeroClient.getBillByUrl(billUrl);
         if (!bill) {
             return;
         }
 
-        if (bill.status === Invoice.StatusEnum.PAID) {
+        if (bill.status === Xero.InvoiceStatus.PAID) {
             throw Error('Paid bill cannot be deleted');
         }
 
@@ -287,12 +286,5 @@ const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
 const DEFAULT_CURRENCY = 'GBP';
-
-const DEFAULT_SORT_CODE = '000000';
-
-const defBankAccountNumber = (currency: string) => `${DEFAULT_SORT_CODE}-PAYHAWK-${currency}`;
-// cspell:disable-next-line
-const defBankAccountCode = (currency: string) => `PHWK-${currency}`;
-const defBankAccountName = (currency: string) => `Payhawk ${currency}`;
 
 const MAX_ATTACHMENTS_PER_DOCUMENT = 10;

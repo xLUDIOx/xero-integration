@@ -69,7 +69,7 @@ export class XeroHttpClient implements IXeroHttpClient {
         }
 
         const serializedResponseType = toSerializedEntityResponseType(responseType);
-        return body[serializedResponseType];
+        return body[serializedResponseType] || body[DEFAULT_RESPONSE_TYPE];
     }
 
     private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: EntityResponseType): Promise<TResult> {
@@ -193,6 +193,8 @@ function toSerializedEntityResponseType(responseType: EntityResponseType): strin
 function createError(action: any, err: any, errorConstructor: (m?: string) => Error = Error): Error {
     return errorConstructor(JSON.stringify({ action: action.toString(), error: err }, undefined, 2));
 }
+
+const DEFAULT_RESPONSE_TYPE = 'items';
 
 const BASE_PATH = 'https://api.xero.com/api.xro/2.0';
 const XERO_TENANT_ID_HEADER = 'xero-tenant-id';

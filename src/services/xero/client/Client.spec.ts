@@ -1,10 +1,10 @@
 import * as TypeMoq from 'typemoq';
-import { AccountingApi, Invoice, XeroClient } from 'xero-node';
+import { AccountingApi, XeroClient } from 'xero-node';
 
 import { ILogger, OperationNotAllowedError } from '../../../utils';
 import { createXeroHttpClient } from '../http';
 import { Client, escapeParam } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
 
@@ -282,10 +282,10 @@ describe('Xero client', () => {
 
             const id = '1';
 
-            const existing: IInvoice = {
+            const existing = {
                 invoiceID: id,
                 status: InvoiceStatusCode.Paid as any,
-            };
+            } as IInvoice;
 
             await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
         });
@@ -368,9 +368,9 @@ describe('Xero client', () => {
                 bankAccountId: 'bank_id',
             };
 
-            const existingInvoice: IInvoice = {
+            const existingInvoice = {
                 invoiceID: paymentDetails.billId,
-                status: Invoice.StatusEnum.DRAFT,
+                status: InvoiceStatus.DRAFT,
             };
 
             xeroClientMock

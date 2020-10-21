@@ -1,18 +1,29 @@
-import { create as createController } from './controller';
+// tslint:disable-next-line: no-var-requires
+require('module-alias').addAliases({
+    '@controllers': `${__dirname}/controllers`,
+    '@managers': `${__dirname}/managers`,
+    '@services': `${__dirname}/services`,
+    '@stores': `${__dirname}/stores`,
+    '@utils': `${__dirname}/utils`,
+});
+
+import * as Controllers from '@controllers';
+import * as Schema from '@stores';
+
 import { createServer } from './Server';
-import * as Store from './store';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install();
 
 (async () => {
-    await Store.initialize();
+    await Schema.initialize();
 
-    const controller = createController();
-    const server = createServer(controller);
+    const authController = Controllers.createAuth();
+    const integrationsController = Controllers.createIntegrations();
+    const server = createServer(authController, integrationsController);
 
     server.post('/migrate', async (req, res) => {
-        await Store.ensureSchemaVersion();
+        await Schema.ensureVersion();
         res.send(200);
     });
 

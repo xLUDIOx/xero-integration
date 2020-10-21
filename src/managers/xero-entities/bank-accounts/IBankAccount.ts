@@ -1,3 +1,3 @@
-import * as Xero from '../../services/xero';
+import { Xero } from '@services';
 
 export type IBankAccount = Xero.IBankAccount;

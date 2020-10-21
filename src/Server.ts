@@ -1,7 +1,8 @@
 import * as restify from 'restify';
 
+import { AuthController, IntegrationsController } from '@controllers';
+
 import { config } from './Config';
-import { Controller } from './controller';
 
 function securityHeadersMiddleware(): restify.RequestHandler {
     return (request: restify.Request, response: restify.Response, next: restify.Next) => {
@@ -17,7 +18,7 @@ function securityHeadersMiddleware(): restify.RequestHandler {
     };
 }
 
-export const createServer = (controller: Controller): restify.Server => {
+export const createServer = (authController: AuthController, integrationsController: IntegrationsController): restify.Server => {
     const server = restify.createServer({ name: config.serviceName });
 
     server
@@ -28,11 +29,11 @@ export const createServer = (controller: Controller): restify.Server => {
     // Endpoint used to check whether the service is up and running
     server.get('/status', (req, res) => res.send(200, 'OK'));
 
-    server.get('/connect', controller.connect.bind(controller));
-    server.get('/callback', controller.callback.bind(controller));
+    server.get('/connect', authController.connect);
+    server.get('/callback', authController.callback);
+    server.get('/payhawk/connection-status', authController.getConnectionStatus);
 
-    server.post('/payhawk', controller.payhawk.bind(controller));
-    server.get('/payhawk/connection-status', controller.getConnectionStatus.bind(controller));
+    server.post('/payhawk', integrationsController.handlePayhawkEvent);
 
     return server;
 };

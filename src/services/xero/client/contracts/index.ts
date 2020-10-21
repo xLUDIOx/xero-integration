@@ -6,5 +6,6 @@ export * from './IBankAccount';
 export * from './IBankTransaction';
 export * from './IInvoice';
 export * from './IClient';
+export * from './IPayment';
 export * from './ITenant';
 export * from './IOrganisation';

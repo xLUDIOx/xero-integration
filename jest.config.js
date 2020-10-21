@@ -24,4 +24,11 @@ module.exports = {
         "json",
         "node",
     ],
+    "moduleNameMapper": {
+        "@controllers": "<rootDir>/src/controllers",
+        "@managers": "<rootDir>/src/domain-logic",
+        "@services": "<rootDir>/src/services",
+        "@stores": "<rootDir>/src/stores",
+        "@utils": "<rootDir>/src/utils",
+    },
 };

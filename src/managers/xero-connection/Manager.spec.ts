@@ -1,24 +1,25 @@
 import { TokenSet } from 'openid-client';
 import * as TypeMoq from 'typemoq';
 
-import { Xero } from '../../services';
-import { IStore, ITokenSet, IUserTokenSetRecord } from '../../store';
+import { Xero } from '@services';
+import { AccessTokens, ISchemaStore } from '@stores';
+
 import { ILogger } from '../../utils';
 import { Manager } from './Manager';
 
 describe('xero-connection/Manager', () => {
     const accountId = 'account_id';
-    let storeMock: TypeMoq.IMock<IStore>;
+    let storeMock: TypeMoq.IMock<AccessTokens.IStore>;
     let authMock: TypeMoq.IMock<Xero.IAuth>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let manager: Manager;
 
     beforeEach(() => {
-        storeMock = TypeMoq.Mock.ofType<IStore>();
+        storeMock = TypeMoq.Mock.ofType<AccessTokens.IStore>();
         authMock = TypeMoq.Mock.ofType<Xero.IAuth>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
-        manager = new Manager(storeMock.object, authMock.object, accountId, loggerMock.object);
+        manager = new Manager({ accessTokens: storeMock.object } as ISchemaStore, authMock.object, accountId, loggerMock.object);
     });
 
     afterEach(() => {
@@ -46,8 +47,8 @@ describe('xero-connection/Manager', () => {
             const accessToken = createAccessToken();
 
             storeMock
-                .setup(s => s.getAccessToken(accountId))
-                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as IUserTokenSetRecord);
+                .setup(s => s.getByAccountId(accountId))
+                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as AccessTokens.IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -58,8 +59,8 @@ describe('xero-connection/Manager', () => {
             const accessToken = createAccessToken(true);
 
             storeMock
-                .setup(s => s.getAccessToken(accountId))
-                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as IUserTokenSetRecord);
+                .setup(s => s.getByAccountId(accountId))
+                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as AccessTokens.IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -86,7 +87,7 @@ describe('xero-connection/Manager', () => {
                 .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
 
             storeMock
-                .setup(s => s.createAccessToken({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
+                .setup(s => s.create({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 
@@ -113,7 +114,7 @@ describe('xero-connection/Manager', () => {
     });
 });
 
-function createAccessToken(expired: boolean = false): ITokenSet {
+function createAccessToken(expired: boolean = false): AccessTokens.ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,

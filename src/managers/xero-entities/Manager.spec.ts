@@ -1,7 +1,8 @@
 import * as TypeMoq from 'typemoq';
-import { Account, AccountType, CurrencyCode, Invoice } from 'xero-node';
+import { Account } from 'xero-node';
 
-import { Payhawk, Xero } from '../../services';
+import { Payhawk, Xero } from '@services';
+
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
@@ -153,78 +154,6 @@ describe('XeroEntities.Manager', () => {
         });
     });
 
-    describe('getBankAccountIdForCurrency', () => {
-        const currency = 'EUR';
-        const accountName = 'Payhawk EUR';
-        const accountNumber = '000000-PAYHAWK-EUR';
-        // cspell:disable-next-line
-        const accountCode = 'PHWK-EUR';
-        const bankAccountId = 'bank-account-id';
-
-        test('gets existing bank account for currency', async () => {
-            xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => ({
-                    accountID: bankAccountId,
-                    name: accountName,
-                    status: Account.StatusEnum.ACTIVE,
-                    type: AccountType.BANK,
-                    bankAccountNumber: '',
-                    currencyCode: CurrencyCode.EUR,
-                }));
-
-            const result = await manager.getBankAccountIdForCurrency(currency);
-
-            expect(result).toEqual(bankAccountId);
-        });
-
-        test('gets existing bank account for currency and activates it when archived', async () => {
-            const bankAccount: Xero.IBankAccount = {
-                accountID: bankAccountId,
-                name: accountName,
-                status: Account.StatusEnum.ARCHIVED,
-                type: AccountType.BANK,
-                bankAccountNumber: '',
-                currencyCode: CurrencyCode.EUR,
-            };
-
-            xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => bankAccount);
-
-            xeroClientMock
-                .setup(x => x.activateBankAccount(bankAccount.accountID))
-                .returns(async () => ({ ...bankAccount, Status: Xero.BankAccountStatusCode.Active }))
-                .verifiable(TypeMoq.Times.once());
-
-            const result = await manager.getBankAccountIdForCurrency(currency);
-
-            expect(result).toEqual(bankAccountId);
-        });
-
-        test('creates a bank account if it does not exist', async () => {
-            const bankAccount: Xero.IBankAccount = {
-                accountID: bankAccountId,
-                name: accountName,
-                status: Account.StatusEnum.ACTIVE,
-                type: AccountType.BANK,
-                bankAccountNumber: '',
-                currencyCode: CurrencyCode.EUR,
-            };
-            xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => undefined);
-
-            xeroClientMock
-                .setup(x => x.createBankAccount(accountName, accountCode, accountNumber, currency))
-                .returns(async () => bankAccount);
-
-            const result = await manager.getBankAccountIdForCurrency(currency);
-
-            expect(result).toEqual(bankAccountId);
-        });
-    });
-
     describe('createAccountTransaction', () => {
         test('updates account transaction and does not upload any files if they are the same', async () => {
             const newAccountTx: INewAccountTransaction = {
@@ -243,7 +172,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.getTransactionByUrl(newAccountTx.url))
-                .returns(async () => ({ bankTransactionID: id, isReconciled: false }));
+                .returns(async () => ({ bankTransactionID: id, isReconciled: false } as Xero.IBankTransaction));
 
             xeroClientMock
                 .setup(x => x.createTransaction(
@@ -275,7 +204,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getTransactionAttachments(id))
                 .returns(async () => files.map(f => {
                     const att = {
-                        FileName: f.name,
+                        fileName: f.name,
                     };
 
                     return att as Xero.IAttachment;
@@ -306,7 +235,7 @@ describe('XeroEntities.Manager', () => {
 
             xeroClientMock
                 .setup(x => x.getTransactionByUrl(newAccountTx.url))
-                .returns(async () => ({ bankTransactionID: id, isReconciled: false }));
+                .returns(async () => ({ bankTransactionID: id, isReconciled: false } as Xero.IBankTransaction));
 
             xeroClientMock
                 .setup(x => x.createTransaction(
@@ -485,7 +414,7 @@ describe('XeroEntities.Manager', () => {
 
             const id = 'bId';
 
-            const existingBill = { invoiceID: id, status: Invoice.StatusEnum.DRAFT };
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
@@ -530,7 +459,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(id))
                 .returns(async () => files.map(f => {
                     const att = {
-                        FileName: f.name,
+                        fileName: f.name,
                     };
 
                     return att as Xero.IAttachment;
@@ -562,7 +491,7 @@ describe('XeroEntities.Manager', () => {
 
             const id = 'bId';
 
-            const existingBill = { invoiceID: id, status: Invoice.StatusEnum.DRAFT };
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
@@ -607,7 +536,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(id))
                 .returns(async () => files.map(f => {
                     const att = {
-                        FileName: f.name,
+                        fileName: f.name,
                     };
 
                     return att as Xero.IAttachment;
@@ -647,7 +576,7 @@ describe('XeroEntities.Manager', () => {
 
             const id = 'bId';
 
-            const existingBill = { invoiceID: id, status: Invoice.StatusEnum.DRAFT };
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))

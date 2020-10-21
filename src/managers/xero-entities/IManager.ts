@@ -1,19 +1,23 @@
-import { Payhawk } from '../../services';
-import { IAccountCode } from './IAccountCode';
-import { IBankAccount } from './IBankAccount';
+import { Payhawk, Xero } from '@services';
+
+import { IManager as IBankAccountsManager } from './bank-accounts';
+import { IManager as IBankFeedsManager } from './bank-feeds';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 import { IOrganisation } from './IOrganisation';
 
 export interface IManager {
+    bankAccounts: IBankAccountsManager;
+    bankFeeds: IBankFeedsManager;
+
     getOrganisation(): Promise<IOrganisation>;
     getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string>;
-    getBankAccounts(): Promise<IBankAccount[]>;
-    getExpenseAccounts(): Promise<IAccountCode[]>;
-    getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
-    getBankAccountIdForCurrency(currency: string): Promise<string>;
+    getExpenseAccounts(): Promise<Xero.IAccountCode[]>;
     createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<string>;
+    getBankTransactionByUrl(url: string): Promise<Xero.IBankTransaction | undefined>;
     deleteAccountTransaction(transactionUrl: string): Promise<void>;
     createOrUpdateBill(input: INewBill): Promise<string>;
+    getBillByUrl(url: string): Promise<Xero.IInvoice | undefined>;
     deleteBill(billUrl: string): Promise<void>;
+    getBillPayment(paymentId: string): Promise<Xero.IPayment | undefined>;
 }

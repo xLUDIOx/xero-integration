@@ -18,7 +18,27 @@
         "target": "ES2019",
         "experimentalDecorators": true,
         "outDir": "build",
-        "baseUrl": "."
+        "baseUrl": ".",
+        "paths": {
+            "@controllers": [
+                "src/controllers/index"
+            ],
+            "@managers": [
+                "src/managers/index"
+            ],
+            "@services": [
+                "src/services/index"
+            ],
+            "@stores": [
+                "src/stores/index"
+            ],
+            "@utils": [
+                "src/utils/index"
+            ],
+            "*": [
+                "types/*"
+            ]
+        }
     },
     "include": [
         "src/**/*.ts"

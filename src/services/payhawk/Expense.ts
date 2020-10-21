@@ -60,7 +60,8 @@ export interface IPaymentData {
 
 export interface ITransaction {
     id: string;
-    settlementDate: string;
+    date: string;
+    settlementDate?: string;
     cardName?: string;
     cardHolderName: string;
     cardLastDigits: string;

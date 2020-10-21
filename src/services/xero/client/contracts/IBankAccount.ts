@@ -1,3 +1,3 @@
 import { Account } from 'xero-node';
 
-export type IBankAccount = Required<Pick<Account, 'name' | 'accountID' | 'currencyCode' | 'bankAccountNumber' | 'status' | 'type'>>;
+export type IBankAccount = Required<Pick<Account, 'name' | 'accountID' | 'code' | 'currencyCode' | 'bankAccountNumber' | 'status' | 'type'>>;

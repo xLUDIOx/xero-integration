@@ -1,6 +1,8 @@
 import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
+import { FeedConnection } from 'xero-node/dist/gen/model/bankfeeds/feedConnection';
+import { CreditDebitIndicator, Statement } from 'xero-node/dist/gen/model/bankfeeds/models';
 
 import { ForbiddenError, IDocumentSanitizer, ILogger, Intersection, OperationNotAllowedError } from '../../../utils';
 import { EntityResponseType, IXeroHttpClient } from '../http';
@@ -19,12 +21,16 @@ import {
     IBankTransaction,
     IBillPaymentData,
     IClient,
+    ICreateBankStatementModel,
     ICreateBillData,
+    ICreateFeedConnectionModel,
     ICreateTransactionData,
     IInvoice,
     INewAccountCode,
+    InvoiceStatus,
     InvoiceStatusCode,
     IOrganisation,
+    IPayment,
     ITenant,
     IUpdateBillData,
     IUpdateTransactionData,
@@ -366,7 +372,7 @@ export class Client implements IClient {
         const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
         const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid, billId);
 
-        if (isPaid && existingBill.status === Invoice.StatusEnum.PAID) {
+        if (isPaid && existingBill.status === InvoiceStatus.PAID) {
             throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
         }
 
@@ -385,7 +391,7 @@ export class Client implements IClient {
             x => x.accountingApi.updateInvoice(
                 this.tenantId,
                 billId,
-                { invoices: [{ status: Invoice.StatusEnum.DELETED}] },
+                { invoices: [{ status: Invoice.StatusEnum.DELETED }] },
             ),
             EntityResponseType.Invoices
         );
@@ -409,7 +415,7 @@ export class Client implements IClient {
     }
 
     async getTransactionAttachments(entityId: string): Promise<IAttachment[]> {
-        const attachments = await this.xeroClient.makeRawRequest<Attachment[]>(
+        const attachments = await this.xeroClient.makeRawRequest<IAttachment[]>(
             {
                 method: 'GET',
                 path: `/BankTransactions/${encodeURIComponent(entityId)}/Attachments`,
@@ -439,7 +445,7 @@ export class Client implements IClient {
     }
 
     async getBillAttachments(entityId: string): Promise<IAttachment[]> {
-        const attachmentsResponse = await this.xeroClient.makeRawRequest<Attachment[]>(
+        const attachmentsResponse = await this.xeroClient.makeRawRequest<IAttachment[]>(
             {
                 method: 'GET',
                 path: `/Invoices/${encodeURIComponent(entityId)}/Attachments`,
@@ -483,6 +489,97 @@ export class Client implements IClient {
         if (!payment) {
             throw Error('Failed to create payment');
         }
+    }
+
+    async getBillPayment(paymentId: string): Promise<IPayment | undefined> {
+        const payments = await this.xeroClient.makeClientRequest<Payment[]>(
+            x => x.accountingApi.getPayment(
+                this.tenantId,
+                paymentId,
+            ),
+            EntityResponseType.Payments,
+        );
+
+        const payment = payments[0];
+        return payment as IPayment;
+    }
+
+    async getOrCreateConnection({ accountId, accountToken, currency }: ICreateFeedConnectionModel): Promise<string> {
+        let items = await this.xeroClient.makeClientRequest<FeedConnection[]>(
+            c => c.bankFeedsApi.getFeedConnections(
+                this.tenantId,
+            ),
+            EntityResponseType.FeedConnections,
+        );
+
+        const existingFeedConnection = items.find(c => c.accountToken === accountToken && c.currency === currency);
+        if (existingFeedConnection) {
+            return existingFeedConnection.id!;
+        }
+
+        items = await this.xeroClient.makeClientRequest<FeedConnection[]>(
+            c => c.bankFeedsApi.createFeedConnections(
+                this.tenantId,
+                {
+                    items: [{
+                        accountId,
+                        accountToken,
+                        accountType: FeedConnection.AccountTypeEnum.BANK,
+                        currency,
+                    }],
+                }),
+            EntityResponseType.FeedConnections,
+        );
+
+        const result = items[0];
+        if (!result) {
+            throw Error('No bank feed response');
+        }
+
+        if (result.status === FeedConnection.StatusEnum.REJECTED) {
+            throw result.error;
+        }
+
+        if (!result.id) {
+            throw Error('No bank feed connection id');
+        }
+
+        return result.id;
+    }
+
+    async createBankStatementLine({ feedConnectionId, bankTransactionId, date, amount, description, contactName }: ICreateBankStatementModel): Promise<string> {
+        const statements = await this.xeroClient.makeClientRequest<Statement[]>(
+            x => x.bankFeedsApi.createStatements(
+                this.tenantId,
+                {
+                    items: [{
+                        feedConnectionId,
+                        startBalance: {
+                            amount: amount < 0 ? -amount : 0,
+                            creditDebitIndicator: CreditDebitIndicator.DEBIT,
+                        },
+                        endBalance: {
+                            amount: amount < 0 ? 0 : amount,
+                            creditDebitIndicator: CreditDebitIndicator.DEBIT,
+                        },
+                        startDate: date,
+                        endDate: date,
+                        statementLines: [{
+                            amount,
+                            creditDebitIndicator: amount < 0 ? CreditDebitIndicator.CREDIT : CreditDebitIndicator.DEBIT,
+                            transactionId: bankTransactionId,
+                            postedDate: date,
+                            payeeName: contactName,
+                            description,
+                        }],
+                    }],
+                }
+            ),
+            EntityResponseType.BankStatements,
+        );
+
+        const statement = statements[0];
+        return statement.id!;
     }
 
     private async ensureCurrency(currencyCode: string): Promise<void> {

@@ -1,13 +1,14 @@
-import { FxRates, Payhawk } from '../../services';
-import { IDownloadedFile, IExpense, ITransaction } from '../../services/payhawk';
-import { IStore } from '../../store';
-import { ILogger } from '../../utils';
+import { FxRates, Payhawk, Xero } from '@services';
+import { ISchemaStore } from '@stores';
+import { ILogger } from '@utils';
+
+import { EntityType } from '../../stores/bank-feeds/IBankFeedStatement';
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
-        private readonly store: IStore,
+        private readonly store: ISchemaStore,
         private readonly payhawkClient: Payhawk.IClient,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly fxRateService: FxRates.IService,
@@ -28,7 +29,7 @@ export class Manager implements IManager {
     }
 
     async synchronizeBankAccounts(): Promise<void> {
-        const bankAccounts = await this.xeroEntities.getBankAccounts();
+        const bankAccounts = await this.xeroEntities.bankAccounts.get();
         const bankAccountModels = bankAccounts.map(b => ({
             name: b.name,
             externalId: b.accountID,
@@ -55,7 +56,7 @@ export class Manager implements IManager {
     }
 
     async deleteExpense(expenseId: string): Promise<void> {
-        const expenseTransactions = await this.store.getExpenseTransactions(this.accountId, expenseId);
+        const expenseTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
         if (expenseTransactions.length === 0) {
             await this.deleteBill(expenseId);
         } else {
@@ -78,7 +79,8 @@ export class Manager implements IManager {
             try {
                 let bankAccountId = bankAccountIdMap.get(transfer.currency);
                 if (!bankAccountId) {
-                    bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(transfer.currency);
+                    const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
+                    bankAccountId = bankAccount.accountID;
                     bankAccountIdMap.set(transfer.currency, bankAccountId);
                 }
 
@@ -99,7 +101,8 @@ export class Manager implements IManager {
 
         const contactId = await this.xeroEntities.getContactIdForSupplier({ name: 'New Deposit' });
         try {
-            const bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(transfer.currency);
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
+            const bankAccountId = bankAccount.accountID;
             await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
         } catch (err) {
             logger.error(err);
@@ -111,13 +114,94 @@ export class Manager implements IManager {
         return organisation.name;
     }
 
+    async exportBankStatementForExpense(expenseId: string): Promise<void> {
+        const logger = this.logger.child({ accountId: this.accountId, expenseId });
+        const expense = await this.payhawkClient.getExpense(expenseId);
+        if (expense.transactions.length === 0) {
+            await this.exportBankStatementForBill(expense, logger);
+        } else {
+            await this.exportBankStatementForTransactions(expense, logger);
+        }
+    }
+
+    async exportBankStatementForTransfer(balanceId: string, transferId: string): Promise<void> {
+        let logger = this.logger.child({ accountId: this.accountId, balanceId, transferId });
+        const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
+        if (!transfer) {
+            logger.error(Error('Transfer not found'));
+            return;
+        }
+
+        const currency = transfer.currency;
+        const transferUrl = this.buildTransferUrl(transferId);
+
+        logger = logger.child({ currency, transferUrl });
+
+        const bankTransaction = await this.xeroEntities.getBankTransactionByUrl(transferUrl);
+        if (!bankTransaction) {
+            logger.error(Error('Bank statement cannot be imported because the deposit associated with it was not found'));
+            return;
+        }
+
+        if (bankTransaction.isReconciled) {
+            logger.error(Error('Bank transaction is reconciled'));
+            return;
+        }
+
+        let statementId = await this.store.bankFeeds.getStatementIdByEntityId({
+            account_id: this.accountId,
+            xero_entity_id: bankTransaction.bankTransactionID,
+            payhawk_entity_id: transferId,
+            payhawk_entity_type: EntityType.Transfer,
+        });
+
+        if (statementId) {
+            logger.info('Statement for this transfer is already exported');
+            return;
+        }
+
+        const contactName = bankTransaction.contact.name;
+        const description = bankTransaction.reference;
+
+        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+        if (!feedConnectionId) {
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+            feedConnectionId = await this.xeroEntities.bankFeeds.getOrCreateConnection(bankAccount);
+            await this.store.bankFeeds.createConnection(
+                {
+                    account_id: this.accountId,
+                    bank_connection_id: feedConnectionId,
+                    currency: bankAccount.currencyCode.toString(),
+                },
+            );
+        }
+
+        statementId = await this.xeroEntities.bankFeeds.createBankStatementLine(
+            feedConnectionId,
+            bankTransaction.bankTransactionID,
+            transfer.date,
+            -Math.abs(transfer.amount),
+            contactName!,
+            description,
+        );
+
+        await this.store.bankFeeds.createStatement({
+            account_id: this.accountId,
+            xero_entity_id: bankTransaction.bankTransactionID,
+            payhawk_entity_id: transferId,
+            payhawk_entity_type: EntityType.Transfer,
+            bank_statement_id: statementId,
+        });
+    }
+
     private async exportExpenseAsTransaction(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
         const actualTransactionIds = expense.transactions.map(t => t.id);
         await this.deleteOldExpenseTransactions(expense.id, actualTransactionIds);
 
         // common data for all transactions linked to the expense
         const currency = expense.transactions[0].cardCurrency;
-        const bankAccountId = await this.xeroEntities.getBankAccountIdForCurrency(currency);
+        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        const bankAccountId = bankAccount.accountID;
         const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
 
         const bankTransactionIds = [];
@@ -133,10 +217,10 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, transactionUrls);
     }
 
-    private async exportTransaction(expense: IExpense, t: ITransaction, bankAccountId: string, contactId: string, files: IDownloadedFile[]): Promise<string> {
+    private async exportTransaction(expense: Payhawk.IExpense, t: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[]): Promise<string> {
         const totalAmount = t.cardAmount + t.fees;
         const description = formatDescription(formatCardDescription(t.cardHolderName, t.cardLastDigits, t.cardName), expense.note);
-        const date = t.settlementDate;
+        const date = t.settlementDate || t.date;
         const newAccountTransaction: XeroEntities.INewAccountTransaction = {
             date,
             bankAccountId,
@@ -151,13 +235,13 @@ export class Manager implements IManager {
 
         const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
 
-        await this.store.createExpenseTransactionRecord(this.accountId, expense.id, t.id);
+        await this.store.expenseTransactions.create(this.accountId, expense.id, t.id);
 
         return bankTransactionId;
     }
 
     private async deleteOldExpenseTransactions(expenseId: string, actualTransactionIds: string[]) {
-        const exportedTransactions = await this.store.getExpenseTransactions(this.accountId, expenseId);
+        const exportedTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
         const exportedTransactionIds = exportedTransactions.map(t => t.transaction_id);
         for (const transactionId of actualTransactionIds) {
             if (!exportedTransactionIds.includes(transactionId)) {
@@ -195,26 +279,33 @@ export class Manager implements IManager {
 
         const organisation = await this.xeroEntities.getOrganisation();
 
-        if (expense.isPaid && expense.paymentData.source) {
-            const potentialBankAccountId = expense.paymentData.source;
-            const bankAccount = await this.xeroEntities.getBankAccountById(potentialBankAccountId);
+        if (expense.isPaid) {
+            if (expense.paymentData.source) {
+                const potentialBankAccountId = expense.paymentData.source;
+                const bankAccount = await this.xeroEntities.bankAccounts.getById(potentialBankAccountId);
 
-            if (bankAccount) {
-                const bankAccountCurrency = bankAccount.currencyCode;
+                if (bankAccount) {
+                    const bankAccountCurrency = bankAccount.currencyCode;
 
-                if (expenseCurrency === bankAccountCurrency.toString()) {
-                    bankAccountId = potentialBankAccountId;
-                } else {
-                    const organisationBaseCurrency = organisation.baseCurrency;
-                    if (organisationBaseCurrency === bankAccountCurrency) {
-                        fxRate = await this.fxRateService.getByDate(
-                            organisationBaseCurrency.toString(),
-                            expenseCurrency,
-                            new Date(date),
-                        );
-
+                    if (expenseCurrency === bankAccountCurrency.toString()) {
                         bankAccountId = potentialBankAccountId;
+                    } else {
+                        const organisationBaseCurrency = organisation.baseCurrency;
+                        if (organisationBaseCurrency === bankAccountCurrency) {
+                            fxRate = await this.fxRateService.getByDate(
+                                organisationBaseCurrency.toString(),
+                                expenseCurrency,
+                                new Date(date),
+                            );
+
+                            bankAccountId = potentialBankAccountId;
+                        }
                     }
+                }
+            } else {
+                const bankAccount = await this.xeroEntities.bankAccounts.getByCurrency(expenseCurrency);
+                if (bankAccount) {
+                    bankAccountId = bankAccount.accountID;
                 }
             }
         }
@@ -260,7 +351,7 @@ export class Manager implements IManager {
     private async deleteTransaction(expenseId: string, transactionId: string) {
         const transactionUrl = this.buildTransactionUrl(transactionId);
         await this.xeroEntities.deleteAccountTransaction(transactionUrl);
-        await this.store.deleteExpenseTransaction(this.accountId, expenseId, transactionId);
+        await this.store.expenseTransactions.delete(this.accountId, expenseId, transactionId);
     }
 
     private async updateExpenseLinks(expenseId: string, urls: string[]) {
@@ -270,6 +361,175 @@ export class Manager implements IManager {
                 externalLinks: urls.map(url => ({ url, title: 'Xero' })),
             },
         );
+    }
+
+    private async exportBankStatementForTransactions(expense: Payhawk.IExpense, baseLogger: ILogger): Promise<void> {
+        const settledTransactions = expense.transactions.filter(t => t.settlementDate !== undefined);
+        if (settledTransactions.length === 0) {
+            return;
+        }
+
+        const currency = settledTransactions[0].cardCurrency;
+
+        const logger = baseLogger.child({ currency });
+
+        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+        if (!feedConnectionId) {
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+            feedConnectionId = await this.xeroEntities.bankFeeds.getOrCreateConnection(bankAccount);
+            await this.store.bankFeeds.createConnection(
+                {
+                    account_id: this.accountId,
+                    bank_connection_id: feedConnectionId,
+                    currency: bankAccount.currencyCode.toString(),
+                },
+            );
+        }
+
+        for (const transaction of settledTransactions) {
+            const date = transaction.settlementDate!;
+            const amount = transaction.cardAmount;
+            const transactionUrl = this.buildTransactionUrl(transaction.id);
+
+            const txLogger = logger.child({ transactionId: transaction.id, transactionUrl });
+            const bankTransaction = await this.xeroEntities.getBankTransactionByUrl(transactionUrl);
+            if (!bankTransaction) {
+                txLogger.error(Error('Bank statement transaction not found'));
+                continue;
+            }
+
+            if (bankTransaction.isReconciled) {
+                txLogger.error(Error('Bank transaction is reconciled'));
+                continue;
+            }
+
+            let statementId = await this.store.bankFeeds.getStatementIdByEntityId({
+                account_id: this.accountId,
+                xero_entity_id: bankTransaction.bankTransactionID,
+                payhawk_entity_id: transaction.id,
+                payhawk_entity_type: EntityType.Transaction,
+            });
+
+            if (statementId) {
+                logger.info('Statement for this transaction is already exported');
+                continue;
+            }
+
+            const contactName = bankTransaction.contact.name;
+            const description = bankTransaction.reference;
+
+            statementId = await this.xeroEntities.bankFeeds.createBankStatementLine(
+                feedConnectionId,
+                bankTransaction.bankTransactionID,
+                date,
+                amount,
+                contactName!,
+                description,
+            );
+
+            await this.store.bankFeeds.createStatement({
+                account_id: this.accountId,
+                xero_entity_id: bankTransaction.bankTransactionID,
+                payhawk_entity_id: transaction.id,
+                payhawk_entity_type: EntityType.Transaction,
+                bank_statement_id: statementId,
+            });
+        }
+    }
+
+    private async exportBankStatementForBill(expense: Payhawk.IExpense, baseLogger: ILogger): Promise<void> {
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
+        const logger = baseLogger.child({ currency: expenseCurrency });
+        if (!expenseCurrency) {
+            logger.info('Expense has no currency, nothing to export');
+            return;
+        }
+
+        const billUrl = this.buildExpenseUrl(expense.id);
+        const bill = await this.xeroEntities.getBillByUrl(billUrl);
+        if (!bill) {
+            logger.error(Error('Bill not found'));
+            return;
+        }
+
+        if (bill.status !== Xero.InvoiceStatus.PAID) {
+            logger.info('Bill must have status PAID for bank statement export');
+            return;
+        }
+
+        if (!bill.payments || bill.payments.length === 0) {
+            logger.error(Error('Bill model did not contain any payments'));
+            return;
+        }
+
+        const billId = bill.invoiceID;
+
+        let statementId = await this.store.bankFeeds.getStatementIdByEntityId({
+            account_id: this.accountId,
+            xero_entity_id: billId,
+            payhawk_entity_id: expense.id,
+            payhawk_entity_type: EntityType.Expense,
+        });
+
+        if (statementId) {
+            logger.info('Statement for this expense is already exported');
+            return;
+        }
+
+        const payment = bill.payments[0];
+        const paymentId = payment.paymentID;
+        const paymentCurrencyRate = payment.currencyRate;
+
+        let currency = expenseCurrency;
+        let amount = payment.amount;
+        if (paymentCurrencyRate !== 1) {
+            // payment is in different currency,
+            // we need to calculate amount...
+            // API does not contain total calculated total amount...
+            const fullPayment = await this.xeroEntities.getBillPayment(paymentId);
+            if (!fullPayment) {
+                logger.error(Error('Payment not found'));
+                return;
+            }
+
+            currency = this.xeroEntities.bankAccounts.getCurrencyByBankAccountCode(fullPayment.account.code);
+            amount = Math.round(100 * payment.amount / payment.currencyRate) / 100;
+        }
+
+        const contactName = bill.contact.name!;
+
+        const paymentDate = payment.date;
+        const description = `Payment: ${contactName}`;
+
+        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+        if (!feedConnectionId) {
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+            feedConnectionId = await this.xeroEntities.bankFeeds.getOrCreateConnection(bankAccount);
+            await this.store.bankFeeds.createConnection(
+                {
+                    account_id: this.accountId,
+                    bank_connection_id: feedConnectionId,
+                    currency: bankAccount.currencyCode.toString(),
+                },
+            );
+        }
+
+        statementId = await this.xeroEntities.bankFeeds.createBankStatementLine(
+            feedConnectionId,
+            billId,
+            paymentDate,
+            amount!,
+            contactName!,
+            description,
+        );
+
+        await this.store.bankFeeds.createStatement({
+            account_id: this.accountId,
+            xero_entity_id: billId,
+            payhawk_entity_id: expense.id,
+            payhawk_entity_type: EntityType.Expense,
+            bank_statement_id: statementId,
+        });
     }
 
     private buildExpenseUrl(expenseId: string, date?: Date): string {
@@ -282,7 +542,7 @@ export class Manager implements IManager {
         return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private buildTransferUrl(transferId: string, date: Date): string {
+    private buildTransferUrl(transferId: string, date?: Date): string {
         const accountIdQueryParam = this.getAccountIdQueryParam(date);
         return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }

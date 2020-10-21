@@ -57,9 +57,11 @@ export enum ResponseErrorType {
 export enum EntityResponseType {
     Accounts = 'Accounts',
     Attachments = 'Attachments',
+    BankStatements = 'BankStatements',
     BankTransactions = 'BankTransactions',
     Contacts = 'Contacts',
     Currencies = 'Currencies',
+    FeedConnections = 'FeedConnections',
     Invoices = 'Invoices',
     Organisations = 'Organisations',
     Payments = 'Payments',

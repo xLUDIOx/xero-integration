@@ -1,14 +1,14 @@
-import { ITokenSet } from '../../../store';
+import { AccessTokens } from '@stores';
 
 export interface IAuth {
     getAuthUrl(): Promise<string>;
     getAccessToken(verifier: string): Promise<IAccessToken>;
-    refreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet>;
-    disconnect(tenantId: string, currentToken: ITokenSet): Promise<void>;
+    refreshAccessToken(currentToken: AccessTokens.ITokenSet): Promise<AccessTokens.ITokenSet>;
+    disconnect(tenantId: string, currentToken: AccessTokens.ITokenSet): Promise<void>;
 }
 
 export interface IAccessToken {
     xeroUserId: string;
     tenantId: string;
-    tokenSet: ITokenSet;
+    tokenSet: AccessTokens.ITokenSet;
 }
