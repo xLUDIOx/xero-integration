@@ -134,9 +134,9 @@ export class AuthController {
 
             // try get some information from Xero to validate whether the token is still valid
             const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId }, logger);
-            await integrationManager.getOrganisationName();
+            const label = await integrationManager.getOrganisationName();
 
-            return { isAlive: true };
+            return { isAlive: true, label };
         } catch (err) {
             if (err instanceof ForbiddenError) {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };

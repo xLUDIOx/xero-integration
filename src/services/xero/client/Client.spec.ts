@@ -1,7 +1,8 @@
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, XeroClient } from 'xero-node';
 
-import { ILogger, OperationNotAllowedError } from '../../../utils';
+import { ILogger, Lock, OperationNotAllowedError } from '@utils';
+
 import { createXeroHttpClient } from '../http';
 import { Client, escapeParam } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
@@ -16,7 +17,7 @@ describe('Xero client', () => {
 
     const tenants: any[] = [{ tenantId: secondTenantId }, { tenantId, orgData: { name: 'Test' } }];
 
-    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object, updateTenants: async () => tenants} as XeroClient, loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
+    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object, updateTenants: async () => tenants} as XeroClient, new Lock(loggerMock.object), loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
 
     beforeEach(() => {
         xeroClientMock
@@ -277,8 +278,8 @@ describe('Xero client', () => {
             expect(invoiceId).toEqual(id);
         });
 
-        it('should throw error if invoice is already paid', async () => {
-            const invoice = getBillModel(true);
+        it('should throw error if invoice is already paid in Xero', async () => {
+            const invoice = getBillModel(false);
 
             const id = '1';
 

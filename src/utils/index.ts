@@ -1,5 +1,6 @@
 export * from './document-sanitizer';
 export * from './errors';
+export * from './lock';
 export * from './logger';
 export * from './request';
 

@@ -7,6 +7,9 @@ RUN chmod -R 777 /app
 
 USER node
 
+# Uncomment to skip request validation during development
+# ENV TESTING=true
+
 EXPOSE 8080 9230
 ENTRYPOINT [ "npm", "start" ]
 

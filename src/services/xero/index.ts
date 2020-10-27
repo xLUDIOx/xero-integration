@@ -1,7 +1,7 @@
 import { XeroClient } from 'xero-node';
 
 import { AccessTokens } from '@stores';
-import { createDocumentSanitizer, ILogger } from '@utils';
+import { createDocumentSanitizer, createLock, ILogger } from '@utils';
 
 import { Auth, IAccessToken, IAuth } from './auth';
 import {
@@ -57,7 +57,7 @@ export const createClient = (accountId: string, accessToken: AccessTokens.IToken
     const originalClient = new XeroClient(getXeroConfig(accountId));
     originalClient.setTokenSet(accessToken);
 
-    return new Client(createXeroHttpClient(originalClient, logger), tenantId, createDocumentSanitizer(), logger);
+    return new Client(createXeroHttpClient(originalClient, createLock(), logger), tenantId, createDocumentSanitizer(), logger);
 };
 
 export interface IAuthParams {

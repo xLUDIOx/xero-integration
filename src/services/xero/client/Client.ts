@@ -372,7 +372,7 @@ export class Client implements IClient {
         const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
         const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid, billId);
 
-        if (isPaid && existingBill.status === InvoiceStatus.PAID) {
+        if (existingBill.status === InvoiceStatus.PAID) {
             throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
         }
 

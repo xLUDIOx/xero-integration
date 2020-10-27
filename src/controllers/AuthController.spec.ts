@@ -129,17 +129,19 @@ describe('AuthController', () => {
 
     describe('getConnectionStatus()', () => {
         test('returns true if token is valid and request succeeds', async () => {
+            const organisationName = 'Demo GmbH';
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => createAccessToken());
 
             integrationManagerMock
                 .setup(m => m.getOrganisationName())
-                .returns(() => Promise.resolve('Demo GmbH'))
+                .returns(() => Promise.resolve(organisationName))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
-                .setup(r => r.send(200, { isAlive: true }))
+                .setup(r => r.send(200, { isAlive: true, label: organisationName }))
                 .verifiable(TypeMoq.Times.once());
 
             const req = { query: { accountId } } as restify.Request;

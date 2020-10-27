@@ -3,12 +3,14 @@ import * as request from 'request-promise';
 import { StatusCodeError } from 'request-promise/errors';
 import { ObjectSerializer, XeroClient } from 'xero-node';
 
-import { ForbiddenError, ILogger } from '../../../utils';
+import { ForbiddenError, ILock, ILogger } from '@utils';
+
 import { EntityResponseType, IApiResponse, IErrorResponse, IRequestOptions, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
 
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
         private readonly inner: XeroClient,
+        private readonly lock: ILock,
         private readonly logger: ILogger,
     ) { }
 
@@ -46,12 +48,19 @@ export class XeroHttpClient implements IXeroHttpClient {
         let actionResult;
 
         try {
+            if (retryCount === 0) {
+                await this.lock.acquire();
+            }
+
             actionResult = await action(this.inner);
+
         } catch (err) {
             actionResult = await this.handleFailedRequest(err, action, retryCount, responseType);
             if (!actionResult) {
                 return undefined as any;
             }
+        } finally {
+            await this.lock.release();
         }
 
         if (!responseType) {

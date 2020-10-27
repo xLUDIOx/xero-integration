@@ -3,7 +3,7 @@ import { URL } from 'url';
 import { IXeroClientConfig, XeroClient } from 'xero-node';
 
 import { AccessTokens } from '@stores';
-import { ILogger } from '@utils';
+import { createLock, ILogger } from '@utils';
 
 import { ITenant } from '../client';
 import { getXeroConfig } from '../Config';
@@ -60,7 +60,7 @@ export class Auth implements IAuth {
 
     private async createClient(accessToken?: AccessTokens.ITokenSet): Promise<IXeroHttpClient> {
         const client = new XeroClient(this.config);
-        const httpClient = createXeroHttpClient(client, this.logger);
+        const httpClient = createXeroHttpClient(client, createLock(), this.logger);
 
         await httpClient.makeClientRequest(x => x.initialize());
 
