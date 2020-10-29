@@ -66,6 +66,27 @@ export class PgStore implements IStore {
         }
     }
 
+    async updateTenant(accountId: string, tenantId: string): Promise<void> {
+        const result = await this.dbClient.query({
+            text: `
+                UPDATE "${this.tableName}"
+                SET
+                    "${UserTokenSetRecordKeys.tenant_id}" = $2,
+                    "${UserTokenSetRecordKeys.updated_at}" = now()
+                WHERE "${UserTokenSetRecordKeys.account_id}"=$1
+                RETURNING *
+            `,
+            values: [
+                accountId,
+                tenantId,
+            ],
+        });
+
+        if (result.rows.length === 0) {
+            this.logger.child({ accountId }).error(Error('Failed to update token'));
+        }
+    }
+
     async getByAccountId(accountId: string): Promise<IUserTokenSetRecord | undefined> {
         const query = await this.dbClient.query<IUserTokenSetRecord>({
             text: `

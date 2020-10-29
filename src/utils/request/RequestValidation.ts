@@ -1,5 +1,5 @@
 import * as NodeRSA from 'node-rsa';
-import * as request from 'request-promise';
+import * as makeRequest from 'request-promise';
 import { Next, Request, Response } from 'restify';
 import { BadRequestError, ForbiddenError } from 'restify-errors';
 
@@ -35,6 +35,38 @@ export function requiredQueryParams<TQuery>(...params: (keyof TQuery)[]) {
     };
 }
 
+/**
+ * Returns a decorator that verifies request handler has required request body params
+ * @param params A collection of required request body property names
+ */
+export function requiredBodyParams<TBody>(...params: (keyof TBody)[]) {
+    return (controller: any, requestHandlerName: string, requestHandlerDescriptor: IRequestHandlerDescriptor | undefined): any => {
+        if (requestHandlerDescriptor === undefined) {
+            requestHandlerDescriptor = Object.getOwnPropertyDescriptor(controller, requestHandlerName)!;
+        }
+
+        const originalMethod: any = requestHandlerDescriptor.value!;
+
+        requestHandlerDescriptor.value = async function (this: any, request: Request, response: Response, next: Next) {
+            if (!request.body) {
+                throw new BadRequestError('No request body.');
+            }
+
+            for (const param of params) {
+                const value = request.body[param];
+                if (value === undefined || value === null) {
+                    throw new BadRequestError(`Missing required body parameter: ${param}.`);
+                }
+            }
+
+            // eslint-disable-next-line prefer-rest-params
+            return originalMethod.apply(this, arguments);
+        } as any;
+
+        return requestHandlerDescriptor;
+    };
+}
+
 // a minute
 const REQUEST_DELAY_TOLERANCE_MS = 60 * 1000;
 
@@ -62,7 +94,7 @@ export function payhawkSigned(target: any, key: string, descriptor: IRequestHand
                 throw new ForbiddenError();
             }
 
-            const publicKey = await request(`${config.payhawkUrl}/api/v2/rsa-public-key`);
+            const publicKey = await makeRequest(`${config.payhawkUrl}/api/v2/rsa-public-key`);
             const rsaKey = new NodeRSA(publicKey);
             const urlToSign = req.path() + (req.getQuery() ? '?' + req.getQuery() : '');
             const dataToSign = `${timestampString}:${urlToSign}:${req.body ? JSON.stringify(req.body) : ''}`;

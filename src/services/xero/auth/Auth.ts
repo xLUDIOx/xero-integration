@@ -39,6 +39,12 @@ export class Auth implements IAuth {
         return buildAccessTokenData(authClient, tokenSet);
     }
 
+    async getAuthorizedTenants(accessToken: AccessTokens.ITokenSet): Promise<ITenant[]> {
+        const authClient = await this.createClient(accessToken);
+        const tenants = await authClient.makeClientRequest<ITenant[]>(x => x.updateTenants(false));
+        return tenants;
+    }
+
     async refreshAccessToken(currentToken: AccessTokens.ITokenSet): Promise<AccessTokens.ITokenSet> {
         const authClient = await this.createClient(currentToken);
         const newToken = await authClient.makeClientRequest<AccessTokens.ITokenSet>(x => x.refreshToken());

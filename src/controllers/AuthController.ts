@@ -1,12 +1,15 @@
+import * as crypto from 'crypto';
 import { URL, URLSearchParams } from 'url';
 
 import { boundMethod } from 'autobind-decorator';
 import { Next, Request, Response } from 'restify';
+import { InternalServerError } from 'restify-errors';
 
 import { Integration, XeroConnection } from '@managers';
-import { ForbiddenError, fromBase64, ILogger, requiredQueryParams } from '@utils';
+import { ForbiddenError, fromBase64, ILogger, requiredBodyParams, requiredQueryParams } from '@utils';
 
 import { IConfig } from '../Config';
+import { Xero } from '../services';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 
 export class AuthController {
@@ -78,6 +81,34 @@ export class AuthController {
                 return;
             }
 
+            const authorizedTenants = await connectionManager.getAuthorizedTenants();
+
+            // should never happen
+            if (authorizedTenants.length === 0) {
+                throw Error('No authorized tenants');
+            }
+
+            if (authorizedTenants.length > 1) {
+                const nonce = crypto.randomBytes(16).toString('base64');
+                const body = this.getTenantSelectorHtml(accountId, authorizedTenants, returnUrl, nonce);
+
+                res.writeHead(200, {
+                    'content-length': Buffer.byteLength(body),
+                    'content-type': 'text/html',
+                    'strict-transport-security': 'max-age=63072000; includeSubdomains; preload',
+                    'content-security-policy': `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'`,
+                    'x-content-type-options': 'nosniff',
+                    'x-xss-protection': '1; mode=block',
+                    'referrer-policy': 'same-origin',
+                    'x-permitted-cross-domain-policies': 'none',
+                    'x-frame-options': 'DENY',
+                });
+
+                res.write(body);
+                res.end();
+                return;
+            }
+
             const tenantId = await connectionManager.getActiveTenantId();
             if (!tenantId) {
                 throw Error('No active tenant found for this account after callback received');
@@ -116,6 +147,35 @@ export class AuthController {
         res.send(200, connectionStatus);
     }
 
+    @boundMethod
+    @requiredBodyParams('accountId', 'tenantId', 'returnUrl')
+    async connectTenant(req: Request, res: Response, next: Next) {
+        const { accountId, tenantId, returnUrl } = req.body;
+
+        const logger = this.baseLogger.child({ accountId }, req);
+
+        const connectionManager = this.connectionManagerFactory({ accountId }, logger);
+        await connectionManager.connectTenant(tenantId);
+
+        const accessToken = await connectionManager.getAccessToken();
+        if (!accessToken) {
+            throw new InternalServerError('No access token found');
+        }
+
+        const integrationManager = this.integrationManagerFactory({ accessToken, accountId, tenantId }, logger);
+        const organisationName = await integrationManager.getOrganisationName();
+
+        const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
+        const url = new URL(absoluteReturnUrl);
+
+        url.searchParams.append('connection', 'xero');
+        if (organisationName) {
+            url.searchParams.append('label', organisationName);
+        }
+
+        res.redirect(url.toString(), next);
+    }
+
     private async resolveConnectionStatus(accountId: string, logger: ILogger): Promise<IConnectionStatus> {
         if (!accountId) {
             return { isAlive: false };
@@ -151,5 +211,108 @@ export class AuthController {
 
             return { isAlive: false };
         }
+    }
+
+    private getTenantSelectorHtml(accountId: string, tenants: Xero.ITenant[], returnUrl: string, nonce: string) {
+        // cspell: disable
+        const body = `
+            <html>
+                <head>
+                    <title>Payhawk</title>
+                    <meta http-equiv="Pragma" content="no-cache" />
+                    <meta http-equiv="Expires" content="-1″ />
+                    <meta http-equiv="CACHE-CONTROL" content="NO-CACHE" />
+
+                    <style nonce="${nonce}">
+                        html {
+                            font-family: "Helvetica Neue", Roboto, Helvetica, Arial, sans-serif;
+                            font-size: 14px;
+                        }
+
+                        .phwk-tp-connect-page {
+                            background-color: #f4f5f6;
+                        }
+
+                        .phwk-container {
+                            width: fit-content;
+
+                            margin-top: 12rem;
+                            margin-left: auto;
+                            margin-right: auto;
+                        }
+
+                        .tenant-selector-form {
+                            border: 1px solid rgb(222, 226, 230);
+                            background-color: white;
+                            margin-top: 2rem;
+                            padding: 2rem 4rem;
+                        }
+
+                        .form-group > label {
+                            color: #9097a0;
+                        }
+
+                        button.btn-connect {
+                            font-weight: 500;
+                            background-color: #4189FF;
+                            border-color: #4189FF;
+                            border-radius: 17.5px;
+                        }
+
+                        button.btn-connect:hover {
+                            background-color: #1B71FF;
+                            border-color: #1B71FF;
+                        }
+
+                        img.phwk-logo {
+                           display: block;
+                           margin: auto;
+                        }
+                    </style>
+                    <script
+                        nonce="${nonce}"
+                        src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+                        integrity="sha256-4+XzXVhsDmqanXGHaHvgh1gMQKX40OUvDEBTu8JcmNs="
+                        crossorigin="anonymous">
+                    </script>
+                    <link
+                        nonce="${nonce}"
+                        rel="stylesheet"
+                        href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css"
+                        integrity="sha384-JcKb8q3iqJ61gNV9KGb8thSsNjpSL0n8PARn9HuZOnIxN0hoP+VmmDGMN5t9UJ0Z"
+                        crossorigin="anonymous"
+                    >
+                    <script
+                        nonce="${nonce}"
+                        src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"
+                        integrity="sha384-B4gt1jrGC7Jh4AgTPSdUtOBvfO8shuf57BaghqFfPlYxofvL8/KUEfYiJOMMV+rV"
+                        crossorigin="anonymous">
+                    </script>
+                </head>
+                <body class="phwk-tp-connect-page">
+                    <div class="phwk-container">
+                        <img class="phwk-logo" src="/images/logo.png" />
+                        <form action="/connect-tenant" method="POST" class="tenant-selector-form">
+                            <div class="form-group">
+                                <label for="tenantSelector">Select tenant</label>
+                                <select class="form-control" name="tenantId" id="tenantSelector">
+                                    ${tenants.map(t => `<option value="${t.tenantId}">${t.tenantName}</option>`)}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <input type="hidden" name="accountId" value="${accountId}" />
+                            </div>
+                            <div class="form-group">
+                                <input type="hidden" name="returnUrl" value="${returnUrl}" />
+                            </div>
+                            <button type="submit" class="btn btn-primary mt-3 btn-connect">Continue</button>
+                        </form>
+                    </div>
+                </body>
+            </html>
+        `;
+        // cspell: enable
+
+        return body;
     }
 }

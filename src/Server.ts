@@ -24,13 +24,20 @@ export const createServer = (authController: AuthController, integrationsControl
 
     server
         .use(restify.plugins.jsonBodyParser())
+        .use(restify.plugins.urlEncodedBodyParser({ mapParams: false }))
         .use(restify.plugins.queryParser())
         .use(securityHeadersMiddleware());
 
     // Endpoint used to check whether the service is up and running
     server.get('/status', (req, res) => res.send(200, 'OK'));
 
+    // Serve public static files
+    server.get('/images/*', restify.plugins.serveStatic({
+        directory: `${process.cwd()}/public`,
+    }));
+
     server.get('/connect', requestHandler(authController.connect));
+    server.post('/connect-tenant', requestHandler(authController.connectTenant));
     server.get('/callback', requestHandler(authController.callback));
     server.get('/payhawk/connection-status', requestHandler(authController.getConnectionStatus));
 

@@ -21,6 +21,7 @@ import {
     InvoiceStatus,
     IOrganisation,
     IPayment,
+    ITenant,
     IUpdateBillData,
     IUpdateTransactionData,
 } from './client';
@@ -47,6 +48,7 @@ export {
     InvoiceStatus,
     IBankTransaction,
     IPayment,
+    ITenant,
 };
 
 export const createAuth = ({ accountId, returnUrl }: IAuthParams, logger: ILogger): IAuth => {

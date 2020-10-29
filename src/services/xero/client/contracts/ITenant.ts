@@ -5,5 +5,5 @@ export interface ITenant {
     tenantId: string;
     tenantName: string;
     tenantType: string;
-    orgData: IOrganisation;
+    orgData?: IOrganisation;
 }

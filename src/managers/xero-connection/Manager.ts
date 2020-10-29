@@ -42,6 +42,17 @@ export class Manager implements IManager {
         return xeroAccessToken;
     }
 
+    async getAuthorizedTenants(): Promise<Xero.ITenant[]> {
+        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
+        if (xeroAccessTokenRecord === undefined) {
+            return [];
+        }
+
+        const xeroAccessToken: AccessTokens.ITokenSet | undefined = xeroAccessTokenRecord.token_set;
+
+        return this.authClient.getAuthorizedTenants(xeroAccessToken);
+    }
+
     async getActiveTenantId(): Promise<string | undefined> {
         const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
         if (xeroAccessTokenRecord === undefined) {
@@ -49,6 +60,15 @@ export class Manager implements IManager {
         }
 
         return xeroAccessTokenRecord.tenant_id;
+    }
+
+    async connectTenant(tenantId: string): Promise<void> {
+        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
+        if (xeroAccessTokenRecord === undefined) {
+            throw Error('No token found for this account');
+        }
+
+        await this.store.accessTokens.updateTenant(this.accountId, tenantId);
     }
 
     async disconnectActiveTenant(): Promise<void> {

@@ -47,7 +47,7 @@ export class Client implements IClient {
     }
 
     async getOrganisation(): Promise<IOrganisation> {
-        const tenants = await this.xeroClient.makeClientRequest<ITenant[]>(
+        const tenants = await this.xeroClient.makeClientRequest<Required<ITenant>[]>(
             x => x.updateTenants(),
         );
 
