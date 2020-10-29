@@ -1,6 +1,6 @@
 export interface IConnectionStatus {
     isAlive: boolean;
-    label?: string;
+    title?: string;
     message?: ConnectionMessage;
 }
 

@@ -42,10 +42,10 @@ export class Manager implements IManager {
         return xeroAccessToken;
     }
 
-    async getActiveTenantId(): Promise<string> {
+    async getActiveTenantId(): Promise<string | undefined> {
         const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
         if (xeroAccessTokenRecord === undefined) {
-            throw Error('Unable to get active tenant ID because token is undefined');
+            return undefined;
         }
 
         return xeroAccessTokenRecord.tenant_id;
@@ -53,6 +53,10 @@ export class Manager implements IManager {
 
     async disconnectActiveTenant(): Promise<void> {
         const tenantId = await this.getActiveTenantId();
+        if (!tenantId) {
+            this.logger.info('No active tenant found for this account, nothing to do here');
+            return;
+        }
 
         try {
             const accessToken = await this.getAccessToken();

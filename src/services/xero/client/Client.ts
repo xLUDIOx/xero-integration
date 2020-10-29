@@ -374,6 +374,8 @@ export class Client implements IClient {
 
         if (existingBill.status === InvoiceStatus.PAID) {
             throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
+        } else if (existingBill.status === InvoiceStatus.AUTHORISED && billModel.status !== Invoice.StatusEnum.AUTHORISED) {
+            throw new OperationNotAllowedError(`Bill status '${existingBill.status}' does not allow modification`);
         }
 
         await this.xeroClient.makeClientRequest<Invoice[]>(
@@ -645,6 +647,9 @@ function getNewBillModel(date: string, contactId: string, description: string, c
         dueDate,
         type: Invoice.TypeEnum.ACCPAY,
         currencyCode: currency as any,
+
+        // Xero default status
+        status: Invoice.StatusEnum.DRAFT,
     };
 
     if (isPaid) {

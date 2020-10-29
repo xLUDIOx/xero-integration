@@ -1,6 +1,7 @@
 import * as restify from 'restify';
 
 import { AuthController, IntegrationsController } from '@controllers';
+import { requestHandler } from '@utils';
 
 import { config } from './Config';
 
@@ -29,11 +30,11 @@ export const createServer = (authController: AuthController, integrationsControl
     // Endpoint used to check whether the service is up and running
     server.get('/status', (req, res) => res.send(200, 'OK'));
 
-    server.get('/connect', authController.connect);
-    server.get('/callback', authController.callback);
-    server.get('/payhawk/connection-status', authController.getConnectionStatus);
+    server.get('/connect', requestHandler(authController.connect));
+    server.get('/callback', requestHandler(authController.callback));
+    server.get('/payhawk/connection-status', requestHandler(authController.getConnectionStatus));
 
-    server.post('/payhawk', integrationsController.handlePayhawkEvent);
+    server.post('/payhawk', requestHandler(integrationsController.handlePayhawkEvent));
 
     return server;
 };

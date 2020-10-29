@@ -1,5 +1,5 @@
 import * as TypeMoq from 'typemoq';
-import { AccountingApi, XeroClient } from 'xero-node';
+import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
 import { ILogger, Lock, OperationNotAllowedError } from '@utils';
 
@@ -242,6 +242,7 @@ describe('Xero client', () => {
                             dueDate: invoice.dueDate,
                             type: InvoiceType.AccountsPayable as any,
                             currencyCode: invoice.currency as any,
+                            status: Invoice.StatusEnum.DRAFT,
                             date: invoice.date,
                             url: invoice.url,
                             contact: {
@@ -291,6 +292,19 @@ describe('Xero client', () => {
             await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
         });
 
+        it('should throw error if invoice is already authorised in Xero', async () => {
+            const invoice = getBillModel(false);
+
+            const id = '1';
+
+            const existing = {
+                invoiceID: id,
+                status: InvoiceStatusCode.Authorised as any,
+            } as IInvoice;
+
+            await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
+        });
+
         it('should throw error', async () => {
             const invoice = getBillModel();
 
@@ -303,6 +317,7 @@ describe('Xero client', () => {
                             dueDate: invoice.dueDate,
                             type: InvoiceType.AccountsPayable as any,
                             currencyCode: invoice.currency as any,
+                            status: Invoice.StatusEnum.DRAFT,
                             date: invoice.date,
                             url: invoice.url,
                             contact: {

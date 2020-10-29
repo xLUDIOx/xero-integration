@@ -28,16 +28,11 @@ export class AuthController {
 
         logger.info('Connect started');
 
-        try {
-            const connectionManager = this.connectionManagerFactory({ accountId, returnUrl }, logger);
-            const authorizationUrl = await connectionManager.getAuthorizationUrl();
-            res.redirect(authorizationUrl, next);
+        const connectionManager = this.connectionManagerFactory({ accountId, returnUrl }, logger);
+        const authorizationUrl = await connectionManager.getAuthorizationUrl();
+        res.redirect(authorizationUrl, next);
 
-            logger.info('Connect completed');
-        } catch (err) {
-            logger.error(err);
-            res.send(500);
-        }
+        logger.info('Connect completed');
     }
 
     @boundMethod
@@ -84,6 +79,10 @@ export class AuthController {
             }
 
             const tenantId = await connectionManager.getActiveTenantId();
+            if (!tenantId) {
+                throw Error('No active tenant found for this account after callback received');
+            }
+
             const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
 
             const organisationName = await integrationManager.getOrganisationName();
@@ -97,8 +96,11 @@ export class AuthController {
 
             logger.info('Callback complete');
         } catch (err) {
-            logger.error(err);
-            res.send(500);
+            if (err instanceof ForbiddenError) {
+                throw Error('Tenant ID in the database was not found in authorized tenants for this token. Disconnect should have been triggered before attempting to connect again.');
+            }
+
+            throw err;
         }
     }
 
@@ -131,12 +133,15 @@ export class AuthController {
             }
 
             const tenantId = await connectionManager.getActiveTenantId();
+            if (!tenantId) {
+                return { isAlive: false };
+            }
 
             // try get some information from Xero to validate whether the token is still valid
             const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId }, logger);
-            const label = await integrationManager.getOrganisationName();
+            const title = await integrationManager.getOrganisationName();
 
-            return { isAlive: true, label };
+            return { isAlive: true, title };
         } catch (err) {
             if (err instanceof ForbiddenError) {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };

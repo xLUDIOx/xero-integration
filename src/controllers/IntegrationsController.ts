@@ -3,7 +3,7 @@ import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
 
 import { Integration, XeroConnection } from '@managers';
-import { ILogger, OperationNotAllowedError } from '@utils';
+import { ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
 
 import { IPayhawkPayload } from './IPayhawkPayload';
 import { PayhawkEvent } from './PayhawkEvent';
@@ -17,7 +17,7 @@ export class IntegrationsController {
     }
 
     @boundMethod
-    // @payhawkSigned
+    @payhawkSigned
     async handlePayhawkEvent(req: Request, res: Response) {
         const payload = req.body as IPayhawkPayload;
         const payloadData = payload.data || {};
@@ -30,13 +30,8 @@ export class IntegrationsController {
         if (event === PayhawkEvent.ApiKeySet) {
             logger.info('New API key received');
 
-            try {
-                await connectionManager.setPayhawkApiKey(payloadData.apiKey);
-                res.send(204);
-            } catch (err) {
-                logger.error(err);
-                res.send(500);
-            }
+            await connectionManager.setPayhawkApiKey(payloadData.apiKey);
+            res.send(204);
 
             return;
         }
@@ -128,12 +123,12 @@ export class IntegrationsController {
             res.send(204);
         } catch (err) {
             if (err instanceof OperationNotAllowedError) {
-                logger.warn(`[${err.name}]: ${err.message}`);
+                logger.warn(`Operation not allowed: ${err.message}`);
                 res.send(204);
-            } else {
-                logger.error(err);
-                res.send(500);
+                return;
             }
+
+            throw err;
         }
     }
 
@@ -239,6 +234,10 @@ export class IntegrationsController {
 
     private async createIntegrationManager(connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, logger: ILogger): Promise<Integration.IManager> {
         const tenantId = await connectionManager.getActiveTenantId();
+        if (!tenantId) {
+            throw Error('No active tenant found for this account');
+        }
+
         const payhawkApiKey = await connectionManager.getPayhawkApiKey();
         const integrationManager = this.integrationManagerFactory(
             {

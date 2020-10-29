@@ -85,6 +85,12 @@ describe('IntegrationsController', () => {
         test('send 204 and call exportExpense for that event', async () => {
             const accessToken = createAccessToken();
             const expenseId = 'expId';
+
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -105,6 +111,12 @@ describe('IntegrationsController', () => {
         test('logs warning if operation is not allowed', async () => {
             const accessToken = createAccessToken();
             const expenseId = 'expId';
+
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -128,6 +140,12 @@ describe('IntegrationsController', () => {
 
         test('send 204 and call exportTransfers for that event', async () => {
             const accessToken = createAccessToken();
+
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
@@ -150,20 +168,14 @@ describe('IntegrationsController', () => {
             await controller.handlePayhawkEvent(req, responseMock.object);
         });
 
-        test('send 500 if payload does not contain payload data for exportExpense', async () => {
+        test('throw err if payload does not contain payload data for exportExpense', async () => {
             const accessToken = createAccessToken();
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
 
-            loggerMock.setup(l => l.error(TypeMoq.It.isAny())).verifiable(TypeMoq.Times.once());
-
-            responseMock
-                .setup(r => r.send(500))
-                .verifiable(TypeMoq.Times.once());
-
             const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: undefined } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
+            await expect(controller.handlePayhawkEvent(req, responseMock.object)).rejects.toThrow();
         });
 
         test('send 500 if payload does not contain payload data for exportTransfers', async () => {
@@ -172,17 +184,16 @@ describe('IntegrationsController', () => {
                 .setup(m => m.getAccessToken())
                 .returns(async () => accessToken);
 
-            loggerMock.setup(l => l.error(TypeMoq.It.isAny())).verifiable(TypeMoq.Times.once());
-
-            responseMock
-                .setup(r => r.send(500))
-                .verifiable(TypeMoq.Times.once());
-
             const req = { body: { accountId, event: PayhawkEvent.TransfersExport, data: undefined } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
+            await expect(controller.handlePayhawkEvent(req, responseMock.object)).rejects.toThrow();
         });
 
         test('send 204 and call synchronizeChartOfAccounts for that event', async () => {
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => ({} as AccessTokens.ITokenSet));
@@ -200,8 +211,14 @@ describe('IntegrationsController', () => {
             await controller.handlePayhawkEvent(req, responseMock.object);
         });
 
-        test('send 500 and logs error if manager throws', async () => {
+        test('throw error if manager throws', async () => {
             const err = new Error('expected error');
+
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => ({} as AccessTokens.ITokenSet));
@@ -211,14 +228,8 @@ describe('IntegrationsController', () => {
                 .returns(() => Promise.reject(err))
                 .verifiable(TypeMoq.Times.once());
 
-            loggerMock.setup(l => l.error(err)).verifiable(TypeMoq.Times.once());
-
-            responseMock
-                .setup(r => r.send(500))
-                .verifiable(TypeMoq.Times.once());
-
             const req = { body: { accountId, event: PayhawkEvent.ChartOfAccountSynchronize } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
+            await expect(controller.handlePayhawkEvent(req, responseMock.object)).rejects.toThrow();
         });
 
         test('handles ApiKeySet and does not throw', async () => {

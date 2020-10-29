@@ -60,12 +60,11 @@ describe('AuthController', () => {
                 .toThrowError('Missing required query parameter: accountId.');
         });
 
-        test('sends 500 when the manager throws error', async () => {
-            responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
+        test('throw error when the manager throws error', async () => {
             connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(() => Promise.reject(new Error()));
 
             const req = { query: { accountId } } as restify.Request;
-            await controller.connect(req, responseMock.object, nextMock.object);
+            await expect(controller.connect(req, responseMock.object, nextMock.object)).rejects.toThrow();
         });
 
         test('redirects to authorization URL', async () => {
@@ -87,16 +86,15 @@ describe('AuthController', () => {
                 .toThrowError('Missing required query parameter: state.');
         });
 
-        test('sends 500 when the manager throws error', async () => {
+        test('throw error when the manager throws error', async () => {
             const req = {
                 url: 'https://login.xero.com/identity/connect/authorize?client_id=C50C5AE905A247238EFD0BA93CA7D02A&scope=accounting.settings+accounting.transactions+accounting.attachments+accounting.contacts&response_type=code&redirect_uri=https%3A%2F%2Fxero-adapter-local.payhawk.io%2Fcallback&state=YWNjb3VudElkPXBheWhhd2tfZDFhYTIyNTQmcmV0dXJuVXJsPSUyRg%3D%3D',
                 query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=' },
             } as restify.Request;
 
-            responseMock.setup(r => r.send(500)).verifiable(TypeMoq.Times.once());
             connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(() => Promise.reject(new Error()));
 
-            await controller.callback(req, responseMock.object, nextMock.object);
+            await expect(controller.callback(req, responseMock.object, nextMock.object)).rejects.toThrow();
         });
 
         test('sends 401 when authentication fails', async () => {
@@ -121,6 +119,11 @@ describe('AuthController', () => {
                 query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=' },
             } as restify.Request;
 
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(async () => token);
 
             await controller.callback(req, responseMock.object, nextMock.object);
@@ -132,6 +135,11 @@ describe('AuthController', () => {
             const organisationName = 'Demo GmbH';
 
             connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
+            connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => createAccessToken());
 
@@ -141,7 +149,7 @@ describe('AuthController', () => {
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
-                .setup(r => r.send(200, { isAlive: true, label: organisationName }))
+                .setup(r => r.send(200, { isAlive: true, title: organisationName }))
                 .verifiable(TypeMoq.Times.once());
 
             const req = { query: { accountId } } as restify.Request;
@@ -162,6 +170,11 @@ describe('AuthController', () => {
         });
 
         test('returns disconnected remotely if request fails', async () => {
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => createAccessToken());
@@ -194,6 +207,11 @@ describe('AuthController', () => {
         });
 
         test('logs unexpected error and return isAlive: false', async () => {
+            connectionManagerMock
+                .setup(m => m.getActiveTenantId())
+                .returns(async () => '1')
+                .verifiable(TypeMoq.Times.once());
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => createAccessToken());
