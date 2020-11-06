@@ -1,8 +1,7 @@
 import { FxRates, Payhawk, Xero } from '@services';
-import { ISchemaStore } from '@stores';
+import { BankFeeds, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
-import { EntityType } from '../../stores/bank-feeds/IBankFeedStatement';
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
 
@@ -132,8 +131,9 @@ export class Manager implements IManager {
             return;
         }
 
+        const date = transfer.date;
         const currency = transfer.currency;
-        const transferUrl = this.buildTransferUrl(transferId);
+        const transferUrl = this.buildTransferUrl(transferId, new Date(date));
 
         logger = logger.child({ currency, transferUrl });
 
@@ -152,7 +152,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
-            payhawk_entity_type: EntityType.Transfer,
+            payhawk_entity_type: BankFeeds.EntityType.Transfer,
         });
 
         if (statementId) {
@@ -179,7 +179,7 @@ export class Manager implements IManager {
         statementId = await this.xeroEntities.bankFeeds.createBankStatementLine(
             feedConnectionId,
             bankTransaction.bankTransactionID,
-            transfer.date,
+            date,
             -Math.abs(transfer.amount),
             contactName!,
             description,
@@ -189,7 +189,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
-            payhawk_entity_type: EntityType.Transfer,
+            payhawk_entity_type: BankFeeds.EntityType.Transfer,
             bank_statement_id: statementId,
         });
     }
@@ -217,25 +217,25 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, transactionUrls);
     }
 
-    private async exportTransaction(expense: Payhawk.IExpense, t: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[]): Promise<string> {
-        const totalAmount = t.cardAmount + t.fees;
-        const description = formatDescription(formatCardDescription(t.cardHolderName, t.cardLastDigits, t.cardName), expense.note);
-        const date = t.settlementDate || t.date;
+    private async exportTransaction(expense: Payhawk.IExpense, transaction: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[]): Promise<string> {
+        const totalAmount = transaction.cardAmount + transaction.fees;
+        const description = formatDescription(formatCardDescription(transaction.cardHolderName, transaction.cardLastDigits, transaction.cardName), expense.note);
+        const date = getTransactionExportDate(transaction);
         const newAccountTransaction: XeroEntities.INewAccountTransaction = {
             date,
             bankAccountId,
             contactId,
             description,
-            reference: t.description,
+            reference: transaction.description,
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
             files,
-            url: this.buildTransactionUrl(t.id, new Date(date)),
+            url: this.buildTransactionUrl(transaction.id, new Date(date)),
         };
 
         const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
 
-        await this.store.expenseTransactions.create(this.accountId, expense.id, t.id);
+        await this.store.expenseTransactions.create(this.accountId, expense.id, transaction.id);
 
         return bankTransactionId;
     }
@@ -256,7 +256,7 @@ export class Manager implements IManager {
             date,
             bankAccountId,
             contactId,
-            reference: `Bank wire received on ${new Date(transfer.date).toUTCString()}`,
+            reference: `Bank wire received on ${new Date(date).toUTCString()}`,
             totalAmount: -Math.abs(transfer.amount),
             files: [],
             url: this.buildTransferUrl(transfer.id, new Date(date)),
@@ -266,11 +266,17 @@ export class Manager implements IManager {
     }
 
     private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[]) {
-        const date = (expense.document && expense.document.date) || expense.createdAt;
+        const date = getBillExportDate(expense);
 
         const expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
             this.logger.info('Expense will not be exported because it does not have currency');
+            return;
+        }
+
+        const totalAmount = expense.reconciliation.expenseTotalAmount;
+        if (totalAmount === 0) {
+            this.logger.info('Expense amount is 0, nothing to export');
             return;
         }
 
@@ -314,7 +320,6 @@ export class Manager implements IManager {
 
         const description = formatDescription(expense.ownerName, expense.note);
 
-        const totalAmount = expense.reconciliation.expenseTotalAmount;
         const newBill: XeroEntities.INewBill = {
             bankAccountId,
             date,
@@ -364,7 +369,7 @@ export class Manager implements IManager {
     }
 
     private async exportBankStatementForTransactions(expense: Payhawk.IExpense, baseLogger: ILogger): Promise<void> {
-        const settledTransactions = expense.transactions.filter(t => t.settlementDate !== undefined);
+        const settledTransactions = expense.transactions.filter(t => t.settlementDate !== undefined) as Required<Payhawk.ITransaction>[];
         if (settledTransactions.length === 0) {
             return;
         }
@@ -387,9 +392,9 @@ export class Manager implements IManager {
         }
 
         for (const transaction of settledTransactions) {
-            const date = transaction.settlementDate!;
+            const date = transaction.settlementDate;
             const amount = transaction.cardAmount;
-            const transactionUrl = this.buildTransactionUrl(transaction.id);
+            const transactionUrl = this.buildTransactionUrl(transaction.id, new Date(date));
 
             const txLogger = logger.child({ transactionId: transaction.id, transactionUrl });
             const bankTransaction = await this.xeroEntities.getBankTransactionByUrl(transactionUrl);
@@ -407,7 +412,7 @@ export class Manager implements IManager {
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
                 payhawk_entity_id: transaction.id,
-                payhawk_entity_type: EntityType.Transaction,
+                payhawk_entity_type: BankFeeds.EntityType.Transaction,
             });
 
             if (statementId) {
@@ -431,7 +436,7 @@ export class Manager implements IManager {
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
                 payhawk_entity_id: transaction.id,
-                payhawk_entity_type: EntityType.Transaction,
+                payhawk_entity_type: BankFeeds.EntityType.Transaction,
                 bank_statement_id: statementId,
             });
         }
@@ -445,7 +450,14 @@ export class Manager implements IManager {
             return;
         }
 
-        const billUrl = this.buildExpenseUrl(expense.id);
+        const expenseAmount = expense.reconciliation.expenseTotalAmount;
+        if (expenseAmount === 0) {
+            logger.info('Expense amount is 0, nothing to export');
+            return;
+        }
+
+        const date = getBillExportDate(expense);
+        const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
         const bill = await this.xeroEntities.getBillByUrl(billUrl);
         if (!bill) {
             logger.error(Error('Bill not found'));
@@ -468,7 +480,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: billId,
             payhawk_entity_id: expense.id,
-            payhawk_entity_type: EntityType.Expense,
+            payhawk_entity_type: BankFeeds.EntityType.Expense,
         });
 
         if (statementId) {
@@ -527,7 +539,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: billId,
             payhawk_entity_id: expense.id,
-            payhawk_entity_type: EntityType.Expense,
+            payhawk_entity_type: BankFeeds.EntityType.Expense,
             bank_statement_id: statementId,
         });
     }
@@ -542,14 +554,14 @@ export class Manager implements IManager {
         return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private buildTransferUrl(transferId: string, date?: Date): string {
+    private buildTransferUrl(transferId: string, date: Date): string {
         const accountIdQueryParam = this.getAccountIdQueryParam(date);
         return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
     private getAccountIdQueryParam(date?: Date): 'account' | 'accountId' {
-        const time = date?.getTime();
-        if (!time || time >= TIME_AT_PARAM_CHANGE) {
+        const time = date ? date.getTime() : undefined;
+        if (time === undefined || time >= TIME_AT_PARAM_CHANGE) {
             return 'account';
         }
 
@@ -563,6 +575,14 @@ function formatDescription(name: string, expenseNote?: string): string {
 
 function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {
     return `${cardHolderName}${cardName ? `, ${cardName}` : ''}, *${cardLastDigits}`;
+}
+
+function getBillExportDate(expense: Payhawk.IExpense): string {
+    return expense.document !== undefined && expense.document.date !== undefined ? expense.document.date : expense.createdAt;
+}
+
+function getTransactionExportDate(transaction: Payhawk.ITransaction): string {
+    return transaction.settlementDate || transaction.date;
 }
 
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);

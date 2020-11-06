@@ -104,7 +104,7 @@ export class Manager implements IManager {
     async deleteAccountTransaction(transactionUrl: string): Promise<void> {
         const transaction = await this.xeroClient.getTransactionByUrl(transactionUrl);
         if (!transaction) {
-            return;
+            throw Error('Transaction not found');;
         }
 
         if (transaction.isReconciled) {
@@ -185,7 +185,7 @@ export class Manager implements IManager {
     async deleteBill(billUrl: string) {
         const bill = await this.xeroClient.getBillByUrl(billUrl);
         if (!bill) {
-            return;
+            throw Error('Bill not found');
         }
 
         if (bill.status === Xero.InvoiceStatus.PAID) {
