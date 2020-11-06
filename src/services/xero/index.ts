@@ -59,7 +59,7 @@ export const createClient = (accountId: string, accessToken: AccessTokens.IToken
     const originalClient = new XeroClient(getXeroConfig(accountId));
     originalClient.setTokenSet(accessToken);
 
-    return new Client(createXeroHttpClient(originalClient, createLock(), logger), tenantId, createDocumentSanitizer(), logger);
+    return new Client(createXeroHttpClient(originalClient, createLock(logger), logger), tenantId, createDocumentSanitizer(), logger);
 };
 
 export interface IAuthParams {

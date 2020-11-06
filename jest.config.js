@@ -26,7 +26,7 @@ module.exports = {
     ],
     "moduleNameMapper": {
         "@controllers": "<rootDir>/src/controllers",
-        "@managers": "<rootDir>/src/domain-logic",
+        "@managers": "<rootDir>/src/managers",
         "@services": "<rootDir>/src/services",
         "@stores": "<rootDir>/src/stores",
         "@utils": "<rootDir>/src/utils",

@@ -3,9 +3,9 @@ import { createSchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
-import { Manager } from './Manager';
+import { isAccessTokenExpired, Manager } from './Manager';
 
-export { IManager };
+export { IManager, isAccessTokenExpired };
 
 export type IManagerFactory = (params: Xero.IAuthParams, logger: ILogger) => IManager;
 

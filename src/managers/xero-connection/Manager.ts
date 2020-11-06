@@ -34,7 +34,7 @@ export class Manager implements IManager {
 
         let xeroAccessToken: AccessTokens.ITokenSet | undefined = xeroAccessTokenRecord.token_set;
 
-        const isExpired = xeroAccessToken.expired();
+        const isExpired = isAccessTokenExpired(xeroAccessToken);
         if (isExpired) {
             xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken, xeroAccessTokenRecord.tenant_id);
         }
@@ -139,3 +139,14 @@ export class Manager implements IManager {
         await this.store.accessTokens.update(this.accountId, tenantId, accessToken);
     }
 }
+
+export const isAccessTokenExpired = (accessToken: AccessTokens.ITokenSet): boolean => {
+    // be on the safe side
+    // an action like an export in Xero
+    // might take up to half a minute
+    // which is risky if the token has
+    // e.g. 15 sec left in it
+    return !accessToken.expires_in || !Number.isInteger(accessToken.expires_in) || accessToken.expires_in <= MIN_EXPIRATION_TIME;
+};
+
+const MIN_EXPIRATION_TIME = 60; // seconds

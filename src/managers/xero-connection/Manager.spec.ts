@@ -5,7 +5,7 @@ import { Xero } from '@services';
 import { AccessTokens, ISchemaStore } from '@stores';
 
 import { ILogger } from '../../utils';
-import { Manager } from './Manager';
+import { isAccessTokenExpired, Manager } from './Manager';
 
 describe('xero-connection/Manager', () => {
     const accountId = 'account_id';
@@ -48,7 +48,7 @@ describe('xero-connection/Manager', () => {
 
             storeMock
                 .setup(s => s.getByAccountId(accountId))
-                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as AccessTokens.IUserTokenSetRecord);
+                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as AccessTokens.IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -60,7 +60,7 @@ describe('xero-connection/Manager', () => {
 
             storeMock
                 .setup(s => s.getByAccountId(accountId))
-                .returns(async () => ({account_id: 'acc_id', token_set: accessToken}) as AccessTokens.IUserTokenSetRecord);
+                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as AccessTokens.IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -87,7 +87,7 @@ describe('xero-connection/Manager', () => {
                 .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
 
             storeMock
-                .setup(s => s.create({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: ''}))
+                .setup(s => s.create({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: '' }))
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());
 
@@ -112,11 +112,47 @@ describe('xero-connection/Manager', () => {
             }
         });
     });
+
+    describe('isAccessTokenExpired', () => {
+        it('should return true if token expired a minute ago', () => {
+            const token = createAccessTokenWithExpiration(-60);
+            expect(isAccessTokenExpired(token)).toEqual(true);
+        });
+
+        it('should return true if token expires in 45 sec', () => {
+            const token = createAccessTokenWithExpiration(45);
+            expect(isAccessTokenExpired(token)).toEqual(true);
+        });
+
+        it('should return false if token expires in 2 mins', () => {
+            const token = createAccessTokenWithExpiration(120);
+            expect(isAccessTokenExpired(token)).toEqual(false);
+        });
+
+        it('should return true if token expires_at is NaN', () => {
+            const token = createAccessTokenWithExpiration(NaN);
+            expect(isAccessTokenExpired(token)).toEqual(true);
+        });
+
+        it('should return true if token expires_at is undefined', () => {
+            const token = createAccessTokenWithExpiration(undefined);
+            expect(isAccessTokenExpired(token)).toEqual(true);
+        });
+    });
 });
 
 function createAccessToken(expired: boolean = false): AccessTokens.ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,
+    });
+}
+
+function createAccessTokenWithExpiration(seconds: number | typeof NaN | undefined): AccessTokens.ITokenSet {
+    return new TokenSet({
+        access_token: 'token',
+        expires_at: seconds === undefined ? undefined :
+            Number.isNaN(seconds) ? NaN :
+                Math.floor(Date.now() / 1000) + seconds,
     });
 }

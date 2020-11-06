@@ -317,7 +317,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
-                    document: { type: 'invoice', files: [] },
+                    document: { files: [] },
                     paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [],

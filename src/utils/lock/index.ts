@@ -1,4 +1,4 @@
-import { createLogger } from '../logger';
+import { ILogger } from '../logger';
 import { ILock } from './ILock';
 import { Lock } from './Lock';
 
@@ -7,9 +7,9 @@ export * from './Lock';
 
 let lock: ILock;
 
-export const createLock = () => {
+export const createLock = (logger: ILogger) => {
     if (!lock) {
-        lock = new Lock(createLogger());
+        lock = new Lock(logger);
     }
 
     return lock;

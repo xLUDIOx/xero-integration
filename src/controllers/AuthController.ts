@@ -188,7 +188,7 @@ export class AuthController {
                 return { isAlive: false };
             }
 
-            if (xeroAccessToken.expired()) {
+            if (XeroConnection.isAccessTokenExpired(xeroAccessToken)) {
                 return { isAlive: false, message: ConnectionMessage.TokenExpired };
             }
 
