@@ -1,16 +1,9 @@
-import { ILogger } from '../logger';
-import { ILock } from './ILock';
+import { createLogger } from '../logger';
 import { Lock } from './Lock';
 
 export * from './ILock';
 export * from './Lock';
 
-let lock: ILock;
-
-export const createLock = (logger: ILogger) => {
-    if (!lock) {
-        lock = new Lock(logger);
-    }
-
-    return lock;
+export const createLock = () => {
+    return new Lock(createLogger());
 };

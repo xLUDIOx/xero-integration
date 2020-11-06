@@ -51,15 +51,19 @@ export {
     ITenant,
 };
 
+const authLock = createLock();
+
 export const createAuth = ({ accountId, returnUrl }: IAuthParams, logger: ILogger): IAuth => {
-    return new Auth(accountId, returnUrl, logger);
+    return new Auth(accountId, returnUrl, authLock, logger);
 };
+
+const entitiesLock = createLock();
 
 export const createClient = (accountId: string, accessToken: AccessTokens.ITokenSet, tenantId: string, logger: ILogger): IClient => {
     const originalClient = new XeroClient(getXeroConfig(accountId));
     originalClient.setTokenSet(accessToken);
 
-    return new Client(createXeroHttpClient(originalClient, createLock(logger), logger), tenantId, createDocumentSanitizer(), logger);
+    return new Client(createXeroHttpClient(originalClient, entitiesLock, logger), tenantId, createDocumentSanitizer(), logger);
 };
 
 export interface IAuthParams {
