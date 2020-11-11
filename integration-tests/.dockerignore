@@ -1,0 +1,9 @@
+**/*.log
+.git
+.gitignore
+build
+Dockerfile
+node_modules
+test.sh
+docker-compose.tpl.yml
+docker-compose.yml

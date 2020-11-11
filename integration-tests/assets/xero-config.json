@@ -1,0 +1,10 @@
+{
+    "clientId": "client_id",
+    "clientSecret": "client_secret",
+    "redirectUris": [
+        "https://xero-adapter-test.payhawk.io/callback"
+    ],
+    "scopes": [
+        "my-scope"
+    ]
+}

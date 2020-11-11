@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 
+import { IDbClient } from '@shared';
 import { ILogger } from '@utils';
 
 import { create as createAccessTokensStore, IStore as IAccessTokensStore } from './access-tokens';
 import { create as createApiKeysStore, IStore as IApiKeysStore } from './api-keys';
 import { create as createBankFeedsStore, IStore as IBankFeedsStore } from './bank-feeds';
-import { IDbClient } from './db-client';
 import { create as createExpenseTransactionsStore, IStore as IExpenseTransactionsStore } from './expense-transactions';
 import { ISchemaStore } from './ISchemaStore';
 

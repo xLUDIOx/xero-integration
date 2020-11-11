@@ -3,6 +3,7 @@ require('module-alias').addAliases({
     '@controllers': `${__dirname}/controllers`,
     '@managers': `${__dirname}/managers`,
     '@services': `${__dirname}/services`,
+    '@shared': `${__dirname}/shared`,
     '@stores': `${__dirname}/stores`,
     '@utils': `${__dirname}/utils`,
 });

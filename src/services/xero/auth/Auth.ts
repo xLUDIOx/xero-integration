@@ -1,5 +1,3 @@
-import { URL } from 'url';
-
 import { IXeroClientConfig, XeroClient } from 'xero-node';
 
 import { AccessTokens } from '@stores';
@@ -8,6 +6,7 @@ import { ILock, ILogger } from '@utils';
 import { ITenant } from '../client';
 import { getXeroConfig } from '../Config';
 import { createXeroHttpClient, IXeroHttpClient } from '../http';
+import { buildUrl } from '../shared';
 import { IAccessToken, IAuth } from './IAuth';
 
 export class Auth implements IAuth {
@@ -23,14 +22,17 @@ export class Auth implements IAuth {
     }
 
     async getAuthUrl(): Promise<string> {
-        const authClient = await this.createClient();
-        const consentUrlString = await authClient.makeClientRequest<string>(x => x.buildConsentUrl());
-        const consentUrl = new URL(consentUrlString);
-        if (!consentUrl.searchParams.has('state') && this.config.state !== undefined) {
-            consentUrl.searchParams.set('state', this.config.state);
-        }
-
-        return consentUrl.toString();
+        return buildUrl(
+            'https://login.xero.com',
+            '/identity/connect/authorize',
+            {
+                response_type: 'code',
+                client_id: this.config.clientId,
+                redirect_uri: this.config.redirectUris[0],
+                scope: this.config.scopes.join(' '),
+                state: this.config.state,
+            }
+        );
     }
 
     async getAccessToken(verifier: string): Promise<IAccessToken> {

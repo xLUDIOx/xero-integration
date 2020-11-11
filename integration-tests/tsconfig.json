@@ -4,10 +4,10 @@
         "allowUnusedLabels": false,
         "declaration": true,
         "forceConsistentCasingInFileNames": true,
-        "lib": [
-            "ES2019"
-        ],
         "incremental": true,
+        "lib": [
+            "ES2019",
+        ],
         "module": "commonjs",
         "noEmitOnError": true,
         "noFallthroughCasesInSwitch": true,
@@ -21,18 +21,6 @@
         "outDir": "build",
         "baseUrl": ".",
         "paths": {
-            "@controllers": [
-                "src/controllers/index"
-            ],
-            "@managers": [
-                "src/managers/index"
-            ],
-            "@services": [
-                "src/services/index"
-            ],
-            "@stores": [
-                "src/stores/index"
-            ],
             "@shared": [
                 "src/shared/index"
             ],
@@ -42,7 +30,10 @@
             "*": [
                 "types/*"
             ]
-        }
+        },
+        "typeRoots": [
+            "./node_modules/@types"
+        ]
     },
     "include": [
         "src/**/*.ts"

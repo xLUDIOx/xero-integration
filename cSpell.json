@@ -39,9 +39,13 @@
     "flagWords": [],
     "ignorePaths": [
         "node_modules/**",
+        "integration-tests/**",
         "coverage/**",
         "build/**",
+        "*.log",
+        "package.json",
         "package-lock.json",
-        "*.log"
+        "test.sh",
+        "wait-for.sh"
     ]
 }

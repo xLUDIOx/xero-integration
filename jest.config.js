@@ -1,13 +1,23 @@
 /** @typedef {import('ts-jest')} */
 /** @type {import('@jest/types').Config.InitialOptions} */
 
-process.env.TESTING = true;
+process.env.CI = true;
 
 module.exports = {
     "preset": "ts-jest",
     "testMatch": [
         "**/src/**/*.spec.ts",
     ],
+    "coverageThreshold": {
+        // should strive for better results in the future
+        "global": {
+            "branches": 12,
+            "functions": 21,
+            "lines": 37,
+        },
+    },
+    "slowTestThreshold": 1, // seconds
+    // "verbose": true, // uncomment for detailed test run info
     "testPathIgnorePatterns": [
         "/node_modules/",
         "/integration-tests/",
@@ -28,6 +38,7 @@ module.exports = {
         "@controllers": "<rootDir>/src/controllers",
         "@managers": "<rootDir>/src/managers",
         "@services": "<rootDir>/src/services",
+        "@shared": "<rootDir>/src/shared",
         "@stores": "<rootDir>/src/stores",
         "@utils": "<rootDir>/src/utils",
     },

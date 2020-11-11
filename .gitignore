@@ -56,4 +56,5 @@ jspm_packages/
 
 build
 config.json
-xero-config.json
+
+integration-tests/src/shared

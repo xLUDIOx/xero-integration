@@ -2,7 +2,7 @@ import * as fs from 'fs';
 
 import { IXeroClientConfig } from 'xero-node';
 
-import { toBase64 } from '../../utils';
+import { toBase64 } from '@utils';
 
 const xeroConfigPath = getXeroConfigPath();
 

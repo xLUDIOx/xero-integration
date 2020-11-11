@@ -1,0 +1,27 @@
+{
+    "version": "0.1",
+    "language": "en",
+    "words": [
+        "gmbh",
+        "payhawk",
+        "xero"
+    ],
+    "dictionaries": [
+    ],
+    "dictionaryDefinitions": [
+    ],
+    "ignorePaths": [
+        "node_modules/**",
+        "build/**",
+        "*.d.ts",
+        "test.sh",
+        "Dockerfile",
+        "docker-compose.yml",
+        "package.json",
+        "package-lock.json",
+        "cSpell.json",
+        "src/tests/**/*.json",
+        "tslint.json",
+        "wait-for.sh"
+    ]
+}

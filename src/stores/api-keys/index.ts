@@ -1,4 +1,5 @@
-import { IDbClient } from '../db-client';
+import { IDbClient } from '@shared';
+
 import { IStore } from './IStore';
 import { PgStore } from './PgStore';
 

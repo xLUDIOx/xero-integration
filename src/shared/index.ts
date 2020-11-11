@@ -1,3 +1,5 @@
+import { Pool } from 'pg';
+
 // tslint:disable-next-line: no-namespace
 export namespace SCHEMA {
     export const NAME = 'xero_integration';
@@ -10,3 +12,5 @@ export namespace SCHEMA {
         PAYHAWK_API_KEYS = 'payhawk_api_keys',
     }
 }
+
+export type IDbClient = Pick<Pool, 'query'>;

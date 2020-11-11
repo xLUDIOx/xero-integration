@@ -30,6 +30,27 @@
             ]
         },
         {
+            "type": "node",
+            "request": "attach",
+            "name": "Attach to Integration Tests",
+            "address": "127.0.0.1",
+            "port": 9229,
+            "localRoot": "${workspaceFolder}/integration-tests",
+            "outFiles": [
+                "${workspaceFolder}/integration-tests/build/**/*.js"
+            ],
+            "cwd": "${workspaceFolder}",
+            "remoteRoot": "/app",
+            "smartStep": true,
+            "sourceMaps": true,
+            "skipFiles": [
+                "<node_internals>/**/*.js",
+                "${workspaceFolder}/node_modules/**/*.js",
+                "${workspaceFolder}/integration-tests/node_modules/**/*.js"
+            ],
+            "timeout": 60000
+        },
+        {
             "name": "Debug Unit Tests",
             "type": "node",
             "request": "launch",
@@ -46,7 +67,7 @@
                 "${workspaceFolder}/node_modules/**/*.js"
             ],
             "env": {
-                "TESTING": "true"
+                "CI": "true"
             }
         },
     ]

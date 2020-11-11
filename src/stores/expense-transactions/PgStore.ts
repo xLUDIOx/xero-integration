@@ -1,5 +1,5 @@
-import { SCHEMA } from '../Config';
-import { IDbClient } from '../db-client';
+import { IDbClient, SCHEMA } from '@shared';
+
 import { ExpenseTransactionRecordKeys, IExpenseTransactionRecord } from './IExpenseTransactionRecord';
 import { IStore } from './IStore';
 

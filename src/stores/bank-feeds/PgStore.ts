@@ -1,5 +1,5 @@
-import { SCHEMA } from '../Config';
-import { IDbClient } from '../db-client';
+import { IDbClient, SCHEMA } from '@shared';
+
 import { BankFeedConnectionRecordKeys, IBankFeedConnectionRecord } from './IBankFeedConnection';
 import { BankFeedStatementRecordKeys, IBankFeedStatementRecord } from './IBankFeedStatement';
 import { IStore } from './IStore';

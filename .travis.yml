@@ -1,9 +1,11 @@
-language: shell
 os: linux
 dist: focal
+language: node_js
+node_js:
+  - "lts/*"
 
 services:
   - docker
 
 script:
-  - docker build --tag payhawk/xero-integration .
+  - sh test.sh

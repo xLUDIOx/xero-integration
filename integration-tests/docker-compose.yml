@@ -1,0 +1,63 @@
+version: "3"
+services:
+  sql-proxy:
+    image: postgres:9.6-alpine
+    container_name: xero_integration_service_sql-proxy
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=adapters
+    networks:
+      - default
+  xero-integration-service:
+    entrypoint:
+      [
+        "sh",
+        "./wait-for.sh",
+        "sql-proxy:5432",
+        "--",
+        "node",
+        "--inspect=0.0.0.0:9229",
+        "build/index",
+      ]
+    build: ..
+    container_name: xero_integration_service_xero-integration-service
+    volumes:
+      - ./assets:/app/config
+    environment:
+      - PGHOST=sql-proxy
+      - PGUSER=postgres
+      - PGPASSWORD=password
+      - PGDATABASE=adapters
+      - LOG_LEVEL=warn
+      - LOG_PRETTY=true
+      - XERO_CONFIG_PATH=/app/config
+    # Uncomment for debug
+    ports:
+      - "9230:9229"
+    depends_on:
+      - sql-proxy
+    networks:
+      - default
+  xero-integration-service-tests:
+    entrypoint: node -r source-map-support/register --inspect=0.0.0.0:9229 node_modules/mocha/bin/mocha build/index.js build/**/*.spec.js --exit --timeout 30000
+    # Uncomment for debug
+    ports:
+      - "9229:9229"
+    environment:
+      - PGUSER=postgres
+      - PGPASSWORD=password
+    build: .
+    container_name: xero_integration_service_xero-integration-service-tests
+    depends_on:
+      - xero-integration-service
+      - sql-proxy
+    networks:
+      - default

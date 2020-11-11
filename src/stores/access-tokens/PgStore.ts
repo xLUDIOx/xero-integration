@@ -1,9 +1,8 @@
 import { TokenSet } from 'openid-client';
 
+import { IDbClient, SCHEMA } from '@shared';
 import { ILogger } from '@utils';
 
-import { SCHEMA } from '../Config';
-import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 import { INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord, UserTokenSetRecordKeys } from './IUserTokenSet';
 
