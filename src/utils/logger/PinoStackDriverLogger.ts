@@ -2,6 +2,7 @@ import { Logger } from 'pino';
 import * as restify from 'restify';
 
 import { ILogger } from './ILogger';
+import { LoggedError } from './LoggedError';
 
 enum StackdriverSeverity {
     Critical = 'CRITICAL',
@@ -50,7 +51,7 @@ export class PinoStackDriverLogger implements ILogger {
         });
     }
 
-    error(error: Error, obj?: object): void {
+    error(error: Error, obj?: object): Error {
         // "message" must contain stacktrace for StackDriver to work properly
         // StackDriver required properties are last to make sure they are outputted and not overridden by other properties
         // https://cloud.google.com/error-reporting/docs/formatting-error-messages
@@ -61,6 +62,8 @@ export class PinoStackDriverLogger implements ILogger {
             ...payload,
             severity: StackdriverSeverity.Error,
         });
+
+        return new LoggedError(error.message);
     }
 
     child(indexes: Record<string, any>, currentRequest?: restify.Request): ILogger {

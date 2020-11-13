@@ -1,6 +1,6 @@
 import { Next, Request, RequestHandler, Response } from 'restify';
 
-import { createLogger } from '../logger';
+import { createLogger, LoggedError } from '../logger';
 
 const logger = createLogger();
 
@@ -10,7 +10,10 @@ export const requestHandler = (asyncHandler: AsyncRequestHandler): RequestHandle
     return (req: Request, res: Response, next: Next) => {
         asyncHandler(req, res, next)
             .catch(err => {
-                logger.error(err);
+                if (!(err instanceof LoggedError)) {
+                    logger.error(err);
+                }
+
                 res.send(500);
             });
     };

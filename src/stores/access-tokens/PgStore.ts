@@ -57,7 +57,7 @@ export class PgStore implements IStore {
         });
 
         if (result.rows.length === 0) {
-            this.logger.child({
+            throw this.logger.child({
                 accountId,
                 tenantId,
                 tokenSet,
@@ -82,7 +82,7 @@ export class PgStore implements IStore {
         });
 
         if (result.rows.length === 0) {
-            this.logger.child({ accountId }).error(Error('Failed to update token'));
+            throw this.logger.child({ accountId }).error(Error('Failed to update token'));
         }
     }
 
@@ -134,9 +134,8 @@ export class PgStore implements IStore {
 
         const hasOtherNonDemoAccountsWithSameTenant = otherNonDemoAccountsWithSameTenant.rows[0].count > 0;
         if (hasOtherNonDemoAccountsWithSameTenant && !accountId.endsWith(DEMO_SUFFIX)) {
-            this.logger.child({ tenantId })
+            throw this.logger.child({ tenantId })
                 .error(Error('Another active account already uses the same tenant ID'));
-            return;
         }
     }
 }

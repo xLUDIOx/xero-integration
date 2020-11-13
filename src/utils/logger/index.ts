@@ -5,6 +5,7 @@ import { ILogger } from './ILogger';
 import { PinoStackDriverLogger } from './PinoStackDriverLogger';
 
 export * from './ILogger';
+export * from './LoggedError';
 
 let logger: ILogger;
 
