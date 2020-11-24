@@ -242,6 +242,10 @@ export class Manager implements IManager {
 
     private async deleteOldExpenseTransactions(expenseId: string, actualTransactionIds: string[]) {
         const exportedTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
+        if (exportedTransactions.length === 0) {
+            return;
+        }
+
         const exportedTransactionIds = exportedTransactions.map(t => t.transaction_id);
         for (const transactionId of actualTransactionIds) {
             if (!exportedTransactionIds.includes(transactionId)) {
