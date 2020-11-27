@@ -5,13 +5,12 @@ import { FeedConnection } from 'xero-node/dist/gen/model/bankfeeds/feedConnectio
 import { CreditDebitIndicator, Statement } from 'xero-node/dist/gen/model/bankfeeds/models';
 
 import { Intersection } from '@shared';
-import { ForbiddenError, IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
+import { IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
 import * as Auth from './auth';
 import {
-    AccountClassType,
     AccountingItemKeys,
     AccountKeys,
     BankAccountStatusCode,
@@ -19,7 +18,6 @@ import {
     BankTransactionStatusCode,
     ContactKeys,
     CurrencyKeys,
-    IAccountCode,
     IAttachment,
     IBankAccount,
     IBankTransaction,
@@ -30,10 +28,8 @@ import {
     ICreateFeedConnectionModel,
     ICreateTransactionData,
     IInvoice,
-    INewAccountCode,
     InvoiceStatus,
     InvoiceStatusCode,
-    IOrganisation,
     IPayment,
     IUpdateBillData,
     IUpdateTransactionData,
@@ -50,16 +46,6 @@ export class Client implements IClient {
         // @ts-ignore
         private readonly logger: ILogger,
     ) {
-    }
-
-    async getOrganisation(): Promise<IOrganisation> {
-        const tenants = await this.auth.getAuthorizedTenants();
-        const tenant = tenants.find(t => t.tenantId === this.tenantId);
-        if (!tenant) {
-            throw new ForbiddenError('Disconnected remotely');
-        }
-
-        return this.accounting.getOrganisation();
     }
 
     async findContact(name: string, vat?: string): Promise<Contact | undefined> {
@@ -199,66 +185,6 @@ export class Client implements IClient {
         return accounts[0];
     }
 
-    async getExpenseAccounts(): Promise<IAccountCode[]> {
-        const expenseAccounts = await this.xeroClient.makeClientRequest<IAccountCode[]>(
-            x => x.accountingApi.getAccounts(
-                this.tenantId,
-                undefined,
-                `Class=="${AccountClassType.Expense}"`,
-            ),
-            XeroEntityResponseType.Accounts,
-        );
-
-        return expenseAccounts;
-    }
-
-    async getOrCreateExpenseAccount({ name, code, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
-        let expenseAccount = (await this.getExpenseAccounts()).find(x => x.code === code);
-        if (!expenseAccount) {
-            const expenseAccountModel: Account = {
-                name,
-                code,
-                type: AccountType.EXPENSE,
-            };
-
-            const createResult = await this.xeroClient.makeClientRequest<IAccountCode[]>(
-                x => x.accountingApi.createAccount(
-                    this.tenantId,
-                    expenseAccountModel,
-                ),
-                XeroEntityResponseType.Accounts,
-            );
-
-            if (createResult.length === 0) {
-                throw Error(`Did not create expense account: ${name} - ${code}`);
-            }
-
-            expenseAccount = createResult[0];
-        }
-
-        if (addToWatchlist && !expenseAccount.addToWatchlist) {
-            // Adding to watchlist can be executed only in update request
-            const updateResult = await this.xeroClient.makeClientRequest<IAccountCode[]>(
-                x => x.accountingApi.updateAccount(
-                    this.tenantId,
-                    expenseAccount!.accountID,
-                    {
-                        accounts: [{
-                            addToWatchlist: true,
-                        }],
-                    }
-                ),
-                XeroEntityResponseType.Accounts,
-            );
-
-            if (updateResult.length === 0) {
-                this.logger.error(Error('Unable to add expense code to watchlist'));
-            }
-        }
-
-        return expenseAccount;
-    }
-
     async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {
         const transactions = await this.xeroClient.makeClientRequest<IBankTransaction[] | undefined>(
             x => x.accountingApi.getBankTransactions(
@@ -281,8 +207,8 @@ export class Client implements IClient {
         return transaction;
     }
 
-    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, url }: ICreateTransactionData): Promise<string> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url);
+    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url }: ICreateTransactionData): Promise<string> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -300,8 +226,8 @@ export class Client implements IClient {
         return bankTransaction.bankTransactionID;
     }
 
-    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, url }: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, url, transactionId);
+    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url }: IUpdateTransactionData): Promise<void> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url, transactionId);
 
         await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
@@ -348,10 +274,10 @@ export class Client implements IClient {
     }
 
     async createBill(data: ICreateBillData): Promise<string> {
-        const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
+        const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url } = data;
         await this.ensureCurrency(currency);
 
-        const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid);
+        const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.createInvoices(
@@ -371,8 +297,8 @@ export class Client implements IClient {
     }
 
     async updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void> {
-        const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, url } = data;
-        const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, url, dueDate, isPaid, billId);
+        const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url } = data;
+        const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid, billId);
 
         if (existingBill.status === InvoiceStatus.PAID) {
             throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
@@ -625,8 +551,8 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, url: string, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, url);
+function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, taxType, url);
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
@@ -640,8 +566,8 @@ function getBankTransactionModel(date: string, bankAccountId: string, contactId:
     return transaction;
 }
 
-function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, url);
+function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, taxType: string | undefined, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
+    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, taxType, url);
 
     const bill: Invoice = {
         ...commonData,
@@ -661,7 +587,7 @@ function getNewBillModel(date: string, contactId: string, description: string, c
     return bill;
 }
 
-function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, accountCode: string, url: string): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, accountCode: string, taxType: string | undefined, url: string): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
     return {
         date,
         url,
@@ -675,6 +601,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
                 accountCode,
                 quantity: 1,
                 unitAmount: Math.abs(amount),
+                taxType,
             },
         ],
     };

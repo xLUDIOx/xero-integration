@@ -14,6 +14,7 @@ import { IClient } from './contracts';
 export * from './contracts';
 
 export * as AuthClient from './auth';
+export * as AccountingClient from './accounting';
 
 const entitiesLock = createLock();
 
@@ -28,7 +29,7 @@ export const createClient = (accountId: string, accessToken: ITokenSet, tenantId
     const httpClient = createHttpClient(accessToken.access_token, tenantId, entitiesLock, logger);
 
     const authClient = createAuthClient(httpClient, config, logger, env);
-    const accountingClient = createAccountingClient(httpClient, env);
+    const accountingClient = createAccountingClient(httpClient, logger, env);
 
     return new Client(authClient, accountingClient, xeroHttpClient, tenantId, createDocumentSanitizer(), logger);
 };

@@ -9,6 +9,7 @@ export { IManager, getBillExternalUrl, getTransactionExternalUrl };
 export * from './IAccountCode';
 export * from './INewAccountTransaction';
 export * from './INewBill';
+export * from './IOrganisation';
 
 export * as BankAccounts from './bank-accounts';
 export * as BankFeeds from './bank-feeds';

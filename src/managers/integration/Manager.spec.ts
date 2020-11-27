@@ -1,7 +1,7 @@
 import * as TypeMoq from 'typemoq';
-import { Account } from 'xero-node';
 
 import { FxRates, Payhawk, Xero } from '@services';
+import { AccountStatus } from '@shared';
 import { ExpenseTransactions, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
@@ -60,17 +60,17 @@ describe('integrations/Manager', () => {
         test('gets expense accounts from xero and puts them on payhawk', async () => {
             const xeroAccounts: XeroEntities.IAccountCode[] = [
                 {
-                    accountID: '1',
+                    accountId: '1',
                     name: 'Account 1',
                     code: '400',
-                    status: Account.StatusEnum.ACTIVE,
+                    status: AccountStatus.Active,
                     addToWatchlist: false,
                 },
                 {
-                    accountID: '2',
+                    accountId: '2',
                     name: 'Account 2',
                     code: '370',
-                    status: Account.StatusEnum.ACTIVE,
+                    status: AccountStatus.Active,
                     addToWatchlist: false,
                 },
             ];
@@ -174,6 +174,7 @@ describe('integrations/Manager', () => {
                         },
                     ],
                     externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
 
                 const bankAccountId = 'bank-account-id';
@@ -199,6 +200,7 @@ describe('integrations/Manager', () => {
                         .setup(x => x.createOrUpdateAccountTransaction({
                             date: t.settlementDate || t.date,
                             accountCode: reconciliation.accountCode,
+                            taxType: 'TAX001',
                             bankAccountId,
                             contactId,
                             description: `${t.cardHolderName}${t.cardName ? `, ${t.cardName}` : ''}, *${t.cardLastDigits} | ${expense.note}`,
@@ -221,7 +223,7 @@ describe('integrations/Manager', () => {
                 const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
-                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
                     .verifiable(TypeMoq.Times.once());
 
                 payhawkClientMock
@@ -252,6 +254,7 @@ describe('integrations/Manager', () => {
                     title: 'My Cash Expense',
                     transactions: [],
                     externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
 
                 const contactId = 'contact-id';
@@ -275,6 +278,7 @@ describe('integrations/Manager', () => {
                         paymentDate: undefined,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
+                        taxType: 'TAX001',
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
@@ -292,7 +296,7 @@ describe('integrations/Manager', () => {
                 const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
-                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
                     .verifiable(TypeMoq.Times.once());
 
                 payhawkClientMock
@@ -345,6 +349,7 @@ describe('integrations/Manager', () => {
                         paymentDate: undefined,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
+                        taxType: undefined,
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
@@ -362,7 +367,7 @@ describe('integrations/Manager', () => {
                 const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
-                    .returns(async () => ({ shortCode } as Xero.IOrganisation))
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
                     .verifiable(TypeMoq.Times.once());
 
                 payhawkClientMock
@@ -416,6 +421,7 @@ describe('integrations/Manager', () => {
                         paymentDate: undefined,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
+                        taxType: undefined,
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,

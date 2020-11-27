@@ -3,19 +3,15 @@ import { CurrencyCode } from 'xero-node/dist/gen/model/bankfeeds/currencyCode';
 
 import { IClient as IAccountingClient } from '../accounting';
 import { IClient as IAuthClient } from '../auth';
-import { IAccountCode, INewAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
 import { IInvoice } from './IInvoice';
-import { IOrganisation } from './IOrganisation';
 import { IPayment } from './IPayment';
 
 export interface IClient {
     auth: IAuthClient;
     accounting: IAccountingClient;
-
-    getOrganisation(): Promise<IOrganisation>;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     getOrCreateContact(name: string, vat?: string): Promise<Contact>;
@@ -25,9 +21,6 @@ export interface IClient {
     getBankAccountByCode(code: string): Promise<IBankAccount | undefined>;
     activateBankAccount(bankAccountId: string): Promise<IBankAccount>;
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
-
-    getExpenseAccounts(): Promise<IAccountCode[]>;
-    getOrCreateExpenseAccount(account: INewAccountCode): Promise<IAccountCode>;
 
     getTransactionByUrl(url: string): Promise<IBankTransaction | undefined>;
     createTransaction(data: ICreateTransactionData): Promise<string>;
@@ -71,6 +64,7 @@ export interface IAccountingItemData {
     description: string;
     amount: number;
     accountCode: string;
+    taxType?: string;
     url: string;
 }
 

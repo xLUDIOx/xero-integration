@@ -47,8 +47,8 @@ services:
       - FX_RATES_API_KEY=fx-rates-key
       - TESTING=true
     # Uncomment for debug
-    ports:
-      - "9230:9229"
+    # ports:
+    #   - "9230:9229"
     expose:
       - 8080
     depends_on:
@@ -60,8 +60,8 @@ services:
     container_name: xero_integration_service_xero-integration-service-tests
     entrypoint: node -r source-map-support/register --inspect=0.0.0.0:9229 node_modules/mocha/bin/mocha build/index.js build/**/*.spec.js --exit --timeout 10000
     # Uncomment for debug
-    ports:
-      - "9229:9229"
+    # ports:
+    #   - "9279:9229"
     expose:
       - 8081
       - 8082

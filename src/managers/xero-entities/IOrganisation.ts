@@ -1,7 +1,7 @@
-import { CurrencyCode } from 'xero-node';
+import { Currency } from '@shared';
 
 export interface IOrganisation {
     name: string;
-    baseCurrency: CurrencyCode;
+    baseCurrency: Currency;
     shortCode: string;
 }

@@ -241,6 +241,7 @@ export class Manager implements IManager {
             reference: transaction.description,
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
+            taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildTransactionUrl(transaction.id, new Date(date)),
         };
@@ -307,12 +308,12 @@ export class Manager implements IManager {
                 const bankAccount = await this.xeroEntities.bankAccounts.getById(potentialBankAccountId);
 
                 if (bankAccount) {
-                    const bankAccountCurrency = bankAccount.currencyCode;
+                    const bankAccountCurrency = bankAccount.currencyCode.toString();
 
                     if (expenseCurrency === bankAccountCurrency.toString()) {
                         bankAccountId = potentialBankAccountId;
                     } else {
-                        const organisationBaseCurrency = organisation.baseCurrency;
+                        const organisationBaseCurrency = organisation.baseCurrency.toString();
                         if (organisationBaseCurrency === bankAccountCurrency) {
                             fxRate = await this.fxRateService.getByDate(
                                 organisationBaseCurrency.toString(),
@@ -348,6 +349,7 @@ export class Manager implements IManager {
             fxRate,
             totalAmount,
             accountCode: expense.reconciliation.accountCode,
+            taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildExpenseUrl(expense.id, new Date(date)),
         };

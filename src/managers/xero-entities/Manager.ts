@@ -1,7 +1,5 @@
-import { Account } from 'xero-node';
-
 import { Payhawk, Xero } from '@services';
-import { ITaxRate } from '@shared';
+import { AccountStatus, ITaxRate } from '@shared';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -21,12 +19,12 @@ export class Manager implements IManager {
     }
 
     async getOrganisation(): Promise<IOrganisation> {
-        const organisation = await this.xeroClient.getOrganisation();
+        const organisation = await this.xeroClient.accounting.getOrganisation();
         return organisation;
     }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
-        return await this.xeroClient.getExpenseAccounts();
+        return await this.xeroClient.accounting.getExpenseAccounts();
     }
 
     async getTaxRates(): Promise<ITaxRate[]> {
@@ -221,6 +219,7 @@ export class Manager implements IManager {
         reference,
         totalAmount,
         accountCode,
+        taxType,
         url,
     }: INewAccountTransaction): Xero.ICreateTransactionData {
         return {
@@ -231,6 +230,7 @@ export class Manager implements IManager {
             reference,
             amount: totalAmount,
             accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            taxType,
             url,
         };
     }
@@ -245,6 +245,7 @@ export class Manager implements IManager {
         fxRate,
         totalAmount,
         accountCode,
+        taxType,
         url,
     }: INewBill): Xero.ICreateBillData {
         return {
@@ -257,18 +258,19 @@ export class Manager implements IManager {
             fxRate,
             amount: totalAmount || 0,
             accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            taxType,
             url,
         };
     }
 
     private async ensureDefaultAccountCodeExists() {
-        const defaultExpenseAccount = await this.xeroClient.getOrCreateExpenseAccount({
+        const defaultExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
             name: DEFAULT_ACCOUNT_NAME,
             code: DEFAULT_ACCOUNT_CODE,
             addToWatchlist: true,
         });
 
-        if (defaultExpenseAccount.status !== Account.StatusEnum.ACTIVE) {
+        if (defaultExpenseAccount.status !== AccountStatus.Active) {
             throw Error(`Default expense account is required but it is currently of status '${defaultExpenseAccount.status}'`);
         }
     }

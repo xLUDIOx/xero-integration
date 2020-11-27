@@ -12,6 +12,7 @@ export interface INewBill {
     fxRate?: number;
     totalAmount: number;
     accountCode?: string;
+    taxType?: string;
     files: Payhawk.IDownloadedFile[];
     url: string;
 }

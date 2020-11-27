@@ -1,3 +1,3 @@
-import * as Xero from '../../services/xero';
+import * as Shared from '@shared';
 
-export type IAccountCode = Xero.IAccountCode;
+export type IAccountCode = Shared.IAccountCode;

@@ -34,7 +34,7 @@
             "request": "attach",
             "name": "Attach to Integration Tests",
             "address": "127.0.0.1",
-            "port": 9229,
+            "port": 9279,
             "localRoot": "${workspaceFolder}/integration-tests",
             "outFiles": [
                 "${workspaceFolder}/integration-tests/build/**/*.js"

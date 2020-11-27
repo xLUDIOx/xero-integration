@@ -1,7 +1,7 @@
 import * as TypeMoq from 'typemoq';
-import { Account } from 'xero-node';
 
 import { Payhawk, Xero } from '@services';
+import { AccountStatus } from '@shared';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -12,6 +12,7 @@ import { DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, Manager } from './Manager';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
 describe('XeroEntities.Manager', () => {
+    let accountingClientMock: TypeMoq.IMock<Xero.AccountingClient.IClient>;
     let xeroClientMock: TypeMoq.IMock<Xero.IClient>;
 
     let manager: IManager;
@@ -33,6 +34,11 @@ describe('XeroEntities.Manager', () => {
 
     beforeEach(() => {
         xeroClientMock = TypeMoq.Mock.ofType<Xero.IClient>();
+        accountingClientMock = TypeMoq.Mock.ofType<Xero.AccountingClient.IClient>();
+
+        xeroClientMock
+            .setup(x => x.accounting)
+            .returns(() => accountingClientMock.object);
 
         manager = new Manager(xeroClientMock.object);
     });
@@ -45,22 +51,22 @@ describe('XeroEntities.Manager', () => {
         test('returns account codes from client', async () => {
             const accountCodes: IAccountCode[] = [
                 {
-                    accountID: '1',
+                    accountId: '1',
                     code: '429',
                     name: 'General Expenses',
-                    status: Account.StatusEnum.ACTIVE,
+                    status: AccountStatus.Active,
                     addToWatchlist: false,
                 },
                 {
-                    accountID: '2',
+                    accountId: '2',
                     code: '300',
                     name: 'Advertisement',
-                    status: Account.StatusEnum.ACTIVE,
+                    status: AccountStatus.Active,
                     addToWatchlist: false,
                 },
             ];
 
-            xeroClientMock
+            accountingClientMock
                 .setup(x => x.getExpenseAccounts())
                 .returns(async () => accountCodes);
 
@@ -164,6 +170,7 @@ describe('XeroEntities.Manager', () => {
                 reference: 'tx description',
                 totalAmount: 12.05,
                 accountCode: '310',
+                taxType: 'TAX001',
                 files,
                 url: 'expense url',
             };
@@ -190,6 +197,7 @@ describe('XeroEntities.Manager', () => {
                     reference: newAccountTx.reference,
                     amount: newAccountTx.totalAmount,
                     accountCode: newAccountTx.accountCode!,
+                    taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
                 }))
                 .verifiable(TypeMoq.Times.once());
@@ -253,6 +261,7 @@ describe('XeroEntities.Manager', () => {
                     reference: newAccountTx.reference,
                     amount: newAccountTx.totalAmount,
                     accountCode: newAccountTx.accountCode!,
+                    taxType: undefined,
                     url: newAccountTx.url,
                 }))
                 .verifiable(TypeMoq.Times.once());
@@ -311,6 +320,7 @@ describe('XeroEntities.Manager', () => {
                 reference: 'tx description',
                 totalAmount: 12.05,
                 accountCode: '310',
+                taxType: 'TAX001',
                 files,
                 url: 'expense url',
             };
@@ -324,6 +334,7 @@ describe('XeroEntities.Manager', () => {
                     reference: newAccountTx.reference,
                     amount: newAccountTx.totalAmount,
                     accountCode: newAccountTx.accountCode!,
+                    taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
                 }))
                 .returns(async () => newTxId)
@@ -371,6 +382,7 @@ describe('XeroEntities.Manager', () => {
                     reference: newAccountTx.reference,
                     amount: newAccountTx.totalAmount,
                     accountCode: DEFAULT_ACCOUNT_CODE,
+                    taxType: undefined,
                     url: newAccountTx.url,
                 }))
                 .returns(async () => newTxId)
@@ -408,6 +420,7 @@ describe('XeroEntities.Manager', () => {
                 description: 'expense note',
                 totalAmount: 12.05,
                 accountCode: '310',
+                taxType: 'TAX001',
                 files,
                 url: 'expense url',
             };
@@ -443,6 +456,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    taxType: newBill.taxType,
                     url: newBill.url,
                 },
                     existingBill))
@@ -485,6 +499,7 @@ describe('XeroEntities.Manager', () => {
                 description: 'expense note',
                 totalAmount: 12.05,
                 accountCode: '310',
+                taxType: 'TAX001',
                 files,
                 url: 'expense url',
             };
@@ -520,6 +535,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    taxType: newBill.taxType,
                     url: newBill.url,
                 },
                     existingBill))
@@ -605,6 +621,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    taxType: undefined,
                     url: newBill.url,
                 },
                     existingBill))
@@ -666,6 +683,7 @@ describe('XeroEntities.Manager', () => {
                 description: 'expense note',
                 totalAmount: 12.05,
                 accountCode: '310',
+                taxType: 'TAX001',
                 files,
                 url: 'expense url',
             };
@@ -681,6 +699,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    taxType: newBill.taxType,
                     url: newBill.url,
                 }))
                 .returns(async () => newBillId)
@@ -735,6 +754,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    taxType: undefined,
                     url: newBill.url,
                 }))
                 .returns(async () => newBillId)
@@ -800,6 +820,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     url: newBill.url,
+                    taxType: undefined,
                 }))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
@@ -853,6 +874,7 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: DEFAULT_ACCOUNT_CODE,
+                    taxType: undefined,
                     url: newBill.url,
                 }))
                 .returns(async () => newBillId)
@@ -909,6 +931,7 @@ describe('XeroEntities.Manager', () => {
                             amount: newBill.totalAmount,
                             fxRate: newBill.fxRate,
                             accountCode: newBill.accountCode!,
+                            taxType: undefined,
                             url: newBill.url,
                         }))
                         .throws(Error(`
@@ -920,17 +943,17 @@ describe('XeroEntities.Manager', () => {
                     `))
                         .verifiable(TypeMoq.Times.exactly(2));
 
-                    xeroClientMock
+                    accountingClientMock
                         .setup(x => x.getOrCreateExpenseAccount({
                             name: DEFAULT_ACCOUNT_NAME,
                             code: DEFAULT_ACCOUNT_CODE,
                             addToWatchlist: true,
                         }))
                         .returns(async () => ({
-                            accountID: '1',
+                            accountId: '1',
                             code: DEFAULT_ACCOUNT_CODE,
                             name: DEFAULT_ACCOUNT_NAME,
-                            status: Account.StatusEnum.ACTIVE,
+                            status: AccountStatus.Active,
                             addToWatchlist: false,
                         }));
 
@@ -945,6 +968,7 @@ describe('XeroEntities.Manager', () => {
                             amount: newBill.totalAmount,
                             fxRate: newBill.fxRate,
                             accountCode: DEFAULT_ACCOUNT_CODE,
+                            taxType: undefined,
                             url: newBill.url,
                         }))
                         .returns(async () => newBillId)

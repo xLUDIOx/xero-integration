@@ -17,9 +17,6 @@ describe('Xero client', () => {
     const xeroClientMock = TypeMoq.Mock.ofType<AccountingApi>();
     const loggerMock = TypeMoq.Mock.ofType<ILogger>();
     const tenantId = '00000000-0000-0000-0000-000000000000';
-    const secondTenantId = '00000000-0000-0000-0000-000000000001';
-
-    const tenants: any[] = [{ tenantId: secondTenantId }, { tenantId, orgData: { name: 'Test' } }];
 
     const client = new Client(
         authClientMock.object,
@@ -46,21 +43,6 @@ describe('Xero client', () => {
                     }],
                 },
             }) as any);
-    });
-
-    it('should get correct organisation', async () => {
-        authClientMock
-            .setup(x => x.getAuthorizedTenants())
-            .returns(async () => tenants)
-            .verifiable(TypeMoq.Times.once());
-
-        accountingClientMock
-            .setup(m => m.getOrganisation())
-            .returns(async () => tenants[1].orgData)
-            .verifiable(TypeMoq.Times.once());
-
-        const org = await client.getOrganisation();
-        expect(org.name).toEqual('Test');
     });
 
     afterEach(() => {
@@ -104,6 +86,7 @@ describe('Xero client', () => {
                                     accountCode: transaction.accountCode,
                                     quantity: 1,
                                     unitAmount: transaction.amount,
+                                    taxType: transaction.taxType,
                                 },
                             ],
                         },
@@ -158,6 +141,7 @@ describe('Xero client', () => {
                                     accountCode: transaction.accountCode,
                                     quantity: 1,
                                     unitAmount: Math.abs(transaction.amount),
+                                    taxType: transaction.taxType,
                                 },
                             ],
                         },
@@ -210,6 +194,7 @@ describe('Xero client', () => {
                                     accountCode: transaction.accountCode,
                                     quantity: 1,
                                     unitAmount: transaction.amount,
+                                    taxType: transaction.taxType,
                                 },
                             ],
                         },
@@ -280,6 +265,7 @@ describe('Xero client', () => {
                                     accountCode: invoice.accountCode,
                                     quantity: 1,
                                     unitAmount: invoice.amount,
+                                    taxType: invoice.taxType,
                                 },
                             ],
                         },
@@ -355,6 +341,7 @@ describe('Xero client', () => {
                                     accountCode: invoice.accountCode,
                                     quantity: 1,
                                     unitAmount: invoice.amount,
+                                    taxType: invoice.taxType,
                                 },
                             ],
                         },
@@ -506,6 +493,7 @@ describe('Xero client', () => {
             reference: 'tx description',
             amount: 12.05,
             accountCode: '310',
+            taxType: 'TAX001',
             url: 'expense url',
         };
 
@@ -537,6 +525,7 @@ describe('Xero client', () => {
             description: 'expense note',
             amount: 12.05,
             accountCode: '310',
+            taxType: 'TAX001',
             url: 'expense url',
         };
 

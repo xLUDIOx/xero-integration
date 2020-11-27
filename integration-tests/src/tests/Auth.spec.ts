@@ -45,7 +45,7 @@ describe('Auth tests', () => {
         expect(tokenRecord.tenant_id).to.eq(singleTenantResponseMock[0].tenantId);
         expect(tokenRecord.user_id).to.eq(xeroUserId);
 
-        expect(xeroClientMock.requests).to.have.lengthOf(5);
+        expect(xeroClientMock.requests).to.have.lengthOf(4);
     });
 
     it('throws error if another active account uses same tenant ID', async () => {
@@ -110,7 +110,7 @@ describe('Auth tests', () => {
         expect(tokenRecord.tenant_id).to.eq(singleTenantResponseMock[0].tenantId);
         expect(tokenRecord.user_id).to.eq(xeroUserId);
 
-        expect(xeroClientMock.requests).to.have.lengthOf(5);
+        expect(xeroClientMock.requests).to.have.lengthOf(4);
     });
 
     before(async () => {

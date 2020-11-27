@@ -1,11 +1,12 @@
 import { IEnvironment } from '@environment';
+import { ILogger } from '@utils';
 
 import { IHttpClient } from '../../http';
 import { Client } from './Client';
-import { IClient } from './IClient';
+import { IClient } from './contracts';
 
-export * from './IClient';
+export * from './contracts';
 
-export const create = (httpClient: IHttpClient, env: IEnvironment): IClient => {
-    return new Client(httpClient, env);
+export const create = (httpClient: IHttpClient, logger: ILogger, env: IEnvironment): IClient => {
+    return new Client(httpClient, logger, env);
 };
