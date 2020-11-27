@@ -1,5 +1,10 @@
 import { Pool } from 'pg';
 
+export * from './CommonTypes';
+export * from './db-contracts';
+export * from './client-contracts';
+export * from './request-contracts';
+
 // tslint:disable-next-line: no-namespace
 export namespace SCHEMA {
     export const NAME = 'xero_integration';

@@ -4,12 +4,16 @@ import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 import { ILogger, Lock, OperationNotAllowedError } from '@utils';
 
 import { createXeroHttpClient } from '../http';
+import * as AccountingClient from './accounting';
+import * as AuthClient from './auth';
 import { Client, escapeParam } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
 
 describe('Xero client', () => {
+    const authClientMock = TypeMoq.Mock.ofType<AuthClient.IClient>();
+    const accountingClientMock = TypeMoq.Mock.ofType<AccountingClient.IClient>();
     const xeroClientMock = TypeMoq.Mock.ofType<AccountingApi>();
     const loggerMock = TypeMoq.Mock.ofType<ILogger>();
     const tenantId = '00000000-0000-0000-0000-000000000000';
@@ -17,7 +21,14 @@ describe('Xero client', () => {
 
     const tenants: any[] = [{ tenantId: secondTenantId }, { tenantId, orgData: { name: 'Test' } }];
 
-    const client = new Client(createXeroHttpClient({ accountingApi: xeroClientMock.object, updateTenants: async () => tenants} as XeroClient, new Lock(loggerMock.object), loggerMock.object), tenantId, { sanitize: () => Promise.resolve() }, loggerMock.object);
+    const client = new Client(
+        authClientMock.object,
+        accountingClientMock.object,
+        createXeroHttpClient({ accountingApi: xeroClientMock.object } as XeroClient, new Lock(loggerMock.object), loggerMock.object),
+        tenantId,
+        { sanitize: () => Promise.resolve() },
+        loggerMock.object,
+    );
 
     beforeEach(() => {
         xeroClientMock
@@ -38,16 +49,30 @@ describe('Xero client', () => {
     });
 
     it('should get correct organisation', async () => {
+        authClientMock
+            .setup(x => x.getAuthorizedTenants())
+            .returns(async () => tenants)
+            .verifiable(TypeMoq.Times.once());
+
+        accountingClientMock
+            .setup(m => m.getOrganisation())
+            .returns(async () => tenants[1].orgData)
+            .verifiable(TypeMoq.Times.once());
+
         const org = await client.getOrganisation();
         expect(org.name).toEqual('Test');
     });
 
     afterEach(() => {
-        try {
-            xeroClientMock.verifyAll();
-        } finally {
-            xeroClientMock.reset();
-        }
+        [
+            xeroClientMock,
+            authClientMock,
+            accountingClientMock,
+            loggerMock,
+        ].forEach(m => {
+            m.verifyAll();
+            m.reset();
+        });
     });
 
     describe('bank transactions', () => {

@@ -1,7 +1,7 @@
 /** @typedef {import('ts-jest')} */
 /** @type {import('@jest/types').Config.InitialOptions} */
 
-process.env.CI = true;
+process.env.TESTING = 'true';
 
 module.exports = {
     "preset": "ts-jest",
@@ -11,9 +11,9 @@ module.exports = {
     "coverageThreshold": {
         // should strive for better results in the future
         "global": {
-            "branches": 12,
-            "functions": 21,
-            "lines": 37,
+            "branches": 35,
+            "functions": 40,
+            "lines": 51,
         },
     },
     "slowTestThreshold": 1, // seconds
@@ -36,6 +36,7 @@ module.exports = {
     ],
     "moduleNameMapper": {
         "@controllers": "<rootDir>/src/controllers",
+        "@environment": "<rootDir>/src/environment",
         "@managers": "<rootDir>/src/managers",
         "@services": "<rootDir>/src/services",
         "@shared": "<rootDir>/src/shared",

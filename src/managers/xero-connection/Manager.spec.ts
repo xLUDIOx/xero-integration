@@ -2,9 +2,10 @@ import { TokenSet } from 'openid-client';
 import * as TypeMoq from 'typemoq';
 
 import { Xero } from '@services';
+import { ITokenSet, IUserTokenSetRecord } from '@shared';
 import { AccessTokens, ISchemaStore } from '@stores';
+import { ILogger } from '@utils';
 
-import { ILogger } from '../../utils';
 import { isAccessTokenExpired, Manager } from './Manager';
 
 describe('xero-connection/Manager', () => {
@@ -34,7 +35,7 @@ describe('xero-connection/Manager', () => {
 
             authMock
                 .setup(a => a.getAuthUrl())
-                .returns(async () => url);
+                .returns(() => url);
 
             const result = await manager.getAuthorizationUrl();
 
@@ -48,7 +49,7 @@ describe('xero-connection/Manager', () => {
 
             storeMock
                 .setup(s => s.getByAccountId(accountId))
-                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as AccessTokens.IUserTokenSetRecord);
+                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -60,7 +61,7 @@ describe('xero-connection/Manager', () => {
 
             storeMock
                 .setup(s => s.getByAccountId(accountId))
-                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as AccessTokens.IUserTokenSetRecord);
+                .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as IUserTokenSetRecord);
 
             const result = await manager.getAccessToken();
 
@@ -141,14 +142,14 @@ describe('xero-connection/Manager', () => {
     });
 });
 
-function createAccessToken(expired: boolean = false): AccessTokens.ITokenSet {
+function createAccessToken(expired: boolean = false): ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,
     });
 }
 
-function createAccessTokenWithExpiration(seconds: number | typeof NaN | undefined): AccessTokens.ITokenSet {
+function createAccessTokenWithExpiration(seconds: number | typeof NaN | undefined): ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: seconds === undefined ? undefined :

@@ -1,14 +1,12 @@
 import { decode } from 'jsonwebtoken';
 
-import { IDbClient } from '@shared';
+import { IDbClient, ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
 import { IStore } from './IStore';
-import { ITokenSet } from './IUserTokenSet';
 import { PgStore } from './PgStore';
 
 export * from './IStore';
-export * from './IUserTokenSet';
 
 export const create: (dbClient: IDbClient, logger: ILogger) => IStore =
     (dbClient: IDbClient, logger: ILogger) => new PgStore(dbClient, logger);

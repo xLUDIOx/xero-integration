@@ -24,6 +24,9 @@
             "@controllers": [
                 "src/controllers/index"
             ],
+            "@environment": [
+                "src/environment/index"
+            ],
             "@managers": [
                 "src/managers/index"
             ],

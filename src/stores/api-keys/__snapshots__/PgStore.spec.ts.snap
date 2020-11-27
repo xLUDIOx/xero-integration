@@ -1,0 +1,29 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Api Keys store should match snapshot for getting api key for account 1`] = `
+Object {
+  "text": "
+                SELECT \\"key\\" FROM \\"payhawk_api_keys\\"
+                WHERE \\"account_id\\" = $1
+            ",
+  "values": Array [
+    "acc_id",
+  ],
+}
+`;
+
+exports[`Api Keys store should match snapshot for setting api key for account 1`] = `
+Object {
+  "text": "
+                INSERT INTO \\"payhawk_api_keys\\" (\\"account_id\\", \\"key\\")
+                VALUES ($1, $2)
+                ON CONFLICT (\\"account_id\\")
+                DO
+                    UPDATE SET \\"key\\" = $2, \\"updated_at\\" = NOW()
+            ",
+  "values": Array [
+    "acc_id",
+    "api-key",
+  ],
+}
+`;

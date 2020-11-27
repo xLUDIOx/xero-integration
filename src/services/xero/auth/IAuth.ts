@@ -1,17 +1,17 @@
-import { AccessTokens } from '@stores';
+import { ITokenSet } from '@shared';
 
 import { ITenant } from '../client';
 
 export interface IAuth {
-    getAuthUrl(): Promise<string>;
-    getAccessToken(verifier: string): Promise<IAccessToken>;
-    getAuthorizedTenants(accessToken: AccessTokens.ITokenSet): Promise<ITenant[]>;
-    refreshAccessToken(currentToken: AccessTokens.ITokenSet): Promise<AccessTokens.ITokenSet>;
-    disconnect(tenantId: string, currentToken: AccessTokens.ITokenSet): Promise<void>;
+    getAuthUrl(): string;
+    getAccessToken(code: string): Promise<IAccessToken>;
+    getAuthorizedTenants(accessToken: ITokenSet): Promise<ITenant[]>;
+    refreshAccessToken(currentToken: ITokenSet): Promise<ITokenSet>;
+    disconnect(tenantId: string, currentToken: ITokenSet): Promise<void>;
 }
 
 export interface IAccessToken {
     xeroUserId: string;
     tenantId: string;
-    tokenSet: AccessTokens.ITokenSet;
+    tokenSet: ITokenSet;
 }

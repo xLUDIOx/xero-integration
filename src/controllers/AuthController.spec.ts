@@ -3,7 +3,7 @@ import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
 import { Integration, XeroConnection } from '@managers';
-import { AccessTokens } from '@stores';
+import { ITokenSet } from '@shared';
 import { ForbiddenError, ILogger } from '@utils';
 
 import { IConfig } from '../Config';
@@ -88,11 +88,11 @@ describe('AuthController', () => {
 
         test('throw error when the manager throws error', async () => {
             const req = {
-                url: 'https://login.xero.com/identity/connect/authorize?client_id=C50C5AE905A247238EFD0BA93CA7D02A&scope=accounting.settings+accounting.transactions+accounting.attachments+accounting.contacts&response_type=code&redirect_uri=https%3A%2F%2Fxero-adapter-local.payhawk.io%2Fcallback&state=YWNjb3VudElkPXBheWhhd2tfZDFhYTIyNTQmcmV0dXJuVXJsPSUyRg%3D%3D',
+                url: '/callback?code=YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=',
                 query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9L215LXBhdGg=' },
             } as restify.Request;
 
-            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(() => Promise.reject(new Error()));
+            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(() => Promise.reject(new Error()));
 
             await expect(controller.callback(req, responseMock.object, nextMock.object)).rejects.toThrow();
         });
@@ -101,7 +101,7 @@ describe('AuthController', () => {
             const req = { url: '', query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9Lw==' } } as restify.Request;
 
             responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
-            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(async () => undefined);
+            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => undefined);
 
             await controller.callback(req, responseMock.object, nextMock.object);
         });
@@ -129,7 +129,7 @@ describe('AuthController', () => {
                 .returns(async () => [{ tenantId: '1' } as any])
                 .verifiable(TypeMoq.Times.once());
 
-            connectionManagerMock.setup(m => m.authenticate(req.url!)).returns(async () => token);
+            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => token);
 
             await controller.callback(req, responseMock.object, nextMock.object);
         });
@@ -241,7 +241,7 @@ describe('AuthController', () => {
     });
 });
 
-function createAccessToken(expired: boolean = false): AccessTokens.ITokenSet {
+function createAccessToken(expired: boolean = false): ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,

@@ -74,7 +74,7 @@ export class AuthController {
 
         try {
             const connectionManager = this.connectionManagerFactory({ accountId }, logger);
-            const accessToken = await connectionManager.authenticate(req.url!);
+            const accessToken = await connectionManager.authenticate(code);
             if (!accessToken) {
                 logger.error(Error('Could not create access token from callback'));
                 res.send(401);

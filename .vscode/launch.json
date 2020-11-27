@@ -47,8 +47,7 @@
                 "<node_internals>/**/*.js",
                 "${workspaceFolder}/node_modules/**/*.js",
                 "${workspaceFolder}/integration-tests/node_modules/**/*.js"
-            ],
-            "timeout": 60000
+            ]
         },
         {
             "name": "Debug Unit Tests",
@@ -67,7 +66,7 @@
                 "${workspaceFolder}/node_modules/**/*.js"
             ],
             "env": {
-                "CI": "true"
+                "TESTING": "true"
             }
         },
     ]

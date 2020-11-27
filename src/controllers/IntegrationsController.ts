@@ -3,10 +3,8 @@ import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
 
 import { Integration, XeroConnection } from '@managers';
+import { IPayhawkPayload, PayhawkEvent } from '@shared';
 import { ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
-
-import { IPayhawkPayload } from './IPayhawkPayload';
-import { PayhawkEvent } from './PayhawkEvent';
 
 export class IntegrationsController {
     constructor(
@@ -109,6 +107,10 @@ export class IntegrationsController {
                 }
                 case PayhawkEvent.ChartOfAccountSynchronize: {
                     await this.syncChartOfAccounts(connectionManager, xeroAccessToken, accountId, logger);
+                    break;
+                }
+                case PayhawkEvent.TaxRatesSynchronize: {
+                    await this.syncTaxRates(connectionManager, xeroAccessToken, accountId, logger);
                     break;
                 }
                 case PayhawkEvent.BankAccountsSynchronize: {
@@ -230,6 +232,15 @@ export class IntegrationsController {
         await integrationManager.synchronizeChartOfAccounts();
 
         logger.info('Sync chart of accounts completed');
+    }
+
+    private async syncTaxRates(connectionManager: XeroConnection.IManager, accessToken: TokenSet, accountId: string, logger: ILogger) {
+        logger.info('Sync tax rates started');
+
+        const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
+        await integrationManager.synchronizeTaxRates();
+
+        logger.info('Sync tax rates completed');
     }
 
     private async createIntegrationManager(connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, logger: ILogger): Promise<Integration.IManager> {

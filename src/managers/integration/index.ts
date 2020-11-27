@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 
 import { FxRates, Payhawk } from '@services';
-import { AccessTokens, createSchemaStore } from '@stores';
+import { ITokenSet } from '@shared';
+import { createSchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { config } from '../../Config';
@@ -14,7 +15,7 @@ export { IManager };
 export type IManagerFactory = (params: IManagerFactoryParams, logger: ILogger) => IManager;
 
 export interface IManagerFactoryParams {
-    accessToken: AccessTokens.ITokenSet;
+    accessToken: ITokenSet;
     tenantId: string;
     accountId: string;
     payhawkApiKey?: string;

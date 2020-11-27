@@ -7,15 +7,16 @@ RUN chmod -R 777 /app
 
 USER node
 
-# Uncomment to skip request validation during development
-ENV CI=true
-ENV LOG_LEVEL="error"
-
 EXPOSE 8080 9230
 ENTRYPOINT [ "npm", "start" ]
 
 COPY ["./package.json", "./package-lock.json", "./"]
+
+ENV TESTING=true \
+    LOG_LEVEL="error" \
+    CI=true
+
 RUN npm ci
 
-ADD . ./
+COPY . ./
 RUN npm run compile

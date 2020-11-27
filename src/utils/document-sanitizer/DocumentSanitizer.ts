@@ -19,7 +19,7 @@ export class DocumentSanitizer implements IDocumentSanitizer {
     }
 
     private async shrinkPdf(input: string) {
-        await new Promise((resolve, reject) => {
+        await new Promise<void>((resolve, reject) => {
             // cspell:disable
             const command = `gs \
                 -q \

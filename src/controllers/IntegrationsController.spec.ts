@@ -3,12 +3,11 @@ import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
 import { Integration, XeroConnection } from '@managers';
-import { AccessTokens } from '@stores';
+import { ITokenSet, PayhawkEvent } from '@shared';
 import { ILogger, OperationNotAllowedError } from '@utils';
 
 import { IConfig } from '../Config';
 import { IntegrationsController } from './IntegrationsController';
-import { PayhawkEvent } from './PayhawkEvent';
 
 describe('IntegrationsController', () => {
     const accountId = 'accountId';
@@ -72,7 +71,7 @@ describe('IntegrationsController', () => {
         test('sends 400 for unknown event', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessTokens.ITokenSet));
+                .returns(async () => ({} as ITokenSet));
 
             responseMock
                 .setup(r => r.send(400, 'Unknown event'))
@@ -196,7 +195,7 @@ describe('IntegrationsController', () => {
 
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessTokens.ITokenSet));
+                .returns(async () => ({} as ITokenSet));
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
@@ -221,7 +220,7 @@ describe('IntegrationsController', () => {
 
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => ({} as AccessTokens.ITokenSet));
+                .returns(async () => ({} as ITokenSet));
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
@@ -255,7 +254,7 @@ describe('IntegrationsController', () => {
     });
 });
 
-function createAccessToken(expired: boolean = false): AccessTokens.ITokenSet {
+function createAccessToken(expired: boolean = false): ITokenSet {
     return new TokenSet({
         access_token: 'token',
         expires_at: Math.floor(Date.now() / 1000) + (expired ? -1 : 1) * 30 * 60,

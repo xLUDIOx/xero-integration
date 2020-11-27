@@ -1,9 +1,8 @@
 import { It, Mock, Times } from 'typemoq';
 
-import { IDbClient } from '@shared';
+import { IDbClient, ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
-import { ITokenSet } from './IUserTokenSet';
 import { PgStore } from './PgStore';
 
 describe('Access Tokens store', () => {

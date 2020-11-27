@@ -1,8 +1,6 @@
-import { IDbClient, SCHEMA } from '@shared';
+import { BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, IBankFeedConnectionRecord, IBankFeedStatementRecord, IDbClient, SCHEMA } from '@shared';
 
-import { BankFeedConnectionRecordKeys, IBankFeedConnectionRecord } from './IBankFeedConnection';
-import { BankFeedStatementRecordKeys, IBankFeedStatementRecord } from './IBankFeedStatement';
-import { IStore } from './IStore';
+import { IGetStatementFilter, IStore } from './IStore';
 
 export class PgStore implements IStore {
     private readonly connectionsTableName: string = SCHEMA.TABLE_NAMES.BANK_FEED_CONNECTIONS;
@@ -63,16 +61,17 @@ export class PgStore implements IStore {
         return result.rows[0].bank_connection_id;
     }
 
-    async getStatementIdByEntityId({ account_id, xero_entity_id, payhawk_entity_id }: Omit<IBankFeedStatementRecord, 'statement_id'>): Promise<string | undefined> {
+    async getStatementIdByEntityId({ account_id, xero_entity_id, payhawk_entity_id, payhawk_entity_type }: IGetStatementFilter): Promise<string | undefined> {
         const result = await this.dbClient.query<Pick<IBankFeedStatementRecord, 'bank_statement_id'>>({
             text: `
                 SELECT "${BankFeedStatementRecordKeys.bank_statement_id}" FROM ${this.statementsTableName}
-                WHERE "${BankFeedStatementRecordKeys.account_id}"=$1 AND "${BankFeedStatementRecordKeys.xero_entity_id}"=$2 AND "${BankFeedStatementRecordKeys.payhawk_entity_id}"=$3
+                WHERE "${BankFeedStatementRecordKeys.account_id}"=$1 AND "${BankFeedStatementRecordKeys.xero_entity_id}"=$2 AND "${BankFeedStatementRecordKeys.payhawk_entity_id}"=$3 AND "${BankFeedStatementRecordKeys.payhawk_entity_type}"=$4
             `,
             values: [
                 account_id,
                 xero_entity_id,
                 payhawk_entity_id,
+                payhawk_entity_type,
             ],
         });
 

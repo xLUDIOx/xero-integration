@@ -1,6 +1,6 @@
 import { TokenSet } from 'openid-client';
 
-import { KeyNameMap } from '@utils';
+import { KeyNameMap } from '../CommonTypes';
 
 export interface INewUserTokenSetRecord {
     account_id: string;

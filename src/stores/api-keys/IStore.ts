@@ -1,4 +1,4 @@
-import { INewPayhawkApiKeyRecord } from './IPayhawkApiKey';
+import { INewPayhawkApiKeyRecord } from '@shared';
 
 export interface IStore {
     getByAccountId(accountId: string): Promise<string | undefined>;

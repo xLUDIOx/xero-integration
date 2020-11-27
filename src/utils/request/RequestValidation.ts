@@ -78,7 +78,7 @@ export function payhawkSigned(target: any, key: string, descriptor: IRequestHand
     const originalMethod: any = descriptor.value!;
 
     descriptor.value = async function (this: any, req: Request, response: Response, next: Next) {
-        if (!process.env.CI) {
+        if (process.env.TESTING !== 'true') {
             const timestampString = req.headers['x-payhawk-timestamp'];
             if (!timestampString || typeof timestampString !== 'string') {
                 throw new ForbiddenError();

@@ -1,3 +1,5 @@
+import { ITaxRate } from './ITaxRate';
+
 export interface IExpense {
     id: string;
     createdAt: string;
@@ -5,6 +7,7 @@ export interface IExpense {
     note: string;
     ownerName: string;
     isPaid?: boolean;
+    taxRate?: ITaxRate;
     category?: string;
     document?: IDocument;
     supplier: ISupplier;

@@ -1,6 +1,7 @@
 import { Account } from 'xero-node';
 
 import { Payhawk, Xero } from '@services';
+import { ITaxRate } from '@shared';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -26,6 +27,10 @@ export class Manager implements IManager {
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
         return await this.xeroClient.getExpenseAccounts();
+    }
+
+    async getTaxRates(): Promise<ITaxRate[]> {
+        return this.xeroClient.accounting.getTaxRates();
     }
 
     async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {

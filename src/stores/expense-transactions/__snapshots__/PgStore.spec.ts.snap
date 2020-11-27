@@ -1,0 +1,31 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Expense Transactions store should match snapshot for creating record 1`] = `
+Object {
+  "text": "
+                    INSERT INTO \\"expense_transactions\\"
+                        (\\"account_id\\", \\"expense_id\\", \\"transaction_id\\")
+                    VALUES ($1, $2, $3)
+                    ON CONFLICT (\\"account_id\\", \\"expense_id\\", \\"transaction_id\\")
+                    DO NOTHING
+                ",
+  "values": Array [
+    "acc_id",
+    "exp_id",
+    "tx_id",
+  ],
+}
+`;
+
+exports[`Expense Transactions store should match snapshot for getting record 1`] = `
+Object {
+  "text": "
+                    SELECT * FROM \\"expense_transactions\\"
+                    WHERE \\"account_id\\"=$1 AND \\"expense_id\\"=$2
+                ",
+  "values": Array [
+    "acc_id",
+    "exp_id",
+  ],
+}
+`;

@@ -1,5 +1,6 @@
 import { Xero } from '@services';
-import { AccessTokens, ISchemaStore } from '@stores';
+import { ITokenSet } from '@shared';
+import { ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
@@ -18,21 +19,21 @@ export class Manager implements IManager {
         return url;
     }
 
-    async authenticate(verifier: string): Promise<AccessTokens.ITokenSet | undefined> {
-        const accessToken = await this.authClient.getAccessToken(verifier);
+    async authenticate(authCode: string): Promise<ITokenSet | undefined> {
+        const accessToken = await this.authClient.getAccessToken(authCode);
 
         await this.createAccessToken(accessToken);
 
         return accessToken.tokenSet;
     }
 
-    async getAccessToken(): Promise<AccessTokens.ITokenSet | undefined> {
+    async getAccessToken(): Promise<ITokenSet | undefined> {
         const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
         if (xeroAccessTokenRecord === undefined) {
             return undefined;
         }
 
-        let xeroAccessToken: AccessTokens.ITokenSet | undefined = xeroAccessTokenRecord.token_set;
+        let xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
 
         const isExpired = isAccessTokenExpired(xeroAccessToken);
         if (isExpired) {
@@ -48,7 +49,7 @@ export class Manager implements IManager {
             return [];
         }
 
-        const xeroAccessToken: AccessTokens.ITokenSet | undefined = xeroAccessTokenRecord.token_set;
+        const xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
 
         return this.authClient.getAuthorizedTenants(xeroAccessToken);
     }
@@ -103,7 +104,7 @@ export class Manager implements IManager {
         await this.store.apiKeys.set({ account_id: this.accountId, key });
     }
 
-    private async tryRefreshAccessToken(currentToken: AccessTokens.ITokenSet, tenantId: string): Promise<AccessTokens.ITokenSet | undefined> {
+    private async tryRefreshAccessToken(currentToken: ITokenSet, tenantId: string): Promise<ITokenSet | undefined> {
         try {
             if (!currentToken.refresh_token) {
                 this.logger.info('Refresh token is missing. Must re-authenticate.');
@@ -135,12 +136,12 @@ export class Manager implements IManager {
         });
     }
 
-    private async updateAccessToken(tenantId: string, accessToken: AccessTokens.ITokenSet) {
+    private async updateAccessToken(tenantId: string, accessToken: ITokenSet) {
         await this.store.accessTokens.update(this.accountId, tenantId, accessToken);
     }
 }
 
-export const isAccessTokenExpired = (accessToken: AccessTokens.ITokenSet): boolean => {
+export const isAccessTokenExpired = (accessToken: ITokenSet): boolean => {
     // be on the safe side
     // an action like an export in Xero
     // might take up to half a minute

@@ -1,4 +1,4 @@
-import { IExpenseTransactionRecord } from './IExpenseTransactionRecord';
+import { IExpenseTransactionRecord } from '@shared';
 
 export interface IStore {
     create(accountId: string, expenseId: string, transactionId: string): Promise<void>;

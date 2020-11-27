@@ -1,4 +1,4 @@
-import { KeyNameMap } from '../../utils';
+import { KeyNameMap } from '@shared';
 
 export interface IExpenseTransactionRecord {
     account_id: string;

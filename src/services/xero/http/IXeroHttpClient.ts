@@ -12,7 +12,7 @@ export interface IXeroHttpClient {
      * @param action A function that accepts as parameter a Xero client instance and returns a promise
      * @param responseType The entity type that should be returned from the client action
      */
-    makeClientRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: EntityResponseType): Promise<TResult>;
+    makeClientRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: XeroEntityResponseType): Promise<TResult>;
 
     /**
      * Makes a raw request against the Xero API on the provided path, with error handling
@@ -20,10 +20,10 @@ export interface IXeroHttpClient {
      * @param tenantId The Xero tenant ID
      * @param responseType The entity type that should be returned from the client action
      */
-    makeRawRequest<TResult extends any>(requestOptions: IRequestOptions, tenantId: string, responseType?: EntityResponseType): Promise<TResult>;
+    makeRawRequest<TResult extends any>(requestOptions: IXeroRequestOptions, tenantId: string, responseType?: XeroEntityResponseType): Promise<TResult>;
 }
 
-export interface IRequestOptions {
+export interface IXeroRequestOptions {
     method: string;
     path: string;
     body?: any;
@@ -54,7 +54,7 @@ export enum ResponseErrorType {
     Validation = 'ValidationException',
 }
 
-export enum EntityResponseType {
+export enum XeroEntityResponseType {
     Accounts = 'Accounts',
     Attachments = 'Attachments',
     BankStatements = 'BankStatements',

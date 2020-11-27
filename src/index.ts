@@ -1,6 +1,7 @@
 // tslint:disable-next-line: no-var-requires
 require('module-alias').addAliases({
     '@controllers': `${__dirname}/controllers`,
+    '@environment': `${__dirname}/environment`,
     '@managers': `${__dirname}/managers`,
     '@services': `${__dirname}/services`,
     '@shared': `${__dirname}/shared`,

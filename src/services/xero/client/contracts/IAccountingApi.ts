@@ -1,6 +1,6 @@
 import { BankTransaction, Contact, Currency, Invoice } from 'xero-node';
 
-import { KeyNameMap } from '../../../../utils';
+import { KeyNameMap } from '@shared';
 
 export enum ClientResponseStatus {
     Ok = 'OK',

@@ -9,7 +9,7 @@ COPY ["./package.json", "./package-lock.json", "./"]
 
 RUN npm ci
 
-ADD . ./
+COPY . ./
 
 RUN npm run lint && npm run compile && npm prune --production
 
@@ -21,6 +21,5 @@ ENV PGHOST=sql-proxy \
     PGPORT=5432 \
     PGDATABASE=adapters
 
-
-COPY --from=build-env /app/node_modules /app/node_modules
-COPY --from=build-env /app/build /app/build
+COPY --from=build-env /app/node_modules ./node_modules
+COPY --from=build-env /app/build ./build

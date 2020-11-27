@@ -29,7 +29,7 @@ describe('Xero HTTP client', () => {
         // result should contain numbers in sequence, not randomized
         await Promise.all(new Array(10).fill(0).map((_, i) =>
             client.makeClientRequest(async () => {
-                await new Promise((res, rej) => {
+                await new Promise<void>((res, rej) => {
                     setTimeout(
                         () => {
                             result.push(i);

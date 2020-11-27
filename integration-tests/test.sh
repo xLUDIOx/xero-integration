@@ -31,7 +31,7 @@ docker wait "${COMPOSE_PROJ}_${SERVICE_NAME}-integration-tests" >/dev/null 2>&1
     fi
 
     RUNTIME=$((END_TIME - START_TIME))
-    printf "Finished in %s:%s\n\n" $(((RUNTIME / 60) % 60)) $((RUNTIME % 60))
+    printf "Finished in %sm %ss\n\n" $(((RUNTIME / 60) % 60)) $((RUNTIME % 60))
 
     docker-compose -p "$COMPOSE_PROJ" down
 } || {

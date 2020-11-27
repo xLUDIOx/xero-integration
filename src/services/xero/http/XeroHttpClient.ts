@@ -5,7 +5,7 @@ import { ObjectSerializer, XeroClient } from 'xero-node';
 
 import { ForbiddenError, ILock, ILogger } from '@utils';
 
-import { EntityResponseType, IApiResponse, IErrorResponse, IRequestOptions, IXeroHttpClient, ResponseErrorType } from './IXeroHttpClient';
+import { IApiResponse, IErrorResponse, IXeroHttpClient, IXeroRequestOptions, ResponseErrorType, XeroEntityResponseType } from './IXeroHttpClient';
 
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
@@ -24,11 +24,11 @@ export class XeroHttpClient implements IXeroHttpClient {
         return accessToken;
     }
 
-    async makeClientRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: EntityResponseType): Promise<TResult> {
+    async makeClientRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, responseType?: XeroEntityResponseType): Promise<TResult> {
         return this.makeRequest(action, 0, responseType);
     }
 
-    async makeRawRequest<TResult extends any>(requestOptions: IRequestOptions, tenantId: string, responseType?: EntityResponseType): Promise<TResult> {
+    async makeRawRequest<TResult extends any>(requestOptions: IXeroRequestOptions, tenantId: string, responseType?: XeroEntityResponseType): Promise<TResult> {
         return this.makeClientRequest<TResult>(
             () => makeRawAuthorizedRequest(
                 requestOptions,
@@ -40,7 +40,7 @@ export class XeroHttpClient implements IXeroHttpClient {
         );
     }
 
-    private async makeRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: EntityResponseType): Promise<TResult> {
+    private async makeRequest<TResult extends any>(action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: XeroEntityResponseType): Promise<TResult> {
         if (retryCount === MAX_RETRIES) {
             throw Error(`Already retried ${MAX_RETRIES} times after rate limit exceeded.`);
         }
@@ -81,7 +81,7 @@ export class XeroHttpClient implements IXeroHttpClient {
         return body[serializedResponseType] || body[DEFAULT_RESPONSE_TYPE];
     }
 
-    private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: EntityResponseType): Promise<TResult> {
+    private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: XeroEntityResponseType): Promise<TResult> {
         const logger = this.logger.child({ action: action.toString() });
 
         const errorResponseData = err as IApiResponse;
@@ -152,7 +152,7 @@ export class XeroHttpClient implements IXeroHttpClient {
     }
 }
 
-async function makeRawAuthorizedRequest({ method, path, body, contentType }: IRequestOptions, tenantId: string, accessToken: string, responseType?: EntityResponseType): Promise<IApiResponse> {
+async function makeRawAuthorizedRequest({ method, path, body, contentType }: IXeroRequestOptions, tenantId: string, accessToken: string, responseType?: XeroEntityResponseType): Promise<IApiResponse> {
     let resBody;
 
     try {
@@ -195,7 +195,7 @@ async function makeRawAuthorizedRequest({ method, path, body, contentType }: IRe
     }
 }
 
-function toSerializedEntityResponseType(responseType: EntityResponseType): string {
+function toSerializedEntityResponseType(responseType: XeroEntityResponseType): string {
     return responseType[0].toLowerCase() + responseType.slice(1);
 }
 

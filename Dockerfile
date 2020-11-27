@@ -11,7 +11,7 @@ ENV CI=true
 
 RUN npm ci
 
-ADD . ./
+COPY . ./
 
 RUN npm run lint && npm run compile && npm test && npm prune --production
 
@@ -27,9 +27,9 @@ ENTRYPOINT [ "node", "build/index" ]
 
 RUN apk add ghostscript
 
-ADD ./assets ./assets
-ADD ./public ./public
-
-COPY ./wait-for.sh /app
 COPY --from=build-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
+
+COPY --from=build-env /app/assets ./assets
+COPY --from=build-env /app/public ./public
+COPY --from=build-env /app/wait-for.sh /app

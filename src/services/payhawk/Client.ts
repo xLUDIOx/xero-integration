@@ -7,12 +7,7 @@ import * as requestNative from 'request';
 import * as request from 'request-promise';
 
 import { config } from '../../Config';
-import { IExpense, IFile } from './Expense';
-import { IAccountCode } from './IAccountCode';
-import { IBalanceTransfer } from './IBalanceTransfer';
-import { IBusinessAccount } from './IBankAccount';
-import { IClient } from './IClient';
-import { IDownloadedFile } from './IDownloadedFile';
+import { IAccountCode, IBalanceTransfer, IBusinessAccount, IClient, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
 
 export class Client implements IClient {
     private readonly headers: { [key: string]: string };
@@ -75,6 +70,12 @@ export class Client implements IClient {
         });
     }
 
+    async synchronizeTaxRates(taxRates: ITaxRate[]) {
+        await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/tax-rates`, {
+            method: 'PUT', json: taxRates, headers: this.headers,
+        });
+    }
+
     async synchronizeBankAccounts(accounts: IBusinessAccount[]) {
         await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/business-accounts`, {
             method: 'PUT', json: accounts, headers: this.headers,
@@ -92,8 +93,10 @@ export class Client implements IClient {
             const filePath = path.join(os.tmpdir(), `${Math.trunc(Math.random() * 1000000)}.${fileName}`);
             const file = fs.createWriteStream(filePath);
 
-            await new Promise((resolve, reject) => {
-                requestNative({ uri: f.url }).pipe(file).on('close', () => { resolve(); });
+            await new Promise<void>((resolve, reject) => {
+                requestNative({ uri: f.url })
+                    .pipe(file)
+                    .on('close', () => { resolve(); });
             });
 
             return {

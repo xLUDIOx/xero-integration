@@ -2,7 +2,6 @@ import * as fs from 'fs';
 
 export interface IConfig {
     serviceName: string;
-    serviceUrl: string;
     payhawkUrl: string;
     portalUrl: string;
 }

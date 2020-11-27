@@ -1,0 +1,73 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Api Keys store should match snapshot for creating feed connection 1`] = `
+Object {
+  "text": "
+                INSERT INTO bank_feed_connections (
+                    \\"account_id\\",
+                    \\"bank_connection_id\\",
+                    \\"currency\\"
+                )
+                VALUES ($1, $2, $3)
+                RETURNING \\"bank_connection_id\\"
+            ",
+  "values": Array [
+    "acc_id",
+    "conn_id",
+    "BGN",
+  ],
+}
+`;
+
+exports[`Api Keys store should match snapshot for creating feed statement 1`] = `
+Object {
+  "text": "
+                INSERT INTO bank_feed_statements (
+                    \\"account_id\\",
+                    \\"xero_entity_id\\",
+                    \\"payhawk_entity_id\\",
+                    \\"payhawk_entity_type\\",
+                    \\"bank_statement_id\\"
+                )
+                VALUES ($1, $2, $3, $4, $5)
+                RETURNING *
+            ",
+  "values": Array [
+    "acc_id",
+    "100",
+    "entity_id",
+    "expense",
+    "statement_id",
+  ],
+}
+`;
+
+exports[`Api Keys store should match snapshot for getting feed connection 1`] = `
+Object {
+  "text": "
+                SELECT \\"bank_connection_id\\"
+                FROM bank_feed_connections
+                WHERE \\"account_id\\"=$1 AND
+                    UPPER(\\"currency\\")=$2
+            ",
+  "values": Array [
+    "acc_id",
+    "BGN",
+  ],
+}
+`;
+
+exports[`Api Keys store should match snapshot for getting feed statement 1`] = `
+Object {
+  "text": "
+                SELECT \\"bank_statement_id\\" FROM bank_feed_statements
+                WHERE \\"account_id\\"=$1 AND \\"xero_entity_id\\"=$2 AND \\"payhawk_entity_id\\"=$3 AND \\"payhawk_entity_type\\"=$4
+            ",
+  "values": Array [
+    "acc_id",
+    "entity_id",
+    "100",
+    "expense",
+  ],
+}
+`;

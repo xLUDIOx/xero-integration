@@ -1,5 +1,6 @@
 import { FxRates, Payhawk, Xero } from '@services';
-import { BankFeeds, ISchemaStore } from '@stores';
+import { EntityType } from '@shared';
+import { ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
@@ -25,6 +26,17 @@ export class Manager implements IManager {
         }));
 
         await this.payhawkClient.synchronizeChartOfAccounts(accountCodeModels);
+    }
+
+    async synchronizeTaxRates(): Promise<void> {
+        const xeroTaxRates = await this.xeroEntities.getTaxRates();
+        const accountCodeModels = xeroTaxRates.map(x => ({
+            name: x.name,
+            code: x.taxType,
+            rate: Number(x.effectiveRate),
+        }));
+
+        await this.payhawkClient.synchronizeTaxRates(accountCodeModels);
     }
 
     async synchronizeBankAccounts(): Promise<void> {
@@ -152,7 +164,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
-            payhawk_entity_type: BankFeeds.EntityType.Transfer,
+            payhawk_entity_type: EntityType.Transfer,
         });
 
         if (statementId) {
@@ -189,7 +201,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
-            payhawk_entity_type: BankFeeds.EntityType.Transfer,
+            payhawk_entity_type: EntityType.Transfer,
             bank_statement_id: statementId,
         });
     }
@@ -416,7 +428,7 @@ export class Manager implements IManager {
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
                 payhawk_entity_id: transaction.id,
-                payhawk_entity_type: BankFeeds.EntityType.Transaction,
+                payhawk_entity_type: EntityType.Transaction,
             });
 
             if (statementId) {
@@ -440,7 +452,7 @@ export class Manager implements IManager {
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
                 payhawk_entity_id: transaction.id,
-                payhawk_entity_type: BankFeeds.EntityType.Transaction,
+                payhawk_entity_type: EntityType.Transaction,
                 bank_statement_id: statementId,
             });
         }
@@ -484,7 +496,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: billId,
             payhawk_entity_id: expense.id,
-            payhawk_entity_type: BankFeeds.EntityType.Expense,
+            payhawk_entity_type: EntityType.Expense,
         });
 
         if (statementId) {
@@ -543,7 +555,7 @@ export class Manager implements IManager {
             account_id: this.accountId,
             xero_entity_id: billId,
             payhawk_entity_id: expense.id,
-            payhawk_entity_type: BankFeeds.EntityType.Expense,
+            payhawk_entity_type: EntityType.Expense,
             bank_statement_id: statementId,
         });
     }

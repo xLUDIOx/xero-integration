@@ -1,22 +1,36 @@
 export interface IEnvironment {
+    xeroAuthUrl: string;
+    xeroLoginUrl: string;
+    xeroApiUrl: string;
     fxRatesApiUrl: string;
     fxRatesApiKey: string;
 }
 
 class Environment implements IEnvironment {
     get fxRatesApiUrl(): string {
-        const value = process.env.FX_RATES_API_URL;
-        if (!value) {
-            throw Error('Missing env variable FX_RATES_API_URL');
-        }
-
-        return value;
+        return this.getRequiredEnvVariable('FX_RATES_API_URL');
     }
 
     get fxRatesApiKey(): string {
-        const value = process.env.FX_RATES_API_KEY;
+        return this.getRequiredEnvVariable('FX_RATES_API_KEY');
+    }
+
+    get xeroApiUrl() {
+        return this.getRequiredEnvVariable('XERO_API_URL');
+    }
+
+    get xeroAuthUrl() {
+        return this.getRequiredEnvVariable('XERO_AUTH_URL');
+    }
+
+    get xeroLoginUrl() {
+        return this.getRequiredEnvVariable('XERO_LOGIN_URL');
+    }
+
+    private getRequiredEnvVariable(varName: string): string {
+        const value = process.env[varName];
         if (!value) {
-            throw Error('Missing env variable FX_RATES_API_KEY');
+            throw Error(`Missing required env variable ${varName}`);
         }
 
         return value;

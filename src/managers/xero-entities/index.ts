@@ -1,5 +1,5 @@
 import { Xero } from '@services';
-import { AccessTokens } from '@stores';
+import { ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
@@ -13,7 +13,7 @@ export * from './INewBill';
 export * as BankAccounts from './bank-accounts';
 export * as BankFeeds from './bank-feeds';
 
-export const createManager = (accountId: string, xeroAccessToken: AccessTokens.ITokenSet, tenantId: string, logger: ILogger): IManager => {
+export const createManager = (accountId: string, xeroAccessToken: ITokenSet, tenantId: string, logger: ILogger): IManager => {
     const xeroClient = Xero.createClient(accountId, xeroAccessToken, tenantId, logger);
     return new Manager(xeroClient);
 };

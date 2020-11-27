@@ -1,4 +1,4 @@
-import { INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord } from './IUserTokenSet';
+import { INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord } from '@shared';
 
 export interface IStore {
     create(record: INewUserTokenSetRecord): Promise<void>;

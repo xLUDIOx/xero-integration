@@ -1,6 +1,8 @@
 import { Account, Contact } from 'xero-node';
 import { CurrencyCode } from 'xero-node/dist/gen/model/bankfeeds/currencyCode';
 
+import { IClient as IAccountingClient } from '../accounting';
+import { IClient as IAuthClient } from '../auth';
 import { IAccountCode, INewAccountCode } from './IAccountCode';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
@@ -10,6 +12,9 @@ import { IOrganisation } from './IOrganisation';
 import { IPayment } from './IPayment';
 
 export interface IClient {
+    auth: IAuthClient;
+    accounting: IAccountingClient;
+
     getOrganisation(): Promise<IOrganisation>;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;

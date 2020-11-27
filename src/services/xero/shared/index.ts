@@ -10,5 +10,5 @@ export function toUrlParams(query?: IQuery): string {
 
 export function buildUrl(basePath: string, path: string, query?: IQuery): string {
     const queryString = toUrlParams(query);
-    return `${basePath}${path}?${queryString}`;
+    return `${basePath}${path}${queryString.length > 0 ? `?${queryString}` : ''}`;
 }

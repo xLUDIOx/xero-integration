@@ -4,8 +4,12 @@ import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, I
 import { FeedConnection } from 'xero-node/dist/gen/model/bankfeeds/feedConnection';
 import { CreditDebitIndicator, Statement } from 'xero-node/dist/gen/model/bankfeeds/models';
 
-import { ForbiddenError, IDocumentSanitizer, ILogger, Intersection, OperationNotAllowedError } from '../../../utils';
-import { EntityResponseType, IXeroHttpClient } from '../http';
+import { Intersection } from '@shared';
+import { ForbiddenError, IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
+
+import { IXeroHttpClient, XeroEntityResponseType } from '../http';
+import * as Accounting from './accounting';
+import * as Auth from './auth';
 import {
     AccountClassType,
     AccountingItemKeys,
@@ -31,13 +35,15 @@ import {
     InvoiceStatusCode,
     IOrganisation,
     IPayment,
-    ITenant,
     IUpdateBillData,
     IUpdateTransactionData,
 } from './contracts';
 
 export class Client implements IClient {
     constructor(
+        readonly auth: Auth.IClient,
+        readonly accounting: Accounting.IClient,
+
         private readonly xeroClient: IXeroHttpClient,
         private readonly tenantId: string,
         private readonly documentSanitizer: IDocumentSanitizer,
@@ -47,17 +53,13 @@ export class Client implements IClient {
     }
 
     async getOrganisation(): Promise<IOrganisation> {
-        const tenants = await this.xeroClient.makeClientRequest<Required<ITenant>[]>(
-            x => x.updateTenants(),
-        );
-
+        const tenants = await this.auth.getAuthorizedTenants();
         const tenant = tenants.find(t => t.tenantId === this.tenantId);
         if (!tenant) {
             throw new ForbiddenError('Disconnected remotely');
         }
 
-        const organisation = tenant.orgData;
-        return organisation;
+        return this.accounting.getOrganisation();
     }
 
     async findContact(name: string, vat?: string): Promise<Contact | undefined> {
@@ -67,7 +69,7 @@ export class Client implements IClient {
             const where = `${ContactKeys.taxNumber}=="${escapeParam(vat.trim())}"`;
             contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.getContacts(this.tenantId, undefined, where),
-                EntityResponseType.Contacts
+                XeroEntityResponseType.Contacts
             );
         }
 
@@ -75,7 +77,7 @@ export class Client implements IClient {
             const where = `${ContactKeys.name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
             contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.getContacts(this.tenantId, undefined, where),
-                EntityResponseType.Contacts,
+                XeroEntityResponseType.Contacts,
             );
         }
 
@@ -96,7 +98,7 @@ export class Client implements IClient {
         try {
             contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.createContacts(this.tenantId, { contacts: [payload] }),
-                EntityResponseType.Contacts,
+                XeroEntityResponseType.Contacts,
             );
         } catch (err) {
             if (err.message && err.message.includes('The contact name must be unique across all active contacts.')) {
@@ -123,7 +125,7 @@ export class Client implements IClient {
 
         const result = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.getAccounts(this.tenantId, undefined, where),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         return result;
@@ -132,7 +134,7 @@ export class Client implements IClient {
     async getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined> {
         const bankAccounts = await this.xeroClient.makeClientRequest<IBankAccount[] | undefined>(
             x => x.accountingApi.getAccount(this.tenantId, bankAccountId),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         return bankAccounts ? bankAccounts[0] : undefined;
@@ -147,7 +149,7 @@ export class Client implements IClient {
                     accounts: [{ status: Account.StatusEnum.ACTIVE }],
                 },
             ),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         const bankAccount = bankAccountsResult[0];
@@ -173,7 +175,7 @@ export class Client implements IClient {
                     currencyCode: currencyCode as any,
                 },
             ),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         const bankAccount = bankAccounts[0];
@@ -191,7 +193,7 @@ export class Client implements IClient {
                 undefined,
                 `${AccountKeys.type}=="${AccountType.BANK}" && ${AccountKeys.code}=="${escapeParam(code)}"`,
             ),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         return accounts[0];
@@ -204,7 +206,7 @@ export class Client implements IClient {
                 undefined,
                 `Class=="${AccountClassType.Expense}"`,
             ),
-            EntityResponseType.Accounts,
+            XeroEntityResponseType.Accounts,
         );
 
         return expenseAccounts;
@@ -224,7 +226,7 @@ export class Client implements IClient {
                     this.tenantId,
                     expenseAccountModel,
                 ),
-                EntityResponseType.Accounts,
+                XeroEntityResponseType.Accounts,
             );
 
             if (createResult.length === 0) {
@@ -246,7 +248,7 @@ export class Client implements IClient {
                         }],
                     }
                 ),
-                EntityResponseType.Accounts,
+                XeroEntityResponseType.Accounts,
             );
 
             if (updateResult.length === 0) {
@@ -264,7 +266,7 @@ export class Client implements IClient {
                 undefined,
                 `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${BankTransactionStatusCode.Deleted}"`,
             ),
-            EntityResponseType.BankTransactions
+            XeroEntityResponseType.BankTransactions
         );
 
         const transaction = transactions ? transactions[0] : undefined;
@@ -287,7 +289,7 @@ export class Client implements IClient {
                 this.tenantId,
                 { bankTransactions: [transaction] },
             ),
-            EntityResponseType.BankTransactions
+            XeroEntityResponseType.BankTransactions
         );
 
         const bankTransaction = bankTransactions[0];
@@ -307,7 +309,7 @@ export class Client implements IClient {
                 transactionId,
                 { bankTransactions: [transaction] },
             ),
-            EntityResponseType.BankTransactions
+            XeroEntityResponseType.BankTransactions
         );
     }
 
@@ -322,7 +324,7 @@ export class Client implements IClient {
                     } as any],
                 },
             ),
-            EntityResponseType.BankTransactions
+            XeroEntityResponseType.BankTransactions
         );
     }
 
@@ -330,7 +332,7 @@ export class Client implements IClient {
         const where = `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${InvoiceStatusCode.Deleted}"`;
         const invoices = await this.xeroClient.makeClientRequest<IInvoice[] | undefined>(
             x => x.accountingApi.getInvoices(this.tenantId, undefined, where),
-            EntityResponseType.Invoices
+            XeroEntityResponseType.Invoices
         );
 
         const invoice = invoices ? invoices[0] : undefined;
@@ -356,7 +358,7 @@ export class Client implements IClient {
                 this.tenantId,
                 { invoices: [bill] },
             ),
-            EntityResponseType.Invoices
+            XeroEntityResponseType.Invoices
         );
 
         const invoice = invoices[0];
@@ -384,7 +386,7 @@ export class Client implements IClient {
                 billId,
                 { invoices: [billModel] },
             ),
-            EntityResponseType.Invoices
+            XeroEntityResponseType.Invoices
         );
     }
 
@@ -395,7 +397,7 @@ export class Client implements IClient {
                 billId,
                 { invoices: [{ status: Invoice.StatusEnum.DELETED }] },
             ),
-            EntityResponseType.Invoices
+            XeroEntityResponseType.Invoices
         );
     }
 
@@ -412,7 +414,7 @@ export class Client implements IClient {
                 contentType,
             },
             this.tenantId,
-            EntityResponseType.Attachments,
+            XeroEntityResponseType.Attachments,
         );
     }
 
@@ -423,7 +425,7 @@ export class Client implements IClient {
                 path: `/BankTransactions/${encodeURIComponent(entityId)}/Attachments`,
             },
             this.tenantId,
-            EntityResponseType.Attachments,
+            XeroEntityResponseType.Attachments,
         );
 
         return attachments;
@@ -442,7 +444,7 @@ export class Client implements IClient {
                 contentType,
             },
             this.tenantId,
-            EntityResponseType.Attachments,
+            XeroEntityResponseType.Attachments,
         );
     }
 
@@ -453,7 +455,7 @@ export class Client implements IClient {
                 path: `/Invoices/${encodeURIComponent(entityId)}/Attachments`,
             },
             this.tenantId,
-            EntityResponseType.Attachments,
+            XeroEntityResponseType.Attachments,
         );
 
         return attachmentsResponse;
@@ -465,7 +467,7 @@ export class Client implements IClient {
                 this.tenantId,
                 billId,
             ),
-            EntityResponseType.Invoices,
+            XeroEntityResponseType.Invoices,
         );
 
         const invoice = invoices[0];
@@ -484,7 +486,7 @@ export class Client implements IClient {
                 this.tenantId,
                 paymentModel,
             ),
-            EntityResponseType.Payments,
+            XeroEntityResponseType.Payments,
         );
 
         const payment = payments[0];
@@ -499,7 +501,7 @@ export class Client implements IClient {
                 this.tenantId,
                 paymentId,
             ),
-            EntityResponseType.Payments,
+            XeroEntityResponseType.Payments,
         );
 
         const payment = payments[0];
@@ -511,7 +513,7 @@ export class Client implements IClient {
             c => c.bankFeedsApi.getFeedConnections(
                 this.tenantId,
             ),
-            EntityResponseType.FeedConnections,
+            XeroEntityResponseType.FeedConnections,
         );
 
         const existingFeedConnection = items.find(c => c.accountToken === accountToken && c.currency === currency);
@@ -530,7 +532,7 @@ export class Client implements IClient {
                         currency,
                     }],
                 }),
-            EntityResponseType.FeedConnections,
+            XeroEntityResponseType.FeedConnections,
         );
 
         const result = items[0];
@@ -577,7 +579,7 @@ export class Client implements IClient {
                     }],
                 }
             ),
-            EntityResponseType.BankStatements,
+            XeroEntityResponseType.BankStatements,
         );
 
         const statement = statements[0];
@@ -590,7 +592,7 @@ export class Client implements IClient {
                 this.tenantId,
                 `${CurrencyKeys.code}=="${escapeParam(currencyCode)}"`,
             ),
-            EntityResponseType.Currencies,
+            XeroEntityResponseType.Currencies,
         );
 
         if (!currencies.length) {
@@ -601,7 +603,7 @@ export class Client implements IClient {
                         code: currencyCode as any,
                     },
                 ),
-                EntityResponseType.Currencies,
+                XeroEntityResponseType.Currencies,
             );
 
             if (!createdCurrencies || createdCurrencies.length === 0) {

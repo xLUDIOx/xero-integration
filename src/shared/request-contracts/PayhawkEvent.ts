@@ -2,6 +2,7 @@ export enum PayhawkEvent {
     ApiKeySet = 'api-key-set',
     BankAccountsSynchronize = 'bank-accounts-synchronize',
     ChartOfAccountSynchronize = 'chart-of-accounts-synchronize',
+    TaxRatesSynchronize = 'tax-rates-synchronize',
     Disconnect = 'disconnect',
     ExpenseDelete = 'expense-delete',
     ExpenseExport = 'expense-export',

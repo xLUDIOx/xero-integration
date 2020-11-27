@@ -17,6 +17,8 @@ services:
     networks:
       - default
   xero-integration-service:
+    build: ..
+    container_name: xero_integration_service_xero-integration-service
     entrypoint:
       [
         "sh",
@@ -27,8 +29,6 @@ services:
         "--inspect=0.0.0.0:9229",
         "build/index",
       ]
-    build: ..
-    container_name: xero_integration_service_xero-integration-service
     volumes:
       - ./assets:/app/config
     environment:
@@ -38,24 +38,37 @@ services:
       - PGDATABASE=adapters
       - LOG_LEVEL=warn
       - LOG_PRETTY=true
+      - CONFIG_PATH=/app/config
       - XERO_CONFIG_PATH=/app/config
+      - XERO_API_URL=http://xero-integration-service-tests:8081
+      - XERO_AUTH_URL=http://xero-integration-service-tests:8081
+      - XERO_LOGIN_URL=http://xero-integration-service-tests:8081
+      - FX_RATES_API_URL=http://xero-integration-service-tests:8083
+      - FX_RATES_API_KEY=fx-rates-key
+      - TESTING=true
     # Uncomment for debug
     ports:
       - "9230:9229"
+    expose:
+      - 8080
     depends_on:
       - sql-proxy
     networks:
       - default
   xero-integration-service-tests:
-    entrypoint: node -r source-map-support/register --inspect=0.0.0.0:9229 node_modules/mocha/bin/mocha build/index.js build/**/*.spec.js --exit --timeout 30000
+    build: .
+    container_name: xero_integration_service_xero-integration-service-tests
+    entrypoint: node -r source-map-support/register --inspect=0.0.0.0:9229 node_modules/mocha/bin/mocha build/index.js build/**/*.spec.js --exit --timeout 10000
     # Uncomment for debug
     ports:
       - "9229:9229"
+    expose:
+      - 8081
+      - 8082
+      - 8083
     environment:
       - PGUSER=postgres
       - PGPASSWORD=password
-    build: .
-    container_name: xero_integration_service_xero-integration-service-tests
     depends_on:
       - xero-integration-service
       - sql-proxy
