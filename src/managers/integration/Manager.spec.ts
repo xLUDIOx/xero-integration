@@ -2,7 +2,7 @@ import * as TypeMoq from 'typemoq';
 
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus } from '@shared';
-import { ExpenseTransactions, ISchemaStore } from '@stores';
+import { BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
@@ -14,46 +14,67 @@ describe('integrations/Manager', () => {
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
     let bankAccountsManagerMock: TypeMoq.IMock<XeroEntities.BankAccounts.IManager>;
+    let bankFeedsManagerMock: TypeMoq.IMock<XeroEntities.BankFeeds.IManager>;
     let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
-    let storeMock: TypeMoq.IMock<ExpenseTransactions.IStore>;
+    let expenseTransactionsStoreMock: TypeMoq.IMock<ExpenseTransactions.IStore>;
+    let bankFeedsStoreMock: TypeMoq.IMock<BankFeeds.IStore>;
 
     let manager: Manager;
 
     beforeEach(() => {
         payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
-        xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
+        bankFeedsManagerMock = TypeMoq.Mock.ofType<XeroEntities.BankFeeds.IManager>();
         bankAccountsManagerMock = TypeMoq.Mock.ofType<XeroEntities.BankAccounts.IManager>();
+        xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
         fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
-        storeMock = TypeMoq.Mock.ofType<ExpenseTransactions.IStore>();
+        expenseTransactionsStoreMock = TypeMoq.Mock.ofType<ExpenseTransactions.IStore>();
+        bankFeedsStoreMock = TypeMoq.Mock.ofType<BankFeeds.IStore>();
+
+        xeroEntitiesMock
+            .setup(x => x.bankFeeds)
+            .returns(() => bankFeedsManagerMock.object);
 
         xeroEntitiesMock
             .setup(x => x.bankAccounts)
             .returns(() => bankAccountsManagerMock.object);
 
-        storeMock
+        expenseTransactionsStoreMock
             .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
             .returns(async () => []);
 
         manager = new Manager(
-            { expenseTransactions: storeMock.object } as ISchemaStore,
-            payhawkClientMock.object,
-            xeroEntitiesMock.object,
-            fxRatesServiceMock.object,
-            deleteFilesMock.object,
             accountId,
             portalUrl,
+            { expenseTransactions: expenseTransactionsStoreMock.object, bankFeeds: bankFeedsStoreMock.object } as ISchemaStore,
+            xeroEntitiesMock.object,
+            payhawkClientMock.object,
+            fxRatesServiceMock.object,
+            deleteFilesMock.object,
             loggerMock.object,
         );
+
+        loggerMock
+            .setup(l => l.child(TypeMoq.It.isAny()))
+            .returns(() => loggerMock.object);
     });
 
     afterEach(() => {
-        payhawkClientMock.verifyAll();
-        xeroEntitiesMock.verifyAll();
-        deleteFilesMock.verifyAll();
+        [
+            payhawkClientMock,
+            xeroEntitiesMock,
+            deleteFilesMock,
+            bankAccountsManagerMock,
+            bankFeedsManagerMock,
+            bankFeedsStoreMock,
+            expenseTransactionsStoreMock,
+        ].forEach(x => {
+            x.verifyAll();
+            x.reset();
+        });
     });
 
     describe('synchronizeChartOfAccounts', () => {
@@ -414,6 +435,11 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ } as XeroEntities.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                xeroEntitiesMock
                     .setup(x => x.createOrUpdateBill({
                         bankAccountId: undefined,
                         date: expense.createdAt,
@@ -494,10 +520,6 @@ describe('integrations/Manager', () => {
                     .verifiable(TypeMoq.Times.once());
             });
 
-            bankAccountsManagerMock
-                .setup(e => e.getOrCreateByCurrency(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.exactly(uniqueCurrencies.size));
-
             xeroEntitiesMock
                 .setup(e => e.getContactIdForSupplier({ name: 'New Deposit' }))
                 .returns(async () => contactId)
@@ -527,5 +549,72 @@ describe('integrations/Manager', () => {
 
             await manager.exportTransfers(startDate, endDate);
         };
+    });
+
+    describe('disconnect', () => {
+        beforeEach(() => {
+            xeroEntitiesMock
+                .setup(m => m.getOrganisation())
+                .returns(async () => ({ isDemoCompany: false } as XeroEntities.IOrganisation));
+        });
+
+        it('should do nothing if demo org', async () => {
+            xeroEntitiesMock.reset();
+            xeroEntitiesMock
+                .setup(m => m.getOrganisation())
+                .returns(async () => ({ isDemoCompany: true } as XeroEntities.IOrganisation));
+
+            bankFeedsStoreMock
+                .setup(s => s.getConnectionIdsForAccount(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            bankFeedsStoreMock
+                .setup(s => s.deleteConnectionForAccount(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            bankFeedsManagerMock
+                .setup(m => m.closeBankFeedConnection(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await manager.disconnect();
+        });
+
+        it('should do nothing if no connections', async () => {
+            bankFeedsStoreMock
+                .setup(s => s.getConnectionIdsForAccount(accountId))
+                .returns(async () => [])
+                .verifiable(TypeMoq.Times.once());
+
+            bankFeedsStoreMock
+                .setup(s => s.deleteConnectionForAccount(TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            bankFeedsManagerMock
+                .setup(m => m.closeBankFeedConnection(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await manager.disconnect();
+        });
+
+        it('should iterate all connections and disconnect them', async () => {
+            const connectionIds = ['1', '2'];
+
+            bankFeedsStoreMock
+                .setup(s => s.getConnectionIdsForAccount(accountId))
+                .returns(async () => connectionIds)
+                .verifiable(TypeMoq.Times.once());
+
+            connectionIds.forEach(connectionId => {
+                bankFeedsManagerMock
+                    .setup(m => m.closeBankFeedConnection(connectionId))
+                    .verifiable(TypeMoq.Times.once());
+
+                bankFeedsStoreMock
+                    .setup(s => s.deleteConnectionForAccount(accountId, connectionId))
+                    .verifiable(TypeMoq.Times.once());
+            });
+
+            await manager.disconnect();
+        });
     });
 });

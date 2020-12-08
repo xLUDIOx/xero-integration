@@ -14,8 +14,8 @@ export class Manager implements IManager {
     ) {
     }
 
-    async getAuthorizationUrl(): Promise<string> {
-        const url = await this.authClient.getAuthUrl();
+    getAuthorizationUrl(): string {
+        const url = this.authClient.getAuthUrl();
         return url;
     }
 
@@ -33,14 +33,18 @@ export class Manager implements IManager {
             return undefined;
         }
 
-        let xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
-
+        const xeroAccessToken = xeroAccessTokenRecord.token_set;
         const isExpired = isAccessTokenExpired(xeroAccessToken);
-        if (isExpired) {
-            xeroAccessToken = await this.tryRefreshAccessToken(xeroAccessToken, xeroAccessTokenRecord.tenant_id);
+        if (!isExpired) {
+            return xeroAccessToken;
         }
 
-        return xeroAccessToken;
+        if (!Xero.hasScope(Xero.XeroScope.RefreshTokens)) {
+            this.logger.info('Refresh tokens scope is not enabled');
+            return undefined;
+        }
+
+        return this.tryRefreshAccessToken(xeroAccessToken, xeroAccessTokenRecord.tenant_id);
     }
 
     async getAuthorizedTenants(): Promise<Xero.ITenant[]> {

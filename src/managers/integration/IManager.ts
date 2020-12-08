@@ -1,5 +1,7 @@
+import * as XeroEntities from '../xero-entities';
+
 export interface IManager {
-    getOrganisationName(): Promise<string>;
+    getOrganisation(): Promise<XeroEntities.IOrganisation>;
 
     exportExpense(expenseId: string): Promise<void>;
     exportBankStatementForExpense(expenseId: string): Promise<void>;
@@ -12,4 +14,6 @@ export interface IManager {
     synchronizeChartOfAccounts(): Promise<void>;
     synchronizeBankAccounts(): Promise<void>;
     synchronizeTaxRates(): Promise<void>;
+
+    disconnect(): Promise<void>;
 }

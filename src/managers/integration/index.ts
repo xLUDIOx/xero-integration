@@ -26,13 +26,13 @@ export const createManager: IManagerFactory = ({ accessToken, tenantId, accountI
     const deleteFile = (filePath: string): Promise<void> => new Promise((resolve) => fs.unlink(filePath, () => resolve()));
 
     return new Manager(
-        createSchemaStore(logger),
-        Payhawk.createPayhawkClient(accountId, payhawkApiKey || ''),
-        xeroEntitiesManager,
-        FxRates.createService(),
-        deleteFile,
         accountId,
         config.portalUrl,
+        createSchemaStore(logger),
+        xeroEntitiesManager,
+        Payhawk.createPayhawkClient(accountId, payhawkApiKey || ''),
+        FxRates.createService(),
+        deleteFile,
         logger,
     );
 };

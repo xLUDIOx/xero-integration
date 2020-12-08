@@ -37,7 +37,7 @@ describe('xero-connection/Manager', () => {
                 .setup(a => a.getAuthUrl())
                 .returns(() => url);
 
-            const result = await manager.getAuthorizationUrl();
+            const result = manager.getAuthorizationUrl();
 
             expect(result).toEqual(url);
         });

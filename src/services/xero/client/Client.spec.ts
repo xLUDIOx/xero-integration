@@ -3,6 +3,7 @@ import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
 import { ILogger, Lock, OperationNotAllowedError } from '@utils';
 
+import { BankFeedsClient } from '.';
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
@@ -14,6 +15,7 @@ const CURRENCY = 'GBP';
 describe('Xero client', () => {
     const authClientMock = TypeMoq.Mock.ofType<AuthClient.IClient>();
     const accountingClientMock = TypeMoq.Mock.ofType<AccountingClient.IClient>();
+    const bankFeedsClientMock = TypeMoq.Mock.ofType<BankFeedsClient.IClient>();
     const xeroClientMock = TypeMoq.Mock.ofType<AccountingApi>();
     const loggerMock = TypeMoq.Mock.ofType<ILogger>();
     const tenantId = '00000000-0000-0000-0000-000000000000';
@@ -21,6 +23,7 @@ describe('Xero client', () => {
     const client = new Client(
         authClientMock.object,
         accountingClientMock.object,
+        bankFeedsClientMock.object,
         createXeroHttpClient({ accountingApi: xeroClientMock.object } as XeroClient, new Lock(loggerMock.object), loggerMock.object),
         tenantId,
         { sanitize: () => Promise.resolve() },

@@ -61,7 +61,7 @@ describe('AuthController', () => {
         });
 
         test('throw error when the manager throws error', async () => {
-            connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(() => Promise.reject(new Error()));
+            connectionManagerMock.setup(m => m.getAuthorizationUrl()).throws(Error());
 
             const req = { query: { accountId } } as restify.Request;
             await expect(controller.connect(req, responseMock.object, nextMock.object)).rejects.toThrow();
@@ -69,7 +69,7 @@ describe('AuthController', () => {
 
         test('redirects to authorization URL', async () => {
             const authorizationUrl = 'expected authorization url';
-            connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(async () => authorizationUrl);
+            connectionManagerMock.setup(m => m.getAuthorizationUrl()).returns(() => authorizationUrl);
             responseMock.setup(r => r.redirect(authorizationUrl, nextMock.object)).verifiable(TypeMoq.Times.once());
 
             const req = { query: { accountId } } as restify.Request;
@@ -111,7 +111,7 @@ describe('AuthController', () => {
 
             const returnUrl = '/my-path';
             responseMock
-                .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero`, nextMock.object))
+                .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero&label=My+demo+company`, nextMock.object))
                 .verifiable(TypeMoq.Times.once());
 
             const req = {
@@ -127,6 +127,11 @@ describe('AuthController', () => {
             connectionManagerMock
                 .setup(m => m.getAuthorizedTenants())
                 .returns(async () => [{ tenantId: '1' } as any])
+                .verifiable(TypeMoq.Times.once());
+
+            integrationManagerMock
+                .setup(m => m.getOrganisation())
+                .returns(async () => ({ name: 'My demo company' } as any))
                 .verifiable(TypeMoq.Times.once());
 
             connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => token);
@@ -149,8 +154,8 @@ describe('AuthController', () => {
                 .returns(async () => createAccessToken());
 
             integrationManagerMock
-                .setup(m => m.getOrganisationName())
-                .returns(() => Promise.resolve(organisationName))
+                .setup(m => m.getOrganisation())
+                .returns(() => Promise.resolve({ name: organisationName } as any))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
@@ -185,7 +190,7 @@ describe('AuthController', () => {
                 .returns(async () => createAccessToken());
 
             integrationManagerMock
-                .setup(m => m.getOrganisationName())
+                .setup(m => m.getOrganisation())
                 .throws(new ForbiddenError())
                 .verifiable(TypeMoq.Times.once());
 
@@ -223,7 +228,7 @@ describe('AuthController', () => {
 
             const error = new Error('Oops, something broke...');
             integrationManagerMock
-                .setup(m => m.getOrganisationName())
+                .setup(m => m.getOrganisation())
                 .throws(error)
                 .verifiable(TypeMoq.Times.once());
 

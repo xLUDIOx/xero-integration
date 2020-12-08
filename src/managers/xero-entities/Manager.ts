@@ -1,5 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, ITaxRate } from '@shared';
+import { fromDateTicks } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -20,7 +21,14 @@ export class Manager implements IManager {
 
     async getOrganisation(): Promise<IOrganisation> {
         const organisation = await this.xeroClient.accounting.getOrganisation();
-        return organisation;
+        return {
+            name: organisation.name,
+            baseCurrency: organisation.baseCurrency,
+            shortCode: organisation.shortCode,
+            isDemoCompany: organisation.isDemoCompany,
+            periodLockDate: fromDateTicks(organisation.periodLockDate),
+            endOfYearLockDate: fromDateTicks(organisation.endOfYearLockDate),
+        };
     }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {

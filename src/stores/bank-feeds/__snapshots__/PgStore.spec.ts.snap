@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Api Keys store should match snapshot for creating feed connection 1`] = `
+exports[`Bank feeds store should match snapshot for creating feed connection 1`] = `
 Object {
   "text": "
                 INSERT INTO bank_feed_connections (
@@ -19,7 +19,7 @@ Object {
 }
 `;
 
-exports[`Api Keys store should match snapshot for creating feed statement 1`] = `
+exports[`Bank feeds store should match snapshot for creating feed statement 1`] = `
 Object {
   "text": "
                 INSERT INTO bank_feed_statements (
@@ -42,7 +42,41 @@ Object {
 }
 `;
 
-exports[`Api Keys store should match snapshot for getting feed connection 1`] = `
+exports[`Bank feeds store should match snapshot for deleting feed connections for account 1`] = `
+Object {
+  "text": "
+                DELETE FROM bank_feed_connections
+                WHERE \\"account_id\\"=$1 AND
+                    \\"bank_connection_id\\"=$2
+            ",
+  "values": Array [
+    "acc_id",
+    "1232456",
+  ],
+}
+`;
+
+exports[`Bank feeds store should match snapshot for deleting feed statement 1`] = `
+Object {
+  "text": "
+                DELETE FROM bank_feed_statements
+                WHERE \\"bank_statement_id\\"=$1 AND
+                    \\"account_id\\"=$2 AND
+                    \\"xero_entity_id\\"=$3 AND
+                    \\"payhawk_entity_id\\"=$4 AND
+                    \\"payhawk_entity_type\\"=$5
+            ",
+  "values": Array [
+    "statement_id",
+    "acc_id",
+    "entity_id",
+    "100",
+    "expense",
+  ],
+}
+`;
+
+exports[`Bank feeds store should match snapshot for getting feed connection 1`] = `
 Object {
   "text": "
                 SELECT \\"bank_connection_id\\"
@@ -57,11 +91,28 @@ Object {
 }
 `;
 
-exports[`Api Keys store should match snapshot for getting feed statement 1`] = `
+exports[`Bank feeds store should match snapshot for getting feed connection id for account 1`] = `
 Object {
   "text": "
-                SELECT \\"bank_statement_id\\" FROM bank_feed_statements
-                WHERE \\"account_id\\"=$1 AND \\"xero_entity_id\\"=$2 AND \\"payhawk_entity_id\\"=$3 AND \\"payhawk_entity_type\\"=$4
+                SELECT \\"bank_connection_id\\"
+                FROM bank_feed_connections
+                WHERE \\"account_id\\"=$1
+            ",
+  "values": Array [
+    "acc_id",
+  ],
+}
+`;
+
+exports[`Bank feeds store should match snapshot for getting feed statement 1`] = `
+Object {
+  "text": "
+                SELECT \\"bank_statement_id\\"
+                FROM bank_feed_statements
+                WHERE \\"account_id\\"=$1 AND
+                    \\"xero_entity_id\\"=$2 AND
+                    \\"payhawk_entity_id\\"=$3 AND
+                    \\"payhawk_entity_type\\"=$4
             ",
   "values": Array [
     "acc_id",

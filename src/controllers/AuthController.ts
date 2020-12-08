@@ -32,7 +32,7 @@ export class AuthController {
         logger.info('Connect started');
 
         const connectionManager = this.connectionManagerFactory({ accountId, returnUrl }, logger);
-        const authorizationUrl = await connectionManager.getAuthorizationUrl();
+        const authorizationUrl = connectionManager.getAuthorizationUrl();
         res.redirect(authorizationUrl, next);
 
         logger.info('Connect completed');
@@ -116,7 +116,8 @@ export class AuthController {
 
             const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
 
-            const organisationName = await integrationManager.getOrganisationName();
+            const organisation = await integrationManager.getOrganisation();
+            const organisationName = organisation.name;
 
             url.searchParams.append('connection', 'xero');
             if (organisationName) {
@@ -163,7 +164,8 @@ export class AuthController {
         }
 
         const integrationManager = this.integrationManagerFactory({ accessToken, accountId, tenantId }, logger);
-        const organisationName = await integrationManager.getOrganisationName();
+        const organisation = await integrationManager.getOrganisation();
+        const organisationName = organisation.name;
 
         const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
         const url = new URL(absoluteReturnUrl);
@@ -199,7 +201,8 @@ export class AuthController {
 
             // try get some information from Xero to validate whether the token is still valid
             const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId }, logger);
-            const title = await integrationManager.getOrganisationName();
+            const organisation = await integrationManager.getOrganisation();
+            const title = organisation.name;
 
             return { isAlive: true, title };
         } catch (err) {

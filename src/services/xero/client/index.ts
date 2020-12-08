@@ -4,10 +4,11 @@ import { getEnv } from '@environment';
 import { ITokenSet } from '@shared';
 import { createDocumentSanitizer, createLock, ILogger } from '@utils';
 
-import { getXeroConfig } from '../Config';
+import { getXeroAccountConfig } from '../Config';
 import { createHttpClient, createXeroHttpClient } from '../http';
 import { create as createAccountingClient } from './accounting';
 import { create as createAuthClient } from './auth';
+import { create as createBankFeedsClient } from './bank-feeds';
 import { Client } from './Client';
 import { IClient } from './contracts';
 
@@ -15,11 +16,12 @@ export * from './contracts';
 
 export * as AuthClient from './auth';
 export * as AccountingClient from './accounting';
+export * as BankFeedsClient from './bank-feeds';
 
 const entitiesLock = createLock();
 
 export const createClient = (accountId: string, accessToken: ITokenSet, tenantId: string, logger: ILogger): IClient => {
-    const config = getXeroConfig(accountId);
+    const config = getXeroAccountConfig(accountId);
     const env = getEnv();
 
     const originalClient = new XeroClient(config);
@@ -30,6 +32,15 @@ export const createClient = (accountId: string, accessToken: ITokenSet, tenantId
 
     const authClient = createAuthClient(httpClient, config, logger, env);
     const accountingClient = createAccountingClient(httpClient, logger, env);
+    const bankFeedsClient = createBankFeedsClient(httpClient, logger, env);
 
-    return new Client(authClient, accountingClient, xeroHttpClient, tenantId, createDocumentSanitizer(), logger);
+    return new Client(
+        authClient,
+        accountingClient,
+        bankFeedsClient,
+        xeroHttpClient,
+        tenantId,
+        createDocumentSanitizer(),
+        logger,
+    );
 };

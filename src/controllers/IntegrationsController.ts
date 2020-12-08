@@ -3,6 +3,7 @@ import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
 
 import { Integration, XeroConnection } from '@managers';
+import { Xero } from '@services';
 import { IPayhawkPayload, PayhawkEvent } from '@shared';
 import { ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
 
@@ -34,8 +35,14 @@ export class IntegrationsController {
             return;
         }
 
+        const xeroAccessToken = await connectionManager.getAccessToken();
         if (event === PayhawkEvent.Disconnect) {
             logger.info('Disconnect received');
+
+            if (xeroAccessToken) {
+                const integrationManager = await this.createIntegrationManager(connectionManager, accountId, xeroAccessToken, logger);
+                await integrationManager.disconnect();
+            }
 
             await connectionManager.disconnectActiveTenant();
 
@@ -45,7 +52,6 @@ export class IntegrationsController {
             return;
         }
 
-        const xeroAccessToken = await connectionManager.getAccessToken();
         if (!xeroAccessToken) {
             logger.error(new Error('Unable to handle event because there is no valid access token'));
 
@@ -188,14 +194,31 @@ export class IntegrationsController {
 
         const logger = baseLogger.child({ expenseId, balanceId, transferId });
 
-        logger.info('Export bank statement started');
+        if (!Xero.hasScope(Xero.XeroScope.BankFeeds)) {
+            logger.warn('Bank Feeds scope is not enabled');
+            return;
+        }
+
+        if (!Xero.isAccessTokenAuthorizedForScope(accessToken, Xero.XeroScope.BankFeeds)) {
+            logger.warn('Access token is not authorized for exporting bank feeds');
+            return;
+        }
 
         const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
+        const organisation = await integrationManager.getOrganisation();
+        if (organisation.isDemoCompany) {
+            logger.warn('Demo organisations are not authorized for bank feed');
+            return;
+        }
+
+        logger.info('Export bank statement started');
 
         if (expenseId) {
             await integrationManager.exportBankStatementForExpense(expenseId);
         } else if (balanceId && transferId) {
             await integrationManager.exportBankStatementForTransfer(balanceId, transferId);
+        } else {
+            throw logger.error(Error('Missing parameters for bank statement export'));
         }
 
         logger.info('Export bank statement completed');

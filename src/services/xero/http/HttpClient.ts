@@ -61,7 +61,7 @@ export class HttpClient implements IHttpClient {
                     }
                 }
 
-                const response = await this.client.request<TBody>({
+                const response = await this.client.request({
                     url,
                     method,
                     data,
@@ -69,8 +69,12 @@ export class HttpClient implements IHttpClient {
                     responseType,
                 });
 
+                if (response.data.error) {
+                    throw new HttpError(response.data.error);
+                }
+
                 if (entityResponseType) {
-                    return (response.data as any)[entityResponseType];
+                    return response.data[entityResponseType];
                 }
 
                 return response.data;
@@ -111,6 +115,7 @@ export class HttpClient implements IHttpClient {
             name: err.name,
             message: err.message,
             code: statusCode,
+            data: err.response ? err.response.data : undefined,
         };
 
         if (!err.response) {

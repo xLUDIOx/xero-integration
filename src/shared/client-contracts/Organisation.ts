@@ -7,6 +7,16 @@ export interface IOrganisation {
     baseCurrency: Currency,
     shortCode: string;
     isDemoCompany: boolean;
+
+    /**
+     * Formatted like /Date()/
+     */
+    endOfYearLockDate?: string;
+
+    /**
+     * Formatted like /Date()/
+     */
+    periodLockDate?: string;
 }
 
 export enum OrganisationType {

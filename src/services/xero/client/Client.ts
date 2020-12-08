@@ -1,8 +1,6 @@
 import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
-import { FeedConnection } from 'xero-node/dist/gen/model/bankfeeds/feedConnection';
-import { CreditDebitIndicator, Statement } from 'xero-node/dist/gen/model/bankfeeds/models';
 
 import { Intersection } from '@shared';
 import { IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
@@ -10,6 +8,7 @@ import { IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
 import * as Auth from './auth';
+import * as BankFeeds from './bank-feeds';
 import {
     AccountingItemKeys,
     AccountKeys,
@@ -23,9 +22,7 @@ import {
     IBankTransaction,
     IBillPaymentData,
     IClient,
-    ICreateBankStatementModel,
     ICreateBillData,
-    ICreateFeedConnectionModel,
     ICreateTransactionData,
     IInvoice,
     InvoiceStatus,
@@ -39,6 +36,7 @@ export class Client implements IClient {
     constructor(
         readonly auth: Auth.IClient,
         readonly accounting: Accounting.IClient,
+        readonly bankFeeds: BankFeeds.IClient,
 
         private readonly xeroClient: IXeroHttpClient,
         private readonly tenantId: string,
@@ -432,84 +430,6 @@ export class Client implements IClient {
 
         const payment = payments[0];
         return payment as IPayment;
-    }
-
-    async getOrCreateConnection({ accountId, accountToken, currency }: ICreateFeedConnectionModel): Promise<string> {
-        let items = await this.xeroClient.makeClientRequest<FeedConnection[]>(
-            c => c.bankFeedsApi.getFeedConnections(
-                this.tenantId,
-            ),
-            XeroEntityResponseType.FeedConnections,
-        );
-
-        const existingFeedConnection = items.find(c => c.accountToken === accountToken && c.currency === currency);
-        if (existingFeedConnection) {
-            return existingFeedConnection.id!;
-        }
-
-        items = await this.xeroClient.makeClientRequest<FeedConnection[]>(
-            c => c.bankFeedsApi.createFeedConnections(
-                this.tenantId,
-                {
-                    items: [{
-                        accountId,
-                        accountToken,
-                        accountType: FeedConnection.AccountTypeEnum.BANK,
-                        currency,
-                    }],
-                }),
-            XeroEntityResponseType.FeedConnections,
-        );
-
-        const result = items[0];
-        if (!result) {
-            throw Error('No bank feed response');
-        }
-
-        if (result.status === FeedConnection.StatusEnum.REJECTED) {
-            throw result.error;
-        }
-
-        if (!result.id) {
-            throw Error('No bank feed connection id');
-        }
-
-        return result.id;
-    }
-
-    async createBankStatementLine({ feedConnectionId, bankTransactionId, date, amount, description, contactName }: ICreateBankStatementModel): Promise<string> {
-        const statements = await this.xeroClient.makeClientRequest<Statement[]>(
-            x => x.bankFeedsApi.createStatements(
-                this.tenantId,
-                {
-                    items: [{
-                        feedConnectionId,
-                        startBalance: {
-                            amount: amount < 0 ? -amount : 0,
-                            creditDebitIndicator: CreditDebitIndicator.DEBIT,
-                        },
-                        endBalance: {
-                            amount: amount < 0 ? 0 : amount,
-                            creditDebitIndicator: CreditDebitIndicator.DEBIT,
-                        },
-                        startDate: date,
-                        endDate: date,
-                        statementLines: [{
-                            amount,
-                            creditDebitIndicator: amount < 0 ? CreditDebitIndicator.CREDIT : CreditDebitIndicator.DEBIT,
-                            transactionId: bankTransactionId,
-                            postedDate: date,
-                            payeeName: contactName,
-                            description,
-                        }],
-                    }],
-                }
-            ),
-            XeroEntityResponseType.BankStatements,
-        );
-
-        const statement = statements[0];
-        return statement.id!;
     }
 
     private async ensureCurrency(currencyCode: string): Promise<void> {

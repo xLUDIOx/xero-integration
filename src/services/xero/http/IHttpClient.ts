@@ -13,7 +13,7 @@ export interface IRequestOptions {
     data?: any;
     contentType?: string;
     responseType?: 'json' | 'arraybuffer' | 'stream';
-    entityResponseType?: EntityResponseType;
+    entityResponseType?: EntityResponseType | string;
 }
 
 type IAuthorizationOptions = {
@@ -32,7 +32,7 @@ type IBasicAuthOptions = {
 export enum EntityResponseType {
     Accounts = 'Accounts',
     Attachments = 'Attachments',
-    BankStatements = 'BankStatements',
+    BankStatements = 'Statements',
     BankTransactions = 'BankTransactions',
     Contacts = 'Contacts',
     Currencies = 'Currencies',

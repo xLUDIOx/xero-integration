@@ -1,17 +1,15 @@
 import * as fs from 'fs';
 
-import { IXeroClientConfig } from 'xero-node';
-
 import { toBase64 } from '@utils';
 
 const xeroConfigPath = getXeroConfigPath();
 
-const config: IXeroClientConfig = {
+export const config: IXeroClientConfig = {
     // tslint:disable-next-line: no-var-requires
     ...(fs.existsSync(xeroConfigPath) ? require(xeroConfigPath) : {}),
 };
 
-export const getXeroConfig = (accountId: string, returnUrl?: string): IXeroClientConfig => {
+export const getXeroAccountConfig = (accountId: string, returnUrl?: string): IXeroClientConfig => {
     const queryString = `accountId=${encodeURIComponent(accountId)}${returnUrl ? `&returnUrl=${encodeURIComponent(returnUrl)}` : ''}`;
     return {
         ...config,
@@ -26,4 +24,12 @@ function getXeroConfigPath(): string {
     }
 
     return result;
+}
+
+export interface IXeroClientConfig {
+    clientId: string;
+    clientSecret: string;
+    redirectUris: string[];
+    scopes: string[];
+    state?: string;
 }

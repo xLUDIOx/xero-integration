@@ -7,3 +7,11 @@ export * from './request';
 
 export * from './Base64Converter';
 export * from './DateFormatter';
+
+export async function sleep(timeout: number) {
+    return new Promise<void>(resolve => {
+        setTimeout(() => {
+            resolve();
+        }, timeout);
+    });
+}

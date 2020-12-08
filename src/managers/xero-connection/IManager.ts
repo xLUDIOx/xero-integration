@@ -2,7 +2,7 @@ import { Xero } from '@services';
 import { ITokenSet } from '@shared';
 
 export interface IManager {
-    getAuthorizationUrl(): Promise<string>;
+    getAuthorizationUrl(): string;
     authenticate(authCode: string): Promise<ITokenSet | undefined>;
     getAccessToken(): Promise<ITokenSet | undefined>;
     getAuthorizedTenants(): Promise<Xero.ITenant[]>;

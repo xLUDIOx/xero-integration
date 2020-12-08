@@ -1,8 +1,8 @@
-import { Account, Contact } from 'xero-node';
-import { CurrencyCode } from 'xero-node/dist/gen/model/bankfeeds/currencyCode';
+import { Contact } from 'xero-node';
 
 import { IClient as IAccountingClient } from '../accounting';
 import { IClient as IAuthClient } from '../auth';
+import { IClient as IBankFeedsClient } from '../bank-feeds';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
@@ -12,6 +12,7 @@ import { IPayment } from './IPayment';
 export interface IClient {
     auth: IAuthClient;
     accounting: IAccountingClient;
+    bankFeeds: IBankFeedsClient;
 
     findContact(name: string, vat?: string): Promise<Contact | undefined>;
     getOrCreateContact(name: string, vat?: string): Promise<Contact>;
@@ -37,25 +38,6 @@ export interface IClient {
     getBillPayment(paymentId: string): Promise<IPayment | undefined>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(billId: string): Promise<IAttachment[]>;
-
-    getOrCreateConnection(data: ICreateFeedConnectionModel): Promise<string>;
-    createBankStatementLine(statement: ICreateBankStatementModel): Promise<string>;
-}
-
-export interface ICreateFeedConnectionModel {
-    accountId: string,
-    accountToken: string,
-    accountType: Account.BankAccountTypeEnum,
-    currency: CurrencyCode;
-}
-
-export interface ICreateBankStatementModel {
-    feedConnectionId: string;
-    bankTransactionId: string;
-    date: string;
-    amount: number;
-    contactName: string;
-    description: string;
 }
 
 export interface IAccountingItemData {
