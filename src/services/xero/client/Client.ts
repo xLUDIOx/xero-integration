@@ -124,26 +124,6 @@ export class Client implements IClient {
         return bankAccounts ? bankAccounts[0] : undefined;
     }
 
-    async activateBankAccount(bankAccountId: string): Promise<IBankAccount> {
-        const bankAccountsResult = await this.xeroClient.makeClientRequest<IBankAccount[]>(
-            x => x.accountingApi.updateAccount(
-                this.tenantId,
-                bankAccountId,
-                {
-                    accounts: [{ status: Account.StatusEnum.ACTIVE }],
-                },
-            ),
-            XeroEntityResponseType.Accounts,
-        );
-
-        const bankAccount = bankAccountsResult[0];
-        if (!bankAccount) {
-            throw Error('Could not activate bank account');
-        }
-
-        return bankAccount;
-    }
-
     async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount> {
         await this.ensureCurrency(currencyCode);
 

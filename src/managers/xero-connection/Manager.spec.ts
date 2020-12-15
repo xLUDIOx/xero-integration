@@ -3,28 +3,31 @@ import * as TypeMoq from 'typemoq';
 
 import { Xero } from '@services';
 import { ITokenSet, IUserTokenSetRecord } from '@shared';
-import { AccessTokens, ISchemaStore } from '@stores';
+import { AccessTokens, Accounts, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { isAccessTokenExpired, Manager } from './Manager';
 
 describe('xero-connection/Manager', () => {
     const accountId = 'account_id';
-    let storeMock: TypeMoq.IMock<AccessTokens.IStore>;
+    let accessTokensStoreMock: TypeMoq.IMock<AccessTokens.IStore>;
+    let accountsStoreMock: TypeMoq.IMock<Accounts.IStore>;
     let authMock: TypeMoq.IMock<Xero.IAuth>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let manager: Manager;
 
     beforeEach(() => {
-        storeMock = TypeMoq.Mock.ofType<AccessTokens.IStore>();
+        accessTokensStoreMock = TypeMoq.Mock.ofType<AccessTokens.IStore>();
+        accountsStoreMock = TypeMoq.Mock.ofType<Accounts.IStore>();
         authMock = TypeMoq.Mock.ofType<Xero.IAuth>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
-        manager = new Manager({ accessTokens: storeMock.object } as ISchemaStore, authMock.object, accountId, loggerMock.object);
+        manager = new Manager({ accessTokens: accessTokensStoreMock.object, accounts: accountsStoreMock.object } as ISchemaStore, authMock.object, accountId, loggerMock.object);
     });
 
     afterEach(() => {
-        storeMock.verifyAll();
+        accessTokensStoreMock.verifyAll();
+        accountsStoreMock.verifyAll();
         authMock.verifyAll();
         loggerMock.verifyAll();
     });
@@ -47,7 +50,7 @@ describe('xero-connection/Manager', () => {
         test('retrieves access token from store', async () => {
             const accessToken = createAccessToken();
 
-            storeMock
+            accessTokensStoreMock
                 .setup(s => s.getByAccountId(accountId))
                 .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as IUserTokenSetRecord);
 
@@ -59,7 +62,7 @@ describe('xero-connection/Manager', () => {
         test('does not return access token from store if it has expired', async () => {
             const accessToken = createAccessToken(true);
 
-            storeMock
+            accessTokensStoreMock
                 .setup(s => s.getByAccountId(accountId))
                 .returns(async () => ({ account_id: 'acc_id', token_set: accessToken }) as IUserTokenSetRecord);
 
@@ -87,7 +90,7 @@ describe('xero-connection/Manager', () => {
                 .setup(a => a.getAccessToken(verifier))
                 .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
 
-            storeMock
+            accessTokensStoreMock
                 .setup(s => s.create({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: '' }))
                 .returns(() => Promise.resolve())
                 .verifiable(TypeMoq.Times.once());

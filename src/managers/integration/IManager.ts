@@ -11,6 +11,8 @@ export interface IManager {
     exportTransfers(startDate: string, endDate: string): Promise<void>;
     exportBankStatementForTransfer(balanceId: string, transferId: string): Promise<void>;
 
+    initialSynchronization(): Promise<void>;
+
     synchronizeChartOfAccounts(): Promise<void>;
     synchronizeBankAccounts(): Promise<void>;
     synchronizeTaxRates(): Promise<void>;

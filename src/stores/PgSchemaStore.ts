@@ -4,18 +4,21 @@ import { IDbClient } from '@shared';
 import { ILogger } from '@utils';
 
 import { create as createAccessTokensStore, IStore as IAccessTokensStore } from './access-tokens';
+import { create as createAccountsStore, IStore as IAccountsStore } from './accounts';
 import { create as createApiKeysStore, IStore as IApiKeysStore } from './api-keys';
 import { create as createBankFeedsStore, IStore as IBankFeedsStore } from './bank-feeds';
 import { create as createExpenseTransactionsStore, IStore as IExpenseTransactionsStore } from './expense-transactions';
 import { ISchemaStore } from './ISchemaStore';
 
 export class PgSchemaStore implements ISchemaStore {
+    accounts: IAccountsStore;
     accessTokens: IAccessTokensStore;
     apiKeys: IApiKeysStore;
     bankFeeds: IBankFeedsStore;
     expenseTransactions: IExpenseTransactionsStore;
 
     constructor(private readonly dbClient: IDbClient, private readonly logger: ILogger) {
+        this.accounts = createAccountsStore(this.dbClient);
         this.accessTokens = createAccessTokensStore(this.dbClient, this.logger);
         this.apiKeys = createApiKeysStore(this.dbClient);
         this.bankFeeds = createBankFeedsStore(this.dbClient);

@@ -10,6 +10,7 @@ import { Manager } from './Manager';
 
 describe('integrations/Manager', () => {
     const accountId = 'account_id';
+    const tenantId = 'tenant_id';
     const portalUrl = 'https://portal.payhawk.io';
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
@@ -48,6 +49,7 @@ describe('integrations/Manager', () => {
 
         manager = new Manager(
             accountId,
+            tenantId,
             portalUrl,
             { expenseTransactions: expenseTransactionsStoreMock.object, bankFeeds: bankFeedsStoreMock.object } as ISchemaStore,
             xeroEntitiesMock.object,

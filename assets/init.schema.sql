@@ -1,5 +1,11 @@
 CREATE SCHEMA IF NOT EXISTS "xero_integration";
 
+CREATE TABLE IF NOT EXISTS "accounts" (
+    "account_id" text PRIMARY KEY NOT NULL,
+    "tenant_id" text NOT NULL,
+    "initial_sync_completed" BOOLEAN NOT NULL DEFAULT FALSE
+);
+
 CREATE TABLE IF NOT EXISTS "oauth2_access_tokens" (
     "account_id" text PRIMARY KEY NOT NULL,
     "user_id" text NOT NULL,

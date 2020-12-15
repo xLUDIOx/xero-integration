@@ -1,10 +1,11 @@
 import { expect } from 'chai';
 
-import { BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, ExpenseTransactionRecordKeys, KeyNameMap, PayhawkApiKeyRecordKeys, SCHEMA, UserTokenSetRecordKeys } from '@shared';
+import { AccountRecordKeys, BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, ExpenseTransactionRecordKeys, KeyNameMap, PayhawkApiKeyRecordKeys, SCHEMA, UserTokenSetRecordKeys } from '@shared';
 import { dbClient } from '@utils';
 
 const TABLE_RECORD_KEYS_MAP: Record<SCHEMA.TABLE_NAMES, KeyNameMap<any>> = {
     [SCHEMA.TABLE_NAMES.ACCESS_TOKENS]: UserTokenSetRecordKeys,
+    [SCHEMA.TABLE_NAMES.ACCOUNTS]: AccountRecordKeys,
     [SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS]: PayhawkApiKeyRecordKeys,
     [SCHEMA.TABLE_NAMES.BANK_FEED_CONNECTIONS]: BankFeedConnectionRecordKeys,
     [SCHEMA.TABLE_NAMES.BANK_FEED_STATEMENTS]: BankFeedStatementRecordKeys,

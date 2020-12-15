@@ -1,0 +1,31 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Accounts store should get by account id 1`] = `
+Object {
+  "text": "
+                SELECT * FROM \\"accounts\\"
+                WHERE \\"account_id\\" = $1
+            ",
+  "values": Array [
+    "acc_id",
+  ],
+}
+`;
+
+exports[`Accounts store should insert and handle conflict 1`] = `
+Object {
+  "text": "
+                INSERT INTO \\"accounts\\" as CURRENT(\\"account_id\\", \\"tenant_id\\", \\"initial_sync_completed\\")
+                VALUES ($1, $2, $3)
+                ON CONFLICT (\\"account_id\\")
+                DO
+                    UPDATE SET \\"initial_sync_completed\\"=$3
+                    WHERE CURRENT.\\"initial_sync_completed\\"=false
+            ",
+  "values": Array [
+    "acc_id",
+    "t_id",
+    true,
+  ],
+}
+`;

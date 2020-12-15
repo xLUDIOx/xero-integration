@@ -27,6 +27,7 @@ export const createManager: IManagerFactory = ({ accessToken, tenantId, accountI
 
     return new Manager(
         accountId,
+        tenantId,
         config.portalUrl,
         createSchemaStore(logger),
         xeroEntitiesManager,

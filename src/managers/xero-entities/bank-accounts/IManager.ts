@@ -3,7 +3,6 @@ import { IBankAccount } from './IBankAccount';
 export interface IManager {
     get(): Promise<IBankAccount[]>;
     getById(bankAccountId: string): Promise<IBankAccount | undefined>;
-    getByCurrency(currency: string): Promise<IBankAccount | undefined>;
     getOrCreateByCurrency(currency: string): Promise<IBankAccount>;
     getCurrencyByBankAccountCode(bankAccountCode: string): string;
 }
@@ -15,4 +14,4 @@ export const defBankAccountNumber = (currency: string) => `${DEFAULT_SORT_CODE}-
 export const defBankAccountCode = (currency: string) => `PHWK-${currency}`;
 export const defBankAccountName = (currency: string) => `Payhawk ${currency}`;
 
-export const mapAccountCodeToCurrency = (accountCode: string) => accountCode.split('-')[1];
+export const mapBankAccountCodeToCurrency = (bankAccountCode: string) => bankAccountCode.split('-')[1];

@@ -47,31 +47,6 @@ describe('XeroEntities.Manager', () => {
             expect(result.accountID).toEqual(bankAccountId);
         });
 
-        test('gets existing bank account for currency and activates it when archived', async () => {
-            const bankAccount: Xero.IBankAccount = {
-                accountID: bankAccountId,
-                code: 'PHWK-EUR',
-                name: accountName,
-                status: Account.StatusEnum.ARCHIVED,
-                type: AccountType.BANK,
-                bankAccountNumber: '',
-                currencyCode: CurrencyCode.EUR,
-            };
-
-            xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
-                .returns(async () => bankAccount);
-
-            xeroClientMock
-                .setup(x => x.activateBankAccount(bankAccount.accountID))
-                .returns(async () => ({ ...bankAccount, Status: Xero.BankAccountStatusCode.Active }))
-                .verifiable(TypeMoq.Times.once());
-
-            const result = await manager.getOrCreateByCurrency(currency);
-
-            expect(result.accountID).toEqual(bankAccountId);
-        });
-
         test('creates a bank account if it does not exist', async () => {
             const bankAccount: Xero.IBankAccount = {
                 accountID: bankAccountId,

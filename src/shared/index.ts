@@ -11,6 +11,7 @@ export namespace SCHEMA {
 
     export enum TABLE_NAMES {
         ACCESS_TOKENS = 'oauth2_access_tokens',
+        ACCOUNTS = 'accounts',
         BANK_FEED_CONNECTIONS = 'bank_feed_connections',
         BANK_FEED_STATEMENTS = 'bank_feed_statements',
         EXPENSE_TRANSACTIONS = 'expense_transactions',

@@ -7,7 +7,7 @@ import * as requestNative from 'request';
 import * as request from 'request-promise';
 
 import { config } from '../../Config';
-import { IAccountCode, IBalanceTransfer, IBusinessAccount, IClient, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
+import { IAccountCode, IBalance, IBalanceTransfer, IBusinessAccount, IClient, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
 
 export class Client implements IClient {
     private readonly headers: { [key: string]: string };
@@ -43,6 +43,17 @@ export class Client implements IClient {
     async getTransfer(balanceId: string, transferId: string): Promise<IBalanceTransfer | undefined> {
         const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/balances/${encodeURIComponent(balanceId)}/transfers/${encodeURIComponent(transferId)}`;
 
+        const result = await request(url, {
+            method: 'GET',
+            json: true,
+            headers: this.headers,
+        });
+
+        return result;
+    }
+
+    async getBankAccounts(): Promise<IBalance[]> {
+        const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/balances`;
         const result = await request(url, {
             method: 'GET',
             json: true,

@@ -9,6 +9,7 @@ import { IManager } from './IManager';
 export class Manager implements IManager {
     constructor(
         private readonly accountId: string,
+        private readonly tenantId: string,
         private readonly portalUrl: string,
         private readonly store: ISchemaStore,
         private readonly xeroEntities: XeroEntities.IManager,
@@ -17,6 +18,53 @@ export class Manager implements IManager {
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly logger: ILogger,
     ) { }
+
+    async initialSynchronization() {
+        const account = await this.store.accounts.get(this.accountId);
+        if (!account) {
+            return;
+        }
+
+        if (account.initial_sync_completed) {
+            this.logger.info('Account integration is already initialized');
+            return;
+        }
+
+        if (account.tenant_id !== this.tenantId) {
+            this.logger.info('Account initial tenant id is not the same, skipping initialization');
+            return;
+        }
+
+        let isSuccessful = true;
+
+        try {
+            this.logger.info(`Sync chart of accounts started`);
+            await this.synchronizeChartOfAccounts();
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.child({ innerError: err }).error(Error(`Sync chart of accounts failed`));
+        }
+
+        try {
+            this.logger.info(`Sync tax rates started`);
+            await this.synchronizeTaxRates();
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.child({ innerError: err }).error(Error(`Sync tax rates failed`));
+        }
+
+        try {
+            this.logger.info(`Sync bank accounts started`);
+            await this.synchronizeBankAccounts();
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.child({ innerError: err }).error(Error(`Sync bank accounts failed`));
+        }
+
+        if (isSuccessful) {
+            await this.store.accounts.update(this.accountId, true);
+        }
+    }
 
     async synchronizeChartOfAccounts(): Promise<void> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
@@ -40,6 +88,14 @@ export class Manager implements IManager {
     }
 
     async synchronizeBankAccounts(): Promise<void> {
+        // push
+        const payhawkAccounts = await this.payhawkClient.getBankAccounts();
+        const uniqueCurrencies = new Set(payhawkAccounts.map(x => x.currency));
+        for (const currency of uniqueCurrencies) {
+            await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        }
+
+        // then pull
         const bankAccounts = await this.xeroEntities.bankAccounts.get();
         const bankAccountModels = bankAccounts.map(b => ({
             name: b.name,
@@ -188,8 +244,22 @@ export class Manager implements IManager {
         const description = bankTransaction.reference;
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
+
+        try {
+            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        } catch (err) {
+            if (err.message === `${currency} bank account is archived and cannot be used`) {
+                if (feedConnectionId) {
+                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
+                    logger.info('Bank account cannot be used because it is archived, existing feed connection deleted');
+                }
+            }
+
+            throw err;
+        }
+
         if (!feedConnectionId) {
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
             feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {
@@ -370,7 +440,7 @@ export class Manager implements IManager {
                     }
                 }
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getByCurrency(expenseCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
                 if (bankAccount) {
                     bankAccountId = bankAccount.accountID;
                 }
@@ -459,8 +529,22 @@ export class Manager implements IManager {
         const logger = baseLogger.child({ currency });
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
+
+        try {
+            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        } catch (err) {
+            if (err.message === `${currency} bank account is archived and cannot be used`) {
+                if (feedConnectionId) {
+                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
+                    logger.info('Bank account cannot be used, existing feed connection deleted');
+                }
+            }
+
+            throw err;
+        }
+
         if (!feedConnectionId) {
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
             feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {
@@ -605,8 +689,23 @@ export class Manager implements IManager {
         const description = `Payment: ${contactName}`;
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+
+        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
+
+        try {
+            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        } catch (err) {
+            if (err.message === `${currency} bank account is archived and cannot be used`) {
+                if (feedConnectionId) {
+                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
+                    logger.info('Bank account cannot be used, existing feed connection deleted');
+                }
+            }
+
+            throw err;
+        }
+
         if (!feedConnectionId) {
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
             feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {

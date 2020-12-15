@@ -6,6 +6,7 @@ import { PgSchemaStore } from './PgSchemaStore';
 export { ISchemaStore };
 
 export * as AccessTokens from './access-tokens';
+export * as Accounts from './accounts';
 export * as ApiKeys from './api-keys';
 export * as BankFeeds from './bank-feeds';
 export * as ExpenseTransactions from './expense-transactions';

@@ -3,7 +3,7 @@ import { Account } from 'xero-node';
 import { Xero } from '@services';
 
 import { IBankAccount } from './IBankAccount';
-import { defBankAccountCode, defBankAccountName, defBankAccountNumber, IManager, mapAccountCodeToCurrency } from './IManager';
+import { defBankAccountCode, defBankAccountName, defBankAccountNumber, IManager, mapBankAccountCodeToCurrency } from './IManager';
 
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
@@ -16,22 +16,16 @@ export class Manager implements IManager {
         return await this.xeroClient.getBankAccountById(bankAccountId);
     }
 
-    async getByCurrency(currency: string): Promise<IBankAccount | undefined> {
-        const bankAccountCode = defBankAccountCode(currency);
-        const bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode);
-        return bankAccount;
-    }
-
     async getOrCreateByCurrency(currency: string): Promise<IBankAccount> {
         const bankAccountCode = defBankAccountCode(currency);
         const bankAccountNumber = defBankAccountNumber(currency);
         const bankAccountName = defBankAccountName(currency);
         let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode);
-        if (bankAccount) {
-            if (bankAccount.status === Account.StatusEnum.ARCHIVED) {
-                bankAccount = await this.xeroClient.activateBankAccount(bankAccount.accountID);
-            }
-        } else {
+        if (bankAccount && bankAccount.status === Account.StatusEnum.ARCHIVED) {
+            throw Error(`${currency} bank account is archived and cannot be used`);
+        }
+
+        if (!bankAccount) {
             bankAccount = await this.xeroClient.createBankAccount(bankAccountName, bankAccountCode, bankAccountNumber, currency);
         }
 
@@ -39,6 +33,6 @@ export class Manager implements IManager {
     }
 
     getCurrencyByBankAccountCode(bankAccountCode: string): string {
-        return mapAccountCodeToCurrency(bankAccountCode);
+        return mapBankAccountCodeToCurrency(bankAccountCode);
     }
 }
