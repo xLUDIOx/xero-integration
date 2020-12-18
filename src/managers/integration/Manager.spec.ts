@@ -2,7 +2,7 @@ import * as TypeMoq from 'typemoq';
 
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus } from '@shared';
-import { BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
+import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
@@ -21,6 +21,7 @@ describe('integrations/Manager', () => {
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
     let expenseTransactionsStoreMock: TypeMoq.IMock<ExpenseTransactions.IStore>;
     let bankFeedsStoreMock: TypeMoq.IMock<BankFeeds.IStore>;
+    let accountsStoreMock: TypeMoq.IMock<Accounts.IStore>;
 
     let manager: Manager;
 
@@ -34,6 +35,7 @@ describe('integrations/Manager', () => {
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
         expenseTransactionsStoreMock = TypeMoq.Mock.ofType<ExpenseTransactions.IStore>();
         bankFeedsStoreMock = TypeMoq.Mock.ofType<BankFeeds.IStore>();
+        accountsStoreMock = TypeMoq.Mock.ofType<Accounts.IStore>();
 
         xeroEntitiesMock
             .setup(x => x.bankFeeds)
@@ -51,7 +53,11 @@ describe('integrations/Manager', () => {
             accountId,
             tenantId,
             portalUrl,
-            { expenseTransactions: expenseTransactionsStoreMock.object, bankFeeds: bankFeedsStoreMock.object } as ISchemaStore,
+            {
+                accounts: accountsStoreMock.object,
+                expenseTransactions: expenseTransactionsStoreMock.object,
+                bankFeeds: bankFeedsStoreMock.object,
+            } as ISchemaStore,
             xeroEntitiesMock.object,
             payhawkClientMock.object,
             fxRatesServiceMock.object,
@@ -122,7 +128,7 @@ describe('integrations/Manager', () => {
         });
     });
 
-    describe('exportExpense', () => {
+    describe('export expense', () => {
         const reconciliation: Payhawk.IReconciliation = {
             accountCode: '420',
             baseCurrency: 'EUR',
@@ -200,6 +206,16 @@ describe('integrations/Manager', () => {
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
 
+                expenseTransactionsStoreMock.reset();
+
+                expenseTransactionsStoreMock
+                    .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
+                    .returns(async () => [{
+                        account_id: accountId,
+                        expense_id: expenseId,
+                        transaction_id: expense.transactions[0].id,
+                    }]);
+
                 const bankAccountId = 'bank-account-id';
                 const contactId = 'contact-id';
                 payhawkClientMock
@@ -218,7 +234,7 @@ describe('integrations/Manager', () => {
                     .setup(x => x.getContactIdForSupplier(supplier))
                     .returns(async () => contactId);
 
-                expense.transactions.forEach(t =>
+                expense.transactions.forEach(t => {
                     xeroEntitiesMock
                         .setup(x => x.createOrUpdateAccountTransaction({
                             date: t.settlementDate || t.date,
@@ -233,8 +249,121 @@ describe('integrations/Manager', () => {
                             url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
                         }))
                         .returns(() => Promise.resolve('1'))
-                        .verifiable(TypeMoq.Times.once()),
-                );
+                        .verifiable(TypeMoq.Times.once());
+
+                    expenseTransactionsStoreMock
+                        .setup(s => s.createIfNotExists(accountId, expenseId, t.id))
+                        .verifiable(TypeMoq.Times.once());
+                });
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.exactly(expense.transactions.length));
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=1`,
+                            }],
+                        }));
+
+                await manager.exportExpense(expenseId);
+            });
+
+            test('updates account transaction when expense reaches final state - settlement', async () => {
+                const expenseId = 'expenseId';
+                // cspell:disable-next-line
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2).toISOString(),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation,
+                    supplier,
+                    paymentData: {},
+                    title: txDescription,
+                    transactions: [
+                        {
+                            id: 'tx_id',
+                            cardAmount: 5,
+                            cardCurrency: 'EUR',
+                            cardName: 'Card 1',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'USD',
+                            date: new Date(2019, 2, 3).toISOString(),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: 1,
+                        },
+                    ],
+                    externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
+                };
+
+                const transaction = expense.transactions[0];
+
+                expenseTransactionsStoreMock.reset();
+
+                expenseTransactionsStoreMock
+                    .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
+                    .returns(async () => [{
+                        account_id: accountId,
+                        expense_id: expenseId,
+                        transaction_id: transaction.id,
+                    }]);
+
+                const bankAccountId = 'bank-account-id';
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                bankAccountsManagerMock
+                    .setup(x => x.getOrCreateByCurrency(expense.transactions[0].cardCurrency))
+                    .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateAccountTransaction({
+                        date: transaction.settlementDate || transaction.date,
+                        accountCode: reconciliation.accountCode,
+                        taxType: 'TAX001',
+                        bankAccountId,
+                        contactId,
+                        description: `${transaction.cardHolderName}${transaction.cardName ? `, ${transaction.cardName}` : ''}, *${transaction.cardLastDigits} | ${expense.note}`,
+                        reference: transaction.description,
+                        totalAmount: transaction.cardAmount + transaction.fees,
+                        files,
+                        url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(transaction.id)}&accountId=${encodeURIComponent(accountId)}`,
+                    }))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
+
+                expenseTransactionsStoreMock
+                    .setup(s => s.createIfNotExists(accountId, expenseId, transaction.id))
+                    .verifiable(TypeMoq.Times.once());
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
@@ -438,7 +567,7 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
-                    .returns(async () => ({ } as XeroEntities.IOrganisation))
+                    .returns(async () => ({} as XeroEntities.IOrganisation))
                     .verifiable(TypeMoq.Times.once());
 
                 xeroEntitiesMock
@@ -477,6 +606,12 @@ describe('integrations/Manager', () => {
     describe('export transfers', () => {
         const startDate = new Date().toISOString();
         const endDate = new Date().toISOString();
+
+        beforeEach(() => {
+            xeroEntitiesMock
+                .setup(m => m.getOrganisation())
+                .returns(async () => ({} as XeroEntities.IOrganisation));
+        });
 
         test('creates an account transaction for each transfer', async () => {
             await testTransfersExport(new Date(), 'account');
@@ -617,6 +752,57 @@ describe('integrations/Manager', () => {
             });
 
             await manager.disconnect();
+        });
+    });
+
+    describe('initial sync', () => {
+        describe('does nothing if', () => {
+            beforeAll(() => {
+                xeroEntitiesMock
+                    .setup(m => m.getExpenseAccounts())
+                    .verifiable(TypeMoq.Times.never());
+
+                payhawkClientMock
+                    .setup(p => p.synchronizeChartOfAccounts(TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.never());
+
+                xeroEntitiesMock
+                    .setup(m => m.getTaxRates())
+                    .verifiable(TypeMoq.Times.never());
+
+                payhawkClientMock
+                    .setup(p => p.synchronizeTaxRates(TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.never());
+
+                payhawkClientMock
+                    .setup(p => p.getBankAccounts())
+                    .verifiable(TypeMoq.Times.never());
+
+                bankAccountsManagerMock
+                    .setup(m => m.get())
+                    .verifiable(TypeMoq.Times.never());
+
+                payhawkClientMock
+                    .setup(p => p.synchronizeBankAccounts(TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.never());
+            });
+
+            it('account is already synced', async () => {
+                accountsStoreMock
+                    .setup(s => s.get(accountId))
+                    .returns(async () => ({ account_id: accountId, initial_sync_completed: true, tenant_id: '' }))
+                    .verifiable(TypeMoq.Times.once());
+
+                await manager.initialSynchronization();
+            });
+            it('account initial tenant is different', async () => {
+                accountsStoreMock
+                    .setup(s => s.get(accountId))
+                    .returns(async () => ({ account_id: accountId, initial_sync_completed: false, tenant_id: '' }))
+                    .verifiable(TypeMoq.Times.once());
+
+                await manager.initialSynchronization();
+            });
         });
     });
 });

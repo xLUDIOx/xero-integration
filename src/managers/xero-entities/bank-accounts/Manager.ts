@@ -22,7 +22,7 @@ export class Manager implements IManager {
         const bankAccountName = defBankAccountName(currency);
         let bankAccount = await this.xeroClient.getBankAccountByCode(bankAccountCode);
         if (bankAccount && bankAccount.status === Account.StatusEnum.ARCHIVED) {
-            throw Error(`${currency} bank account is archived and cannot be used`);
+            throw Error(`${bankAccountName} bank account is archived and cannot be used`);
         }
 
         if (!bankAccount) {

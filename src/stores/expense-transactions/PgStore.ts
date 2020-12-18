@@ -8,7 +8,7 @@ export class PgStore implements IStore {
     constructor(private readonly dbClient: IDbClient) {
     }
 
-    async create(accountId: string, expenseId: string, transactionId: string): Promise<void> {
+    async createIfNotExists(accountId: string, expenseId: string, transactionId: string): Promise<void> {
         await this.dbClient.query({
             text: `
                     INSERT INTO "${this.tableName}"

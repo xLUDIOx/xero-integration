@@ -1,6 +1,7 @@
 import { boundMethod } from 'autobind-decorator';
 import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
+import { InternalServerError } from 'restify-errors';
 
 import { Integration, XeroConnection } from '@managers';
 import { Xero } from '@services';
@@ -71,13 +72,17 @@ export class IntegrationsController {
                     break;
                 }
                 case PayhawkEvent.ExpenseExport: {
-                    await this.exportExpense(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
+                    try {
+                        await this.exportExpense(
+                            payloadData,
+                            connectionManager,
+                            accountId,
+                            xeroAccessToken,
+                            logger,
+                        );
+                    } catch (err) {
+                        throw new InternalServerError(err.message);
+                    }
                     break;
                 }
                 case PayhawkEvent.ExpenseDelete: {
@@ -225,8 +230,7 @@ export class IntegrationsController {
         const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
         const organisation = await integrationManager.getOrganisation();
         if (organisation.isDemoCompany) {
-            logger.warn('Demo organisations are not authorized for bank feed');
-            return;
+            throw Error(`Failed to export bank statements. You are using a demo organization in Xero.`);
         }
 
         logger.info('Export bank statement started');
