@@ -32,7 +32,7 @@
     "@types/jsonwebtoken": "8.5.0",
     "@types/mime-types": "2.1.0",
     "@types/module-alias": "2.0.0",
-    "@types/node": "^12.19.11",
+    "@types/node": "12.19.11",
     "@types/node-rsa": "1.0.0",
     "@types/oauth": "0.9.1",
     "@types/pg": "7.14.7",
