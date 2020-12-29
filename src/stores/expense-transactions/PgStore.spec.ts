@@ -21,7 +21,7 @@ describe('Expense Transactions store', () => {
     });
 
     it('should match snapshot for creating record', async () => {
-        await store.create('acc_id', 'exp_id', 'tx_id');
+        await store.createIfNotExists('acc_id', 'exp_id', 'tx_id');
     });
 
     it('should match snapshot for getting record', async () => {

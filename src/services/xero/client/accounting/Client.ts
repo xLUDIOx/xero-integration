@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, TaxRateStatus } from '@shared';
+import { AccountStatus, AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, TaxRateStatus } from '@shared';
 import { ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -91,7 +91,7 @@ export class Client implements IClient {
             this.baseUrl(),
             '/Accounts',
             {
-                where: `${DEFAULT_EXPENSE_ACCOUNT_FILTER}&&Code=="${code}"`,
+                where: `Class=="${AccountType.Expense}"&&Code=="${code}"`,
             }
         );
 
@@ -160,6 +160,6 @@ export class Client implements IClient {
     }
 }
 
-const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"&&Status=="${TaxRateStatus.Active}"`;
+const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"&&Status=="${AccountStatus.Active}"`;
 
 const API_PREFIX = '/api.xro/2.0';

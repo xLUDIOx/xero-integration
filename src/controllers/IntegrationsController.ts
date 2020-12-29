@@ -225,8 +225,7 @@ export class IntegrationsController {
         const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
         const organisation = await integrationManager.getOrganisation();
         if (organisation.isDemoCompany) {
-            logger.warn('Demo organisations are not authorized for bank feed');
-            return;
+            throw Error(`Failed to export bank statements. You are using a demo organization in Xero.`);
         }
 
         logger.info('Export bank statement started');

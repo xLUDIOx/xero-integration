@@ -1,7 +1,7 @@
 import { FxRates, Payhawk, Xero } from '@services';
 import { EntityType } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ILogger, isBeforeDate } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
@@ -119,9 +119,30 @@ export class Manager implements IManager {
             } else {
                 await this.exportExpenseAsBill(expense, files, organisation);
             }
+        } catch (err) {
+            this.handleExpenseExportError(err, expense);
         } finally {
             await Promise.all(files.map(async (f: Payhawk.IDownloadedFile) => this.deleteFile(f.path)));
         }
+    }
+
+    private handleExpenseExportError(err: Error, expense: Payhawk.IExpense) {
+        const errorMessage = err.message;
+        if (ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
+            throw Error(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
+        } else if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
+            throw Error(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
+        } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
+            throw Error(`${errorMessage}. Please activate it.`);
+        } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
+            throw Error(LOCK_PERIOD_ERROR_MESSAGE);
+        } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
+            throw Error(EXPENSE_RECONCILED_ERROR_MESSAGE);
+        } else if (DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+            throw Error(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+        }
+
+        throw Error('Failed to export expense into Xero. Please check that all expense data is correct and try again.');
     }
 
     async deleteExpense(expenseId: string): Promise<void> {
@@ -135,17 +156,25 @@ export class Manager implements IManager {
     }
 
     async exportTransfers(startDate: string, endDate: string): Promise<void> {
+        const logger = this.logger.child({ accountId: this.accountId, startDate, endDate });
+        const organisation = await this.getOrganisation();
+
         const transfers = await this.payhawkClient.getTransfers(startDate, endDate);
         if (!transfers.length) {
+            logger.info('There are no transfers for the selected period');
             return;
         }
 
-        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: 'New Deposit' });
+        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
 
         const bankAccountIdMap = new Map<string, string>();
 
         for (const transfer of transfers) {
+            const transferLogger = logger.child({ transferId: transfer.id });
+
             try {
+                this.validateExportDate(organisation, transfer.date, transferLogger);
+
                 let bankAccountId = bankAccountIdMap.get(transfer.currency);
                 if (!bankAccountId) {
                     const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
@@ -155,7 +184,7 @@ export class Manager implements IManager {
 
                 await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
             } catch (err) {
-                this.logger.child({ accountId: this.accountId, transferId: transfer.id }).error(err);
+                transferLogger.error(err);
             }
         }
     }
@@ -171,7 +200,7 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
         this.validateExportDate(organisation, transfer.date, logger);
 
-        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: 'New Deposit' });
+        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
         try {
             const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
             const bankAccountId = bankAccount.accountID;
@@ -295,7 +324,7 @@ export class Manager implements IManager {
 
     private async disconnectBankFeed(organisation: XeroEntities.IOrganisation) {
         if (organisation.isDemoCompany) {
-            this.logger.info('Demo organisations are not authorized for bank feed, skipping bank feed disconnect');
+            this.logger.info(`Demo organisations are not authorized for bank feed, skipping bank feed disconnect`);
             return;
         }
 
@@ -320,9 +349,6 @@ export class Manager implements IManager {
     }
 
     private async exportExpenseAsTransaction(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
-        const actualTransactionIds = expense.transactions.map(t => t.id);
-        await this.deleteOldExpenseTransactions(expense.id, actualTransactionIds);
-
         // common data for all transactions linked to the expense
         const currency = expense.transactions[0].cardCurrency;
         const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
@@ -362,23 +388,9 @@ export class Manager implements IManager {
 
         const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
 
-        await this.store.expenseTransactions.create(this.accountId, expense.id, transaction.id);
+        await this.store.expenseTransactions.createIfNotExists(this.accountId, expense.id, transaction.id);
 
         return bankTransactionId;
-    }
-
-    private async deleteOldExpenseTransactions(expenseId: string, actualTransactionIds: string[]) {
-        const exportedTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
-        if (exportedTransactions.length === 0) {
-            return;
-        }
-
-        const exportedTransactionIds = exportedTransactions.map(t => t.transaction_id);
-        for (const transactionId of actualTransactionIds) {
-            if (!exportedTransactionIds.includes(transactionId)) {
-                await this.deleteTransaction(expenseId, transactionId);
-            }
-        }
     }
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
@@ -487,7 +499,7 @@ export class Manager implements IManager {
         });
 
         if (isBeforeDate(date, lockDate)) {
-            throw logger.error(Error('Expense export date is in the locked period for this organisation'));
+            throw logger.error(Error(LOCK_PERIOD_ERROR_MESSAGE));
         }
     }
 
@@ -570,8 +582,7 @@ export class Manager implements IManager {
             }
 
             if (bankTransaction.isReconciled) {
-                txLogger.error(Error('Bank transaction is already reconciled, bank statement will not be exported'));
-                continue;
+                throw txLogger.error(Error(EXPENSE_RECONCILED_ERROR_MESSAGE));
             }
 
             let statementId = await this.store.bankFeeds.getStatementByEntityId({
@@ -774,5 +785,7 @@ function getBillExportDate(expense: Payhawk.IExpense): string {
 function getTransactionExportDate(transaction: Payhawk.ITransaction): string {
     return transaction.settlementDate || transaction.date;
 }
+
+const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
 
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);

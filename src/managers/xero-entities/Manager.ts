@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, ITaxRate } from '@shared';
-import { fromDateTicks } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, fromDateTicks, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -207,7 +207,7 @@ export class Manager implements IManager {
     }
 
     private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): Promise<TData> {
-        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
+        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             // Force default account code
             await this.ensureDefaultAccountCodeExists();
 
@@ -291,8 +291,6 @@ export const getTransactionExternalUrl = (organisationShortCode: string, transac
 export const getBillExternalUrl = (organisationShortCode: string, invoiceId: string): string => {
     return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=${encodeURIComponent(invoiceId)}`;
 };
-
-const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account code '.+' has been archived|Account must be valid/;
 
 export const DEFAULT_ACCOUNT_CODE = '999999';
 export const DEFAULT_ACCOUNT_NAME = 'PAYHAWK GENERAL';
