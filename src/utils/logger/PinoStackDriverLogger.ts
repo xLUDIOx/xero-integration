@@ -14,8 +14,8 @@ enum StackdriverSeverity {
 
 export class PinoStackDriverLogger implements ILogger {
     constructor(private readonly serviceName: string,
-                private readonly pino: Logger,
-                private readonly currentRequest?: restify.Request,
+        private readonly pino: Logger,
+        private readonly currentRequest?: restify.Request,
     ) { }
 
     info(obj: string | object, msg?: string): void {
@@ -52,6 +52,10 @@ export class PinoStackDriverLogger implements ILogger {
     }
 
     error(error: Error, obj?: object): Error {
+        if (error === undefined) {
+            throw Error('Error is undefined!');
+        }
+
         // "message" must contain stacktrace for StackDriver to work properly
         // StackDriver required properties are last to make sure they are outputted and not overridden by other properties
         // https://cloud.google.com/error-reporting/docs/formatting-error-messages
