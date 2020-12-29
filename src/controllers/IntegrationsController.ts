@@ -1,7 +1,6 @@
 import { boundMethod } from 'autobind-decorator';
 import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
-import { InternalServerError } from 'restify-errors';
 
 import { Integration, XeroConnection } from '@managers';
 import { Xero } from '@services';
@@ -72,17 +71,13 @@ export class IntegrationsController {
                     break;
                 }
                 case PayhawkEvent.ExpenseExport: {
-                    try {
-                        await this.exportExpense(
-                            payloadData,
-                            connectionManager,
-                            accountId,
-                            xeroAccessToken,
-                            logger,
-                        );
-                    } catch (err) {
-                        throw new InternalServerError(err.message);
-                    }
+                    await this.exportExpense(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    );
                     break;
                 }
                 case PayhawkEvent.ExpenseDelete: {
