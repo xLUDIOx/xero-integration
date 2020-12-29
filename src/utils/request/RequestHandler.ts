@@ -15,11 +15,17 @@ export const requestHandler = (asyncHandler: AsyncRequestHandler): RequestHandle
                     next(err);
                 } else if (process.env.TESTING === 'true') {
                     next(new InternalServerError(err));
-                } else if (!(err instanceof LoggedError)) {
-                    logger.error(err);
-                }
+                } else {
+                    if (!(err instanceof LoggedError)) {
+                        if (err) {
+                            logger.error(err, { req });
+                        } else {
+                            logger.error(new Error('Undefined error while handling request'), { req });
+                        }
+                    }
 
-                next(new InternalServerError());
+                    next(new InternalServerError());
+                }
             });
     };
 };
