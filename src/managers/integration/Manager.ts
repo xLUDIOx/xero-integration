@@ -367,7 +367,7 @@ export class Manager implements IManager {
     }
 
     private async exportTransaction(expense: Payhawk.IExpense, transaction: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation): Promise<string> {
-        const totalAmount = transaction.cardAmount + transaction.fees;
+        const totalAmount = getTransactionTotalAmount(transaction);
         const description = formatDescription(formatCardDescription(transaction.cardHolderName, transaction.cardLastDigits, transaction.cardName), expense.note);
         const date = getTransactionExportDate(transaction);
 
@@ -571,7 +571,7 @@ export class Manager implements IManager {
             const date = transaction.settlementDate;
             this.validateExportDate(organisation, date, baseLogger);
 
-            const amount = transaction.cardAmount;
+            const totalAmount = getTransactionTotalAmount(transaction);
             const transactionUrl = this.buildTransactionUrl(transaction.id, new Date(date));
 
             const txLogger = logger.child({ transactionId: transaction.id, transactionUrl });
@@ -604,7 +604,7 @@ export class Manager implements IManager {
                 feedConnectionId,
                 bankTransaction.bankTransactionID,
                 date,
-                amount,
+                totalAmount,
                 contactName!,
                 description,
             );
@@ -772,6 +772,10 @@ export class Manager implements IManager {
 
 function formatDescription(name: string, expenseNote?: string): string {
     return `${name}${expenseNote ? ` | ${expenseNote}` : ''}`;
+}
+
+function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
+    return t.cardAmount + t.fees;
 }
 
 function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {

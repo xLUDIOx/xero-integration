@@ -13,9 +13,6 @@ export class Client implements IClient {
         private readonly env: IEnvironment,
     ) {
     }
-    getBankStatementById(statementId: string): Promise<IBankStatement | undefined> {
-        throw new Error('Method not implemented.');
-    }
 
     async getOrCreateBankFeedConnection({ accountId, accountToken, accountType, currency }: INewBankFeedConnection): Promise<IBankFeedConnection> {
         const logger = this.logger.child({ bankFeedConnection: { accountId, accountToken, currency } });
@@ -33,12 +30,14 @@ export class Client implements IClient {
 
         while (feedConnection.status && feedConnection.status === BankFeedConnectionStatus.Pending) {
             if (retries === 1) {
-                throw logger.info('Bank feed connection is PENDING, waiting to be ready');
+                logger.info('Bank feed connection is PENDING, waiting to be ready');
             }
 
             if (retries === MAX_BANK_FEED_CONNECTIONS_RETRIES) {
                 throw logger.error(Error(`Bank feed connection is still PENDING after ${MAX_BANK_FEED_CONNECTIONS_RETRIES} retries`));
             }
+
+            logger.info(`Waiting ${BANK_FEED_CONNECTIONS_DELAY} ms before trying again`);
 
             await sleep(BANK_FEED_CONNECTIONS_DELAY);
 
@@ -78,17 +77,13 @@ export class Client implements IClient {
             '/FeedConnections/DeleteRequests',
         );
 
-        const response = await this.httpClient.request({
+        await this.httpClient.request({
             url,
             method: 'POST',
             data: {
                 items: [{ id: connectionId }],
             },
         });
-
-        if (response) {
-            return;
-        }
     }
 
     private async getBankFeedConnectionByAccountDetails(accountId: string, accountToken: string, currency: Currency): Promise<IBankFeedConnection | undefined> {
