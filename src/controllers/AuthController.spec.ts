@@ -125,7 +125,7 @@ describe('AuthController', () => {
                 .verifiable(TypeMoq.Times.once());
 
             connectionManagerMock
-                .setup(m => m.getAuthorizedTenants())
+                .setup(m => m.getAuthorizedTenants(token))
                 .returns(async () => [{ tenantId: '1' } as any])
                 .verifiable(TypeMoq.Times.once());
 

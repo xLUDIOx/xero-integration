@@ -81,7 +81,7 @@ export class AuthController {
                 return;
             }
 
-            const authorizedTenants = await connectionManager.getAuthorizedTenants();
+            const authorizedTenants = await connectionManager.getAuthorizedTenants(accessToken);
 
             // should never happen
             if (authorizedTenants.length === 0) {

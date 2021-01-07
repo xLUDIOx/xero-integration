@@ -55,15 +55,8 @@ export class Manager implements IManager {
         return this.tryRefreshAccessToken(xeroAccessToken, xeroAccessTokenRecord.tenant_id);
     }
 
-    async getAuthorizedTenants(): Promise<Xero.ITenant[]> {
-        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
-        if (xeroAccessTokenRecord === undefined) {
-            return [];
-        }
-
-        const xeroAccessToken: ITokenSet | undefined = xeroAccessTokenRecord.token_set;
-
-        return this.authClient.getAuthorizedTenants(xeroAccessToken);
+    async getAuthorizedTenants(accessToken: ITokenSet): Promise<Xero.ITenant[]> {
+        return this.authClient.getAuthorizedTenants(accessToken);
     }
 
     async getActiveTenantId(): Promise<string | undefined> {

@@ -8,4 +8,4 @@ services:
   - docker
 
 script:
-  - sh test.sh
+  - docker build --tag payhawk/xero-integration .
