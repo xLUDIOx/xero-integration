@@ -82,6 +82,7 @@ export class IntegrationsController {
                     } catch (err) {
                         if (err instanceof ExportError) {
                             res.send(400, err.message);
+                            return;
                         } else {
                             throw err;
                         }
@@ -146,6 +147,7 @@ export class IntegrationsController {
             }
 
             res.send(204);
+            return;
         } catch (err) {
             if (err instanceof OperationNotAllowedError) {
                 logger.warn(`Operation not allowed: ${err.message}`);
