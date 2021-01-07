@@ -5,7 +5,7 @@ import { Request, Response } from 'restify';
 import { Integration, XeroConnection } from '@managers';
 import { Xero } from '@services';
 import { IPayhawkPayload, PayhawkEvent } from '@shared';
-import { ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
+import { ExportError, ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
 
 export class IntegrationsController {
     constructor(
@@ -71,13 +71,21 @@ export class IntegrationsController {
                     break;
                 }
                 case PayhawkEvent.ExpenseExport: {
-                    await this.exportExpense(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
+                    try {
+                        await this.exportExpense(
+                            payloadData,
+                            connectionManager,
+                            accountId,
+                            xeroAccessToken,
+                            logger,
+                        );
+                    } catch (err) {
+                        if (err instanceof ExportError) {
+                            res.send(400, err.message);
+                        } else {
+                            throw err;
+                        }
+                    }
                     break;
                 }
                 case PayhawkEvent.ExpenseDelete: {

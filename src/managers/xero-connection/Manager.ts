@@ -22,15 +22,17 @@ export class Manager implements IManager {
     async authenticate(authCode: string): Promise<ITokenSet | undefined> {
         const accessToken = await this.authClient.getAccessToken(authCode);
 
-        await this.store.accounts.upsert({
-            account_id: this.accountId,
-            tenant_id: accessToken.tenantId,
-            initial_sync_completed: false,
-        });
-
         await this.createAccessToken(accessToken);
 
         return accessToken.tokenSet;
+    }
+
+    async createAccount(tenantId: string): Promise<void> {
+        await this.store.accounts.upsert({
+            account_id: this.accountId,
+            tenant_id: tenantId,
+            initial_sync_completed: false,
+        });
     }
 
     async getAccessToken(): Promise<ITokenSet | undefined> {

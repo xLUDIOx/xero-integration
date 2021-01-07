@@ -5,6 +5,7 @@ export interface IManager {
     getAuthorizationUrl(): string;
     authenticate(authCode: string): Promise<ITokenSet | undefined>;
     getAccessToken(): Promise<ITokenSet | undefined>;
+    createAccount(tenantId: string): Promise<void>;
     getAuthorizedTenants(): Promise<Xero.ITenant[]>;
     getActiveTenantId(): Promise<string | undefined>;
     connectTenant(tenantId: string): Promise<void>;

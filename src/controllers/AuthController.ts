@@ -114,6 +114,8 @@ export class AuthController {
                 throw Error('No active tenant found for this account after callback received');
             }
 
+            await connectionManager.createAccount(tenantId);
+
             const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
 
             const organisation = await integrationManager.getOrganisation();
@@ -162,6 +164,8 @@ export class AuthController {
         if (!accessToken) {
             throw new InternalServerError('No access token found');
         }
+
+        await connectionManager.createAccount(tenantId);
 
         const integrationManager = this.integrationManagerFactory({ accessToken, accountId, tenantId }, logger);
         const organisation = await integrationManager.getOrganisation();

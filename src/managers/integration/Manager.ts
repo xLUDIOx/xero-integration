@@ -1,7 +1,7 @@
 import { FxRates, Payhawk, Xero } from '@services';
 import { EntityType } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
@@ -129,20 +129,20 @@ export class Manager implements IManager {
     private handleExpenseExportError(err: Error, expense: Payhawk.IExpense) {
         const errorMessage = err.message;
         if (ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw Error(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
+            throw new ExportError(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
         } else if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw Error(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
+            throw new ExportError(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
         } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
-            throw Error(`${errorMessage}. Please activate it.`);
+            throw new ExportError(`${errorMessage}. Please activate it.`);
         } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
-            throw Error(LOCK_PERIOD_ERROR_MESSAGE);
+            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
         } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
-            throw Error(EXPENSE_RECONCILED_ERROR_MESSAGE);
-        } else if (DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
-            throw Error(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+            throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
+        } else if (errorMessage === DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+            throw new ExportError(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         }
 
-        throw Error('Failed to export expense into Xero. Please check that all expense data is correct and try again.');
+        throw new ExportError('Failed to export expense into Xero. Please check that all expense data is correct and try again.');
     }
 
     async deleteExpense(expenseId: string): Promise<void> {
@@ -221,10 +221,14 @@ export class Manager implements IManager {
         const expense = await this.payhawkClient.getExpense(expenseId);
         const organisation = await this.getOrganisation();
 
-        if (expense.transactions.length === 0) {
-            await this.exportBankStatementForBill(expense, organisation, logger);
-        } else {
-            await this.exportBankStatementForTransactions(expense, organisation, logger);
+        try {
+            if (expense.transactions.length === 0) {
+                await this.exportBankStatementForBill(expense, organisation, logger);
+            } else {
+                await this.exportBankStatementForTransactions(expense, organisation, logger);
+            }
+        } catch (err) {
+            this.handleExpenseExportError(err, expense);
         }
     }
 

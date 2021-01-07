@@ -1,4 +1,5 @@
 export * from './OperationNotAllowedError';
+export * from './ExportError';
 export * from './ForbiddenError';
 
 export const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account must be valid/;
