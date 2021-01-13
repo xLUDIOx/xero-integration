@@ -1,5 +1,5 @@
 import { Payhawk, Xero } from '@services';
-import { AccountStatus, ITaxRate } from '@shared';
+import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, TaxType } from '@shared';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, fromDateTicks, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
@@ -206,10 +206,33 @@ export class Manager implements IManager {
         await this.xeroClient.deleteBill(bill.invoiceID);
     }
 
+    async ensureDefaultExpenseAccountsExist() {
+        const generalExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
+            name: DEFAULT_ACCOUNT_NAME,
+            code: DEFAULT_ACCOUNT_CODE,
+            addToWatchlist: true,
+        });
+
+        const feesExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
+            name: FEES_ACCOUNT_NAME,
+            code: FEES_ACCOUNT_CODE,
+            taxType: TaxType.None,
+            addToWatchlist: true,
+        });
+
+        if (generalExpenseAccount.status !== AccountStatus.Active) {
+            throw Error(`Default general expense account is required but it is currently of status '${generalExpenseAccount.status}'`);
+        }
+
+        if (feesExpenseAccount.status !== AccountStatus.Active) {
+            throw Error(`Default fees expense account is required but it is currently of status '${feesExpenseAccount.status}'`);
+        }
+    }
+
     private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): Promise<TData> {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             // Force default account code
-            await this.ensureDefaultAccountCodeExists();
+            await this.ensureDefaultExpenseAccountsExist();
 
             data.accountCode = DEFAULT_ACCOUNT_CODE;
         } else {
@@ -225,7 +248,9 @@ export class Manager implements IManager {
         contactId,
         description,
         reference,
-        totalAmount,
+        amount,
+        fxFees,
+        posFees,
         accountCode,
         taxType,
         url,
@@ -236,7 +261,9 @@ export class Manager implements IManager {
             contactId,
             description: description || DEFAULT_DESCRIPTION,
             reference,
-            amount: totalAmount,
+            amount,
+            fxFees,
+            posFees,
             accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
             taxType,
             url,
@@ -270,18 +297,6 @@ export class Manager implements IManager {
             url,
         };
     }
-
-    private async ensureDefaultAccountCodeExists() {
-        const defaultExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
-            name: DEFAULT_ACCOUNT_NAME,
-            code: DEFAULT_ACCOUNT_CODE,
-            addToWatchlist: true,
-        });
-
-        if (defaultExpenseAccount.status !== AccountStatus.Active) {
-            throw Error(`Default expense account is required but it is currently of status '${defaultExpenseAccount.status}'`);
-        }
-    }
 }
 
 export const getTransactionExternalUrl = (organisationShortCode: string, transactionId: string): string => {
@@ -291,9 +306,6 @@ export const getTransactionExternalUrl = (organisationShortCode: string, transac
 export const getBillExternalUrl = (organisationShortCode: string, invoiceId: string): string => {
     return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=${encodeURIComponent(invoiceId)}`;
 };
-
-export const DEFAULT_ACCOUNT_CODE = '999999';
-export const DEFAULT_ACCOUNT_NAME = 'PAYHAWK GENERAL';
 
 const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';

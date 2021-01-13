@@ -1,13 +1,13 @@
 import * as TypeMoq from 'typemoq';
 
 import { Payhawk, Xero } from '@services';
-import { AccountStatus } from '@shared';
+import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxType } from '@shared';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
-import { DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, Manager } from './Manager';
+import { Manager } from './Manager';
 
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 
@@ -55,6 +55,7 @@ describe('XeroEntities.Manager', () => {
                     code: '429',
                     name: 'General Expenses',
                     status: AccountStatus.Active,
+                    taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
                 },
                 {
@@ -62,6 +63,7 @@ describe('XeroEntities.Manager', () => {
                     code: '300',
                     name: 'Advertisement',
                     status: AccountStatus.Active,
+                    taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
                 },
             ];
@@ -168,7 +170,9 @@ describe('XeroEntities.Manager', () => {
                 contactId: 'contact-id',
                 description: 'expense note',
                 reference: 'tx description',
-                totalAmount: 12.05,
+                amount: 12.05,
+                fxFees: 1,
+                posFees: 2,
                 accountCode: '310',
                 taxType: 'TAX001',
                 files,
@@ -195,7 +199,9 @@ describe('XeroEntities.Manager', () => {
                     contactId: newAccountTx.contactId,
                     description: newAccountTx.description!,
                     reference: newAccountTx.reference,
-                    amount: newAccountTx.totalAmount,
+                    amount: newAccountTx.amount,
+                    fxFees: newAccountTx.fxFees,
+                    posFees: newAccountTx.posFees,
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
@@ -233,7 +239,9 @@ describe('XeroEntities.Manager', () => {
                 contactId: 'contact-id',
                 description: 'expense note',
                 reference: 'tx description',
-                totalAmount: 12.05,
+                amount: 12.05,
+                fxFees: 1,
+                posFees: 2,
                 accountCode: '310',
                 files,
                 url: 'expense url',
@@ -259,7 +267,9 @@ describe('XeroEntities.Manager', () => {
                     contactId: newAccountTx.contactId,
                     description: newAccountTx.description!,
                     reference: newAccountTx.reference,
-                    amount: newAccountTx.totalAmount,
+                    amount: newAccountTx.amount,
+                    fxFees: newAccountTx.fxFees,
+                    posFees: newAccountTx.posFees,
                     accountCode: newAccountTx.accountCode!,
                     taxType: undefined,
                     url: newAccountTx.url,
@@ -318,7 +328,9 @@ describe('XeroEntities.Manager', () => {
                 contactId: 'contact-id',
                 description: 'expense note',
                 reference: 'tx description',
-                totalAmount: 12.05,
+                amount: 12.05,
+                fxFees: 1,
+                posFees: 2,
                 accountCode: '310',
                 taxType: 'TAX001',
                 files,
@@ -332,7 +344,9 @@ describe('XeroEntities.Manager', () => {
                     contactId: newAccountTx.contactId,
                     description: newAccountTx.description!,
                     reference: newAccountTx.reference,
-                    amount: newAccountTx.totalAmount,
+                    amount: newAccountTx.amount,
+                    fxFees: newAccountTx.fxFees,
+                    posFees: newAccountTx.posFees,
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
@@ -368,7 +382,9 @@ describe('XeroEntities.Manager', () => {
                 bankAccountId: 'bank-account-id',
                 contactId: 'contact-id',
                 reference: 'tx description',
-                totalAmount: 12.05,
+                amount: 12.05,
+                fxFees: 1,
+                posFees: 2,
                 files,
                 url: 'expense url',
             };
@@ -380,7 +396,9 @@ describe('XeroEntities.Manager', () => {
                     contactId: newAccountTx.contactId,
                     description: '(no note)',
                     reference: newAccountTx.reference,
-                    amount: newAccountTx.totalAmount,
+                    amount: newAccountTx.amount,
+                    fxFees: newAccountTx.fxFees,
+                    posFees: newAccountTx.posFees,
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     taxType: undefined,
                     url: newAccountTx.url,
@@ -954,6 +972,23 @@ describe('XeroEntities.Manager', () => {
                             code: DEFAULT_ACCOUNT_CODE,
                             name: DEFAULT_ACCOUNT_NAME,
                             status: AccountStatus.Active,
+                            taxType: TaxType.TaxOnPurchases,
+                            addToWatchlist: false,
+                        }));
+
+                    accountingClientMock
+                        .setup(x => x.getOrCreateExpenseAccount({
+                            name: FEES_ACCOUNT_NAME,
+                            code: FEES_ACCOUNT_CODE,
+                            taxType: TaxType.None,
+                            addToWatchlist: true,
+                        }))
+                        .returns(async () => ({
+                            accountId: '1',
+                            code: FEES_ACCOUNT_NAME,
+                            name: FEES_ACCOUNT_CODE,
+                            status: AccountStatus.Active,
+                            taxType: TaxType.None,
                             addToWatchlist: false,
                         }));
 

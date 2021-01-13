@@ -1,7 +1,7 @@
 import * as TypeMoq from 'typemoq';
 
 import { FxRates, Payhawk, Xero } from '@services';
-import { AccountStatus } from '@shared';
+import { AccountStatus, TaxType } from '@shared';
 import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
@@ -93,6 +93,7 @@ describe('integrations/Manager', () => {
                     name: 'Account 1',
                     code: '400',
                     status: AccountStatus.Active,
+                    taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
                 },
                 {
@@ -100,6 +101,7 @@ describe('integrations/Manager', () => {
                     name: 'Account 2',
                     code: '370',
                     status: AccountStatus.Active,
+                    taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
                 },
             ];
@@ -186,7 +188,10 @@ describe('integrations/Manager', () => {
                             paidCurrency: 'USD',
                             date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
-                            fees: 1,
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
                         },
                         {
                             id: 'tx2',
@@ -199,7 +204,10 @@ describe('integrations/Manager', () => {
                             paidCurrency: 'USD',
                             date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
-                            fees: 2,
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
                         },
                     ],
                     externalLinks: [],
@@ -244,7 +252,9 @@ describe('integrations/Manager', () => {
                             contactId,
                             description: `${t.cardHolderName}${t.cardName ? `, ${t.cardName}` : ''}, *${t.cardLastDigits} | ${expense.note}`,
                             reference: t.description,
-                            totalAmount: t.cardAmount + t.fees,
+                            amount: t.cardAmount,
+                            fxFees: t.fees.fx,
+                            posFees: t.fees.pos,
                             files,
                             url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
                         }))
@@ -308,7 +318,10 @@ describe('integrations/Manager', () => {
                             paidCurrency: 'USD',
                             date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
-                            fees: 1,
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
                         },
                     ],
                     externalLinks: [],
@@ -354,7 +367,9 @@ describe('integrations/Manager', () => {
                         contactId,
                         description: `${transaction.cardHolderName}${transaction.cardName ? `, ${transaction.cardName}` : ''}, *${transaction.cardLastDigits} | ${expense.note}`,
                         reference: transaction.description,
-                        totalAmount: transaction.cardAmount + transaction.fees,
+                        amount: transaction.cardAmount,
+                        fxFees: transaction.fees.fx,
+                        posFees: transaction.fees.pos,
                         files,
                         url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(transaction.id)}&accountId=${encodeURIComponent(accountId)}`,
                     }))
@@ -673,7 +688,9 @@ describe('integrations/Manager', () => {
                         bankAccountId,
                         contactId,
                         reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,
-                        totalAmount: -t.amount,
+                        amount: -t.amount,
+                        fxFees: 0,
+                        posFees: 0,
                         files: [],
                         url: `${portalUrl}/funds?transferId=${encodeURIComponent(t.id)}&${paramName}=${encodeURIComponent(accountId)}`,
                     }))

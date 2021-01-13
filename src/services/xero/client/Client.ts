@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
-import { Intersection } from '@shared';
+import { FEES_ACCOUNT_CODE, Intersection, TaxType } from '@shared';
 import { IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
@@ -185,8 +185,8 @@ export class Client implements IClient {
         return transaction;
     }
 
-    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url }: ICreateTransactionData): Promise<string> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url);
+    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url }: ICreateTransactionData): Promise<string> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -204,8 +204,8 @@ export class Client implements IClient {
         return bankTransaction.bankTransactionID;
     }
 
-    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url }: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, accountCode, taxType, url, transactionId);
+    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url }: IUpdateTransactionData): Promise<void> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url, transactionId);
 
         await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
@@ -451,8 +451,8 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, accountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, taxType, url);
+function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, fxFees: number, posFees: number, accountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(date, contactId, description, amount, fxFees, posFees, accountCode, taxType, url);
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
@@ -467,7 +467,7 @@ function getBankTransactionModel(date: string, bankAccountId: string, contactId:
 }
 
 function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, taxType: string | undefined, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, accountCode, taxType, url);
+    const commonData = getAccountingItemModel(date, contactId, description, amount, 0, 0, accountCode, taxType, url);
 
     const bill: Invoice = {
         ...commonData,
@@ -487,7 +487,30 @@ function getNewBillModel(date: string, contactId: string, description: string, c
     return bill;
 }
 
-function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, accountCode: string, taxType: string | undefined, url: string): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, fxFees: number, posFees: number, accountCode: string, taxType: string | undefined, url: string): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+    const lineItems = [{
+        description,
+        accountCode,
+        quantity: 1,
+        unitAmount: Math.abs(amount),
+        taxType,
+    }];
+
+    if (fxFees !== 0 || posFees !== 0) {
+        const feesDescription = fxFees !== 0 && posFees !== 0 ?
+            'Exchange + POS fees' : fxFees !== 0 ?
+                'Exchange fees' :
+                'POS fees';
+
+        lineItems.push({
+            description: feesDescription,
+            accountCode: FEES_ACCOUNT_CODE,
+            quantity: 1,
+            unitAmount: fxFees + posFees,
+            taxType: TaxType.None,
+        });
+    }
+
     return {
         date,
         url,
@@ -495,15 +518,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
             contactID: contactId,
         },
         lineAmountTypes: LineAmountTypes.Inclusive,
-        lineItems: [
-            {
-                description,
-                accountCode,
-                quantity: 1,
-                unitAmount: Math.abs(amount),
-                taxType,
-            },
-        ],
+        lineItems,
     };
 }
 

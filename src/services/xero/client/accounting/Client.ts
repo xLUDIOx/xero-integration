@@ -71,12 +71,12 @@ export class Client implements IClient {
         return expenseAccounts;
     }
 
-    async getOrCreateExpenseAccount({ name, code, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
-        const logger = this.logger.child({ name, code, addToWatchlist });
+    async getOrCreateExpenseAccount({ name, code, taxType, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
+        const logger = this.logger.child({ name, code, taxType, addToWatchlist });
 
         let expenseAccount = await this.getExpenseAccountByCode(code);
         if (!expenseAccount) {
-            expenseAccount = await this.createExpenseAccount(name, code, logger);
+            expenseAccount = await this.createExpenseAccount(name, code, taxType, logger);
         }
 
         if (addToWatchlist && !expenseAccount.addToWatchlist) {
@@ -105,7 +105,7 @@ export class Client implements IClient {
         return expenseAccounts[0];
     }
 
-    private async createExpenseAccount(name: string, code: string, logger: ILogger): Promise<IAccountCode> {
+    private async createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {
         const url = buildUrl(
             this.baseUrl(),
             '/Accounts',
@@ -118,6 +118,7 @@ export class Client implements IClient {
                 Name: name,
                 Code: code,
                 Type: AccountType.Expense,
+                TaxType: taxType,
             },
         });
 

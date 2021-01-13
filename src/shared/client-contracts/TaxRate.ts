@@ -27,3 +27,8 @@ export enum TaxRateStatus {
      */
     Archived = 'ARCHIVED'
 }
+
+export enum TaxType {
+    None = 'NONE',
+    TaxOnPurchases = 'INPUT',
+}

@@ -22,4 +22,6 @@ export interface IManager {
     getBillByUrl(url: string): Promise<Xero.IInvoice | undefined>;
     deleteBill(billUrl: string): Promise<void>;
     getBillPayment(paymentId: string): Promise<Xero.IPayment | undefined>;
+
+    ensureDefaultExpenseAccountsExist(): Promise<void>;
 }

@@ -1,6 +1,6 @@
 import { expect } from 'chai';
 
-import { AccountStatus, IAccountCode, ITokenSet, PayhawkEvent, SCHEMA } from '@shared';
+import { AccountStatus, IAccountCode, ITokenSet, PayhawkEvent, SCHEMA, TaxType } from '@shared';
 import { payhawkClientMock, sendResponse, XERO_API_PREFIX, xeroClientMock, XeroDbClient, XeroServiceClient } from '@utils';
 
 describe('Synchronize Account Codes', () => {
@@ -41,6 +41,7 @@ describe('Synchronize Account Codes', () => {
             accountId: '1',
             name: 'General',
             code: '100',
+            taxType: TaxType.TaxOnPurchases,
             status: AccountStatus.Active,
             addToWatchlist: true,
         };

@@ -67,6 +67,8 @@ export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount
 export interface ICreateTransactionData extends IAccountingItemData {
     bankAccountId: string;
     reference: string;
+    fxFees: number;
+    posFees: number;
 }
 
 export interface IUpdateTransactionData extends ICreateTransactionData {

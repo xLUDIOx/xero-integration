@@ -6,7 +6,9 @@ export interface INewAccountTransaction {
     contactId: string;
     description?: string;
     reference: string;
-    totalAmount: number;
+    amount: number;
+    fxFees: number;
+    posFees: number;
     accountCode?: string;
     taxType?: string;
     files: Payhawk.IDownloadedFile[];

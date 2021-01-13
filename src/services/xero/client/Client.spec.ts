@@ -4,6 +4,7 @@ import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 import { ILogger, Lock, OperationNotAllowedError } from '@utils';
 
 import { BankFeedsClient } from '.';
+import { FEES_ACCOUNT_CODE, TaxType } from '../../../shared';
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
@@ -90,6 +91,70 @@ describe('Xero client', () => {
                                     quantity: 1,
                                     unitAmount: transaction.amount,
                                     taxType: transaction.taxType,
+                                },
+                            ],
+                        },
+                        ],
+                    }))
+                .returns(async () => {
+                    return ({
+                        response: {
+                            headers: {},
+                        },
+                        body: {
+                            bankTransactions: [
+                                {
+                                    statusAttributeString: ClientResponseStatus.Ok,
+                                    bankTransactionID: id,
+                                },
+                            ],
+                        },
+                    }) as any;
+                })
+                .verifiable(TypeMoq.Times.once());
+
+            const transactionId = await client.createTransaction(transaction);
+            expect(transactionId).toEqual(id);
+        });
+
+        it('should create spend bank transaction with fees', async () => {
+            const transaction = getSpendTransactionModel();
+            transaction.fxFees = 1;
+            transaction.posFees = 2;
+
+            const id = '1';
+
+            xeroClientMock
+                .setup(m => m.createBankTransactions(
+                    tenantId,
+                    {
+                        bankTransactions: [{
+                            bankTransactionID: undefined,
+                            type: BankTransactionType.Spend as any,
+                            bankAccount: {
+                                accountID: transaction.bankAccountId,
+                            },
+                            reference: transaction.reference,
+                            date: transaction.date,
+                            url: transaction.url,
+                            contact: {
+                                contactID: transaction.contactId,
+                            },
+                            lineAmountTypes: LineAmountType.TaxInclusive as any,
+                            lineItems: [
+                                {
+                                    description: transaction.description,
+                                    accountCode: transaction.accountCode,
+                                    quantity: 1,
+                                    unitAmount: transaction.amount,
+                                    taxType: transaction.taxType,
+                                },
+                                {
+                                    description: 'Exchange + POS fees',
+                                    accountCode: FEES_ACCOUNT_CODE,
+                                    quantity: 1,
+                                    unitAmount: transaction.fxFees + transaction.posFees,
+                                    taxType: TaxType.None,
                                 },
                             ],
                         },
@@ -495,6 +560,8 @@ describe('Xero client', () => {
             description: 'expense note',
             reference: 'tx description',
             amount: 12.05,
+            fxFees: 0,
+            posFees: 0,
             accountCode: '310',
             taxType: 'TAX001',
             url: 'expense url',
@@ -511,6 +578,8 @@ describe('Xero client', () => {
             description: 'expense note',
             reference: 'tx description',
             amount: -12.05,
+            fxFees: 0,
+            posFees: 0,
             accountCode: '310',
             url: 'expense url',
         };

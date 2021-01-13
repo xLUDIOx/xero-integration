@@ -1,7 +1,7 @@
 import { FxRates, Payhawk, Xero } from '@services';
 import { EntityType } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
@@ -59,6 +59,14 @@ export class Manager implements IManager {
         } catch (err) {
             isSuccessful = false;
             this.logger.child({ innerError: err }).error(Error(`Sync bank accounts failed`));
+        }
+
+        try {
+            this.logger.info(`Creating default expense accounts`);
+            await this.xeroEntities.ensureDefaultExpenseAccountsExist();
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.child({ innerError: err }).error(Error(`Creating default expense accounts failed`));
         }
 
         if (isSuccessful) {
@@ -138,8 +146,10 @@ export class Manager implements IManager {
             throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
         } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
             throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
-        } else if (errorMessage === DEFAULT_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+        } else if (errorMessage === DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
             throw new ExportError(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+        } else if (errorMessage === DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+            throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         }
 
         throw new ExportError('Failed to export expense into Xero. Please check that all expense data is correct and try again.');
@@ -371,7 +381,8 @@ export class Manager implements IManager {
     }
 
     private async exportTransaction(expense: Payhawk.IExpense, transaction: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation): Promise<string> {
-        const totalAmount = getTransactionTotalAmount(transaction);
+        const amount = transaction.cardAmount;
+        const { fx: fxFees, pos: posFees } = transaction.fees;
         const description = formatDescription(formatCardDescription(transaction.cardHolderName, transaction.cardLastDigits, transaction.cardName), expense.note);
         const date = getTransactionExportDate(transaction);
 
@@ -383,7 +394,9 @@ export class Manager implements IManager {
             contactId,
             description,
             reference: transaction.description,
-            totalAmount,
+            amount,
+            fxFees,
+            posFees,
             accountCode: expense.reconciliation.accountCode,
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
@@ -404,7 +417,9 @@ export class Manager implements IManager {
             bankAccountId,
             contactId,
             reference: `Bank wire received on ${new Date(date).toUTCString()}`,
-            totalAmount: -Math.abs(transfer.amount),
+            amount: -Math.abs(transfer.amount),
+            fxFees: 0,
+            posFees: 0,
             files: [],
             url: this.buildTransferUrl(transfer.id, new Date(date)),
         };
@@ -779,7 +794,7 @@ function formatDescription(name: string, expenseNote?: string): string {
 }
 
 function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
-    return t.cardAmount + t.fees;
+    return t.cardAmount + t.fees.fx + t.fees.pos;
 }
 
 function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {
