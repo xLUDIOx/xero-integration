@@ -120,13 +120,22 @@ export class IntegrationsController {
                     break;
                 }
                 case PayhawkEvent.BankStatementExport: {
-                    await this.exportBankStatement(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
+                    try {
+                        await this.exportBankStatement(
+                            payloadData,
+                            connectionManager,
+                            accountId,
+                            xeroAccessToken,
+                            logger,
+                        );
+                    } catch (err) {
+                        if (err instanceof ExportError) {
+                            res.send(400, err.message);
+                            return;
+                        } else {
+                            throw err;
+                        }
+                    }
                     break;
                 }
                 case PayhawkEvent.ChartOfAccountSynchronize: {
