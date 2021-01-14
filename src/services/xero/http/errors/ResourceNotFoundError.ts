@@ -1,7 +1,7 @@
-import { HttpError } from './HttpError';
+import { HttpError, IHttpErrorParams } from './HttpError';
 
 export class ResourceNotError extends HttpError {
-    constructor(readonly innerError: Error) {
-        super(innerError);
+    constructor(params: IHttpErrorParams) {
+        super(params);
     }
 }

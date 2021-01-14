@@ -1,5 +1,5 @@
 import { FxRates, Payhawk, Xero } from '@services';
-import { EntityType } from '@shared';
+import { BankFeedConnectionErrorType, BankStatementErrorType, EntityType, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
 
@@ -128,31 +128,10 @@ export class Manager implements IManager {
                 await this.exportExpenseAsBill(expense, files, organisation);
             }
         } catch (err) {
-            this.handleExpenseExportError(err, expense);
+            this.handleExportError(err, expense, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
             await Promise.all(files.map(async (f: Payhawk.IDownloadedFile) => this.deleteFile(f.path)));
         }
-    }
-
-    private handleExpenseExportError(err: Error, expense: Payhawk.IExpense) {
-        const errorMessage = err.message;
-        if (ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw new ExportError(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
-        } else if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw new ExportError(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
-        } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
-            throw new ExportError(`${errorMessage}. Please activate it.`);
-        } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
-            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
-        } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
-            throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
-        } else if (errorMessage === DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
-            throw new ExportError(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
-        } else if (errorMessage === DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
-            throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
-        }
-
-        throw new ExportError('Failed to export expense into Xero. Please check that all expense data is correct and try again.');
     }
 
     async deleteExpense(expenseId: string): Promise<void> {
@@ -238,7 +217,7 @@ export class Manager implements IManager {
                 await this.exportBankStatementForTransactions(expense, organisation, logger);
             }
         } catch (err) {
-            this.handleExpenseExportError(err, expense);
+            this.handleExportError(err, expense, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
     }
 
@@ -271,7 +250,7 @@ export class Manager implements IManager {
             return;
         }
 
-        let statementId = await this.store.bankFeeds.getStatementByEntityId({
+        const statementId = await this.store.bankFeeds.getStatementByEntityId({
             account_id: this.accountId,
             xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
@@ -287,23 +266,11 @@ export class Manager implements IManager {
         const description = bankTransaction.reference;
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
-        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
 
-        try {
-            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
-        } catch (err) {
-            if (err.message === `${currency} bank account is archived and cannot be used`) {
-                if (feedConnectionId) {
-                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
-                    logger.info('Bank account cannot be used because it is archived, existing feed connection deleted');
-                }
-            }
-
-            throw err;
-        }
+        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
 
         if (!feedConnectionId) {
-            feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
+            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {
                     account_id: this.accountId,
@@ -313,22 +280,18 @@ export class Manager implements IManager {
             );
         }
 
-        statementId = await this.xeroEntities.bankFeeds.createBankStatement(
+        await this.tryCreateBankStatement(
             feedConnectionId,
             bankTransaction.bankTransactionID,
+            bankAccount,
             date,
             -Math.abs(transfer.amount),
+            transferId,
+            EntityType.Transfer,
             contactName!,
             description,
+            logger,
         );
-
-        await this.store.bankFeeds.createStatement({
-            account_id: this.accountId,
-            xero_entity_id: bankTransaction.bankTransactionID,
-            payhawk_entity_id: transferId,
-            payhawk_entity_type: EntityType.Transfer,
-            bank_statement_id: statementId,
-        });
     }
 
     async disconnect(): Promise<void> {
@@ -560,23 +523,11 @@ export class Manager implements IManager {
         const logger = baseLogger.child({ currency });
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
-        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
 
-        try {
-            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
-        } catch (err) {
-            if (err.message === `${currency} bank account is archived and cannot be used`) {
-                if (feedConnectionId) {
-                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
-                    logger.info('Bank account cannot be used, existing feed connection deleted');
-                }
-            }
-
-            throw err;
-        }
+        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
 
         if (!feedConnectionId) {
-            feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
+            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {
                     account_id: this.accountId,
@@ -604,7 +555,7 @@ export class Manager implements IManager {
                 throw txLogger.error(Error(EXPENSE_RECONCILED_ERROR_MESSAGE));
             }
 
-            let statementId = await this.store.bankFeeds.getStatementByEntityId({
+            const statementId = await this.store.bankFeeds.getStatementByEntityId({
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
                 payhawk_entity_id: transaction.id,
@@ -619,23 +570,133 @@ export class Manager implements IManager {
             const contactName = bankTransaction.contact.name;
             const description = bankTransaction.reference;
 
-            statementId = await this.xeroEntities.bankFeeds.createBankStatement(
+            await this.tryCreateBankStatement(
                 feedConnectionId,
                 bankTransaction.bankTransactionID,
+                bankAccount,
+                date,
+                totalAmount,
+                transaction.id,
+                EntityType.Transaction,
+                contactName!,
+                description,
+                logger,
+            );
+        }
+    }
+
+    private async tryGetBankFeedConnection(bankAccount: Xero.IBankAccount): Promise<string> {
+        try {
+            const connectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
+            return connectionId;
+        } catch (err) {
+            if (!(err instanceof Xero.HttpError)) {
+                throw err;
+            }
+
+            const error = err.data as IFeedConnectionError | undefined;
+            if (!error) {
+                throw err;
+            }
+
+            switch (error.type) {
+                case BankFeedConnectionErrorType.InvalidOrganisationBankFeeds:
+                    throw new ExportError('Failed to export bank statement into Xero. The organisation you are using does not support bank feeds.');
+                case BankFeedConnectionErrorType.InvalidOrganisationMultiCurrency:
+                    throw new ExportError('Failed to export bank statement into Xero. The organisation you are using does not support multi-currency.');
+                case BankFeedConnectionErrorType.InternalError:
+                    throw new ExportError('Failed to export bank statement into Xero due to an internal Xero error. Please try again in a few minutes');
+                default:
+                    throw error;
+            }
+        }
+    }
+
+    private async tryGetBankFeedAccount(currency: string, feedConnectionId: string | undefined, logger: ILogger): Promise<XeroEntities.BankAccounts.IBankAccount> {
+        try {
+            return await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+        } catch (err) {
+            if (err.message === `${currency} bank account is archived and cannot be used`) {
+                if (feedConnectionId) {
+                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
+                    logger.info('Bank account cannot be used, existing feed connection deleted');
+                }
+            }
+
+            throw err;
+        }
+    }
+
+    private async tryCreateBankStatement(feedConnectionId: string, bankTransactionId: string, bankAccount: Xero.IBankAccount, date: string, totalAmount: number, entityId: string, entityType: EntityType, contactName: string, description: string, logger: ILogger): Promise<void> {
+        let statementId: string;
+
+        try {
+            statementId = await this.xeroEntities.bankFeeds.createBankStatement(
+                feedConnectionId,
+                bankTransactionId,
                 date,
                 totalAmount,
                 contactName!,
                 description,
             );
+        } catch (err) {
+            if (!(err instanceof Xero.HttpError)) {
+                throw err;
+            }
 
-            await this.store.bankFeeds.createStatement({
-                account_id: this.accountId,
-                xero_entity_id: bankTransaction.bankTransactionID,
-                payhawk_entity_id: transaction.id,
-                payhawk_entity_type: EntityType.Transaction,
-                bank_statement_id: statementId,
-            });
+            const items = err.data.items as IRejectedBankStatement[] | undefined;
+            const rejectedItem = items ? items[0] : undefined;
+            if (!rejectedItem) {
+                throw err;
+            }
+
+            const error = rejectedItem.errors[0];
+            if (!error) {
+                throw err;
+            }
+
+            switch (error.type) {
+                case BankStatementErrorType.InvalidFeedConnection:
+                    logger.info('Bank feed connection id is invalid. Retrying to export statement');
+
+                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
+
+                    const newFeedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
+                    await this.store.bankFeeds.createConnection(
+                        {
+                            account_id: this.accountId,
+                            bank_connection_id: feedConnectionId,
+                            currency: bankAccount.currencyCode.toString(),
+                        },
+                    );
+
+                    statementId = await this.xeroEntities.bankFeeds.createBankStatement(
+                        newFeedConnectionId,
+                        bankTransactionId,
+                        date,
+                        totalAmount,
+                        contactName!,
+                        description,
+                    );
+                    break;
+                case BankStatementErrorType.InvalidStartDate:
+                    throw new ExportError('Failed to export bank statement into Xero. The expense date must be no earlier than 1 year from today\'s date.');
+                case BankStatementErrorType.InvalidEndDate:
+                    throw new ExportError('Failed to export bank statement into Xero. The expense date must be not be in the future.');
+                case BankStatementErrorType.InternalError:
+                    throw new ExportError('Failed to export bank statement into Xero due to an internal Xero error. Please try again in a few minutes');
+                default:
+                    throw error;
+            }
         }
+
+        await this.store.bankFeeds.createStatement({
+            account_id: this.accountId,
+            xero_entity_id: bankTransactionId,
+            payhawk_entity_id: entityId,
+            payhawk_entity_type: entityType,
+            bank_statement_id: statementId,
+        });
     }
 
     private async exportBankStatementForBill(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
@@ -681,7 +742,7 @@ export class Manager implements IManager {
 
         const billId = bill.invoiceID;
 
-        let statementId = await this.store.bankFeeds.getStatementByEntityId({
+        const statementId = await this.store.bankFeeds.getStatementByEntityId({
             account_id: this.accountId,
             xero_entity_id: billId,
             payhawk_entity_id: expense.id,
@@ -720,23 +781,10 @@ export class Manager implements IManager {
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
 
-        let bankAccount: XeroEntities.BankAccounts.IBankAccount;
-
-        try {
-            bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
-        } catch (err) {
-            if (err.message === `${currency} bank account is archived and cannot be used`) {
-                if (feedConnectionId) {
-                    await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
-                    logger.info('Bank account cannot be used, existing feed connection deleted');
-                }
-            }
-
-            throw err;
-        }
+        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
 
         if (!feedConnectionId) {
-            feedConnectionId = await this.xeroEntities.bankFeeds.getConnectionIdForBankAccount(bankAccount);
+            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
             await this.store.bankFeeds.createConnection(
                 {
                     account_id: this.accountId,
@@ -746,22 +794,43 @@ export class Manager implements IManager {
             );
         }
 
-        statementId = await this.xeroEntities.bankFeeds.createBankStatement(
+        await this.tryCreateBankStatement(
             feedConnectionId,
             billId,
+            bankAccount,
             paymentDate,
-            amount!,
+            amount,
+            expense.id,
+            EntityType.Expense,
             contactName!,
             description,
+            logger,
         );
+    }
 
-        await this.store.bankFeeds.createStatement({
-            account_id: this.accountId,
-            xero_entity_id: billId,
-            payhawk_entity_id: expense.id,
-            payhawk_entity_type: EntityType.Expense,
-            bank_statement_id: statementId,
-        });
+    private handleExportError(err: Error, expense: Payhawk.IExpense, genericErrorMessage: string) {
+        if (err instanceof ExportError) {
+            throw err;
+        }
+
+        const errorMessage = err.message;
+        if (ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
+            throw new ExportError(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
+        } else if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
+            throw new ExportError(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
+        } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
+            throw new ExportError(`${errorMessage}. Please activate it.`);
+        } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
+            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
+        } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
+            throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
+        } else if (errorMessage === DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+            throw new ExportError(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+        } else if (errorMessage === DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
+            throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+        }
+
+        throw new ExportError(genericErrorMessage);
     }
 
     private buildExpenseUrl(expenseId: string, date?: Date): string {
@@ -812,3 +881,6 @@ function getTransactionExportDate(transaction: Payhawk.ITransaction): string {
 const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
 
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);
+
+const GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. Please check that all expense data is correct and try again.';
+const GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. There is an error with your bank feed connection. Make sure you are not using a demo organization in Xero.';

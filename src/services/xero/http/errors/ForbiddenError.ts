@@ -1,7 +1,7 @@
-import { HttpError } from './HttpError';
+import { HttpError, IHttpErrorParams } from './HttpError';
 
 export class ForbiddenError extends HttpError {
-    constructor(innerError: Error) {
-        super(innerError);
+    constructor(params: IHttpErrorParams) {
+        super(params);
     }
 }

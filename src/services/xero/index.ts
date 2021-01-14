@@ -4,6 +4,7 @@ import { config } from './Config';
 
 export * from './auth';
 export * from './client';
+export * from './http/errors';
 
 export enum XeroScope {
     BankFeeds = 'bankfeeds',

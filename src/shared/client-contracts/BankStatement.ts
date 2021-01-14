@@ -27,3 +27,30 @@ export interface IBankStatementLine {
     transactionId: string;
     payeeName: string;
 }
+
+export interface IRejectedBankStatement {
+    id: string;
+    feedConnectionId: string;
+    status: BankStatementStatus.Rejected,
+    errors: IBankStatementError[];
+}
+
+export interface IBankStatementError {
+    status: number;
+    title: string;
+    type: BankStatementErrorType;
+    detail: string;
+}
+
+export enum BankStatementStatus {
+    Pending = 'PENDING',
+    Rejected = 'REJECTED',
+    Delivered = 'DELIVERED',
+}
+
+export enum BankStatementErrorType {
+    InvalidStartDate = 'invalid-start-date',
+    InvalidEndDate = 'invalid-end-date',
+    InvalidFeedConnection = 'invalid-feed-connection',
+    InternalError = 'internal-error',
+}

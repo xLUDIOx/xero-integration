@@ -1,16 +1,13 @@
 import { CurrencyCode } from 'xero-node';
 
 import { Xero } from '@services';
-import { BankFeedAccountType, CreditDebitIndicator, IBankStatement } from '@shared';
+import { BankFeedAccountType, CreditDebitIndicator } from '@shared';
 import { formatDate } from '@utils';
 
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
-    getBankStatementById(statementId: string): Promise<IBankStatement | undefined> {
-        throw new Error('Method not implemented.');
-    }
 
     async getConnectionIdForBankAccount(bankAccount: Xero.IBankAccount): Promise<string> {
         const connection = await this.xeroClient.bankFeeds.getOrCreateBankFeedConnection({

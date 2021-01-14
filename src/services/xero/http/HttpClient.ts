@@ -2,7 +2,7 @@ import Axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 
 import { ILock, ILogger, toBase64 } from '@utils';
 
-import { ForbiddenError, HttpError, ResourceNotError, UnauthorizedError } from './errors';
+import { ForbiddenError, HttpError, IHttpErrorParams, ResourceNotError, UnauthorizedError } from './errors';
 import { AUTHORIZATION_HEADER, CONTENT_TYPE_HEADER, IHttpClient, IRequestOptions, XERO_TENANT_ID_HEADER } from './IHttpClient';
 
 export class HttpClient implements IHttpClient {
@@ -111,24 +111,23 @@ export class HttpClient implements IHttpClient {
 
     private async _handleFailedRequest<TResult>(err: AxiosError, action: () => Promise<TResult>, logger: ILogger, retryCount: number): Promise<TResult> {
         const statusCode = err.response?.status;
-        const baseError = {
-            name: err.name,
+        const baseError: IHttpErrorParams = {
             message: err.message,
-            code: statusCode,
+            code: statusCode || 500,
             data: err.response ? err.response.data : undefined,
         };
 
         if (!err.response) {
-            throw logger.error(new HttpError(baseError));
+            throw new HttpError(baseError);
         }
 
         switch (statusCode) {
             case 401:
-                throw logger.error(new UnauthorizedError(baseError));
+                throw new UnauthorizedError(baseError);
             case 403:
-                throw logger.error(new ForbiddenError(baseError));
+                throw new ForbiddenError(baseError);
             case 404:
-                throw logger.error(new ResourceNotError(baseError));
+                throw new ResourceNotError(baseError);
             case 429:
                 const headers = err.response.headers;
                 const retryAfterHeaderValue = headers['retry-after'];
@@ -163,7 +162,7 @@ export class HttpClient implements IHttpClient {
                 });
             case 400:
             default:
-                throw logger.error(new HttpError(baseError));
+                throw new HttpError(baseError);
         }
     }
 }

@@ -47,3 +47,16 @@ export enum BankFeedConnectionStatus {
     Pending = 'PENDING',
     Rejected = 'REJECTED',
 }
+
+export interface IFeedConnectionError {
+    status: number;
+    title: string;
+    type: BankFeedConnectionErrorType;
+    detail: string;
+}
+
+export enum BankFeedConnectionErrorType {
+    InvalidOrganisationBankFeeds = 'invalid-organisation-bank-feeds',
+    InvalidOrganisationMultiCurrency = 'invalid-organisation-multi-currency',
+    InternalError = 'internal-error',
+}
