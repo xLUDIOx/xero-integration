@@ -110,10 +110,12 @@ describe('integrations/Manager', () => {
                 {
                     name: 'Account 1',
                     code: '400',
+                    defaultTaxCode: TaxType.TaxOnPurchases,
                 },
                 {
                     name: 'Account 2',
                     code: '370',
+                    defaultTaxCode: TaxType.TaxOnPurchases,
                 },
             ];
 

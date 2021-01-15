@@ -79,6 +79,7 @@ export class Manager implements IManager {
         const accountCodeModels = xeroAccountCodes.map(x => ({
             code: x.code,
             name: x.name,
+            defaultTaxCode: x.taxType,
         }));
 
         await this.payhawkClient.synchronizeChartOfAccounts(accountCodeModels);
