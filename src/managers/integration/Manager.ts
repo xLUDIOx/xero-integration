@@ -482,7 +482,8 @@ export class Manager implements IManager {
         });
 
         if (isBeforeDate(date, lockDate)) {
-            throw logger.error(Error(LOCK_PERIOD_ERROR_MESSAGE));
+            logger.info(LOCK_PERIOD_ERROR_MESSAGE);
+            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
         }
     }
 
@@ -553,7 +554,8 @@ export class Manager implements IManager {
             }
 
             if (bankTransaction.isReconciled) {
-                throw txLogger.error(Error(EXPENSE_RECONCILED_ERROR_MESSAGE));
+                logger.info(EXPENSE_RECONCILED_ERROR_MESSAGE);
+                throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
             }
 
             const statementId = await this.store.bankFeeds.getStatementByEntityId({
