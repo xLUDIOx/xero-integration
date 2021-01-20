@@ -214,8 +214,6 @@ export class AuthController {
                 return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };
             }
 
-            logger.error(err);
-
             return { isAlive: false };
         }
     }

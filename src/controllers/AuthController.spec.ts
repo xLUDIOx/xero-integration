@@ -238,9 +238,6 @@ describe('AuthController', () => {
                 .setup(r => r.send(200, { isAlive: false }))
                 .verifiable(TypeMoq.Times.once());
 
-            loggerMock.setup(l => l.error(error))
-                .verifiable(TypeMoq.Times.once());
-
             await controller.getConnectionStatus(req, responseMock.object);
         });
     });
