@@ -199,7 +199,7 @@ describe('IntegrationsController', () => {
 
             integrationManagerMock
                 .setup(m => m.synchronizeChartOfAccounts())
-                .returns(() => Promise.resolve())
+                .returns(() => Promise.resolve(0))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock

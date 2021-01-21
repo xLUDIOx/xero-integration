@@ -11,11 +11,24 @@ export interface IManager {
     exportTransfers(startDate: string, endDate: string): Promise<void>;
     exportBankStatementForTransfer(balanceId: string, transferId: string): Promise<void>;
 
-    initialSynchronization(): Promise<void>;
+    initialSynchronization(): Promise<ISyncResult | undefined>;
 
-    synchronizeChartOfAccounts(): Promise<void>;
-    synchronizeBankAccounts(): Promise<void>;
-    synchronizeTaxRates(): Promise<void>;
+    synchronizeChartOfAccounts(): Promise<number>;
+    synchronizeBankAccounts(): Promise<string[]>;
+    synchronizeTaxRates(): Promise<number>;
 
     disconnect(): Promise<void>;
+}
+
+export interface ISyncResult {
+    bankAccounts?: string[];
+    accountCodesCount?: number;
+    taxRatesCount?: number;
+    expenseAccounts?: string[];
+    errors: {
+        bankAccounts?: string;
+        accountCodes?: string;
+        taxRates?: string;
+        expenseAccounts?: string;
+    }
 }

@@ -1,10 +1,10 @@
 import { FxRates, Payhawk, Xero } from '@services';
-import { BankFeedConnectionErrorType, BankStatementErrorType, EntityType, IFeedConnectionError, IRejectedBankStatement } from '@shared';
+import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
-import { IManager } from './IManager';
+import { IManager, ISyncResult } from './IManager';
 
 export class Manager implements IManager {
     constructor(
@@ -25,56 +25,65 @@ export class Manager implements IManager {
             return;
         }
 
-        if (account.initial_sync_completed) {
-            this.logger.info('Account integration is already initialized');
-            return;
-        }
-
         if (account.tenant_id !== this.tenantId) {
             this.logger.info('Account initial tenant id is not the same, skipping initialization');
             return;
         }
 
+        const result: ISyncResult = {
+            errors: {},
+        };
+
         let isSuccessful = true;
 
         try {
-            this.logger.info(`Sync chart of accounts started`);
-            await this.synchronizeChartOfAccounts();
+            this.logger.info(`Sync tax rates started`);
+            const taxRatesCount = await this.synchronizeTaxRates();
+            result.taxRatesCount = taxRatesCount;
         } catch (err) {
             isSuccessful = false;
-            this.logger.child({ innerError: err }).error(Error(`Sync chart of accounts failed`));
+
+            result.errors.taxRates = 'Sync tax rates failed';
         }
 
         try {
-            this.logger.info(`Sync tax rates started`);
-            await this.synchronizeTaxRates();
+            this.logger.info(`Sync chart of accounts started`);
+            result.accountCodesCount = await this.synchronizeChartOfAccounts();
         } catch (err) {
             isSuccessful = false;
-            this.logger.child({ innerError: err }).error(Error(`Sync tax rates failed`));
+
+            result.errors.accountCodes = 'Sync chart of accounts failed';
         }
 
         try {
             this.logger.info(`Sync bank accounts started`);
-            await this.synchronizeBankAccounts();
+            const currencies = await this.synchronizeBankAccounts();
+            result.bankAccounts = currencies;
         } catch (err) {
             isSuccessful = false;
-            this.logger.child({ innerError: err }).error(Error(`Sync bank accounts failed`));
+
+            result.errors.bankAccounts = 'Sync bank accounts failed';
         }
 
         try {
             this.logger.info(`Creating default expense accounts`);
             await this.xeroEntities.ensureDefaultExpenseAccountsExist();
+
+            result.expenseAccounts = [DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_NAME];
         } catch (err) {
             isSuccessful = false;
-            this.logger.child({ innerError: err }).error(Error(`Creating default expense accounts failed`));
+
+            result.errors.expenseAccounts = 'Creating default expense accounts failed';
         }
 
-        if (isSuccessful) {
+        if (isSuccessful && !account.initial_sync_completed) {
             await this.store.accounts.update(this.accountId, true);
         }
+
+        return result;
     }
 
-    async synchronizeChartOfAccounts(): Promise<void> {
+    async synchronizeChartOfAccounts(): Promise<number> {
         const xeroAccountCodes = await this.xeroEntities.getExpenseAccounts();
         const accountCodeModels = xeroAccountCodes.map(x => ({
             code: x.code,
@@ -83,9 +92,11 @@ export class Manager implements IManager {
         }));
 
         await this.payhawkClient.synchronizeChartOfAccounts(accountCodeModels);
+
+        return xeroAccountCodes.length;
     }
 
-    async synchronizeTaxRates(): Promise<void> {
+    async synchronizeTaxRates(): Promise<number> {
         const xeroTaxRates = await this.xeroEntities.getTaxRates();
         const accountCodeModels = xeroTaxRates.map(x => ({
             name: x.name,
@@ -94,9 +105,11 @@ export class Manager implements IManager {
         }));
 
         await this.payhawkClient.synchronizeTaxRates(accountCodeModels);
+
+        return xeroTaxRates.length;
     }
 
-    async synchronizeBankAccounts(): Promise<void> {
+    async synchronizeBankAccounts(): Promise<string[]> {
         // push
         const payhawkAccounts = await this.payhawkClient.getBankAccounts();
         const uniqueCurrencies = new Set(payhawkAccounts.map(x => x.currency));
@@ -114,6 +127,8 @@ export class Manager implements IManager {
         }));
 
         await this.payhawkClient.synchronizeBankAccounts(bankAccountModels);
+
+        return Array.from(uniqueCurrencies);
     }
 
     async exportExpense(expenseId: string): Promise<void> {

@@ -62,13 +62,15 @@ export class IntegrationsController {
         try {
             switch (event) {
                 case PayhawkEvent.Initialize: {
-                    await this.initialize(
+                    const result = await this.initialize(
                         connectionManager,
                         accountId,
                         xeroAccessToken,
                         logger,
                     );
-                    break;
+
+                    res.send(200, result);
+                    return;
                 }
                 case PayhawkEvent.ExpenseExport: {
                     try {
@@ -172,9 +174,11 @@ export class IntegrationsController {
         logger.info(`Initialize started`);
 
         const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
-        await integrationManager.initialSynchronization();
+        const result = await integrationManager.initialSynchronization();
 
         logger.info(`Initialize completed`);
+
+        return result;
     }
 
     private async exportExpense(payloadData: any, connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, baseLogger: ILogger) {
