@@ -21,14 +21,22 @@ export interface IManager {
 }
 
 export interface ISyncResult {
+    isCompleted: boolean;
+    data?: ISyncResultData;
+    message?: string;
+}
+
+export interface ISyncResultData {
     bankAccounts?: string[];
     accountCodesCount?: number;
     taxRatesCount?: number;
     expenseAccounts?: string[];
-    errors: {
-        bankAccounts?: string;
-        accountCodes?: string;
-        taxRates?: string;
-        expenseAccounts?: string;
-    }
-}
+    errors?: ISyncResultDataErrors;
+};
+
+export interface ISyncResultDataErrors {
+    bankAccounts?: string;
+    accountCodes?: string;
+    taxRates?: string;
+    expenseAccounts?: string;
+};

@@ -19,19 +19,27 @@ export class Manager implements IManager {
         private readonly logger: ILogger,
     ) { }
 
-    async initialSynchronization() {
+    async initialSynchronization(): Promise<ISyncResult> {
         const account = await this.store.accounts.get(this.accountId);
         if (!account) {
-            return;
+            return {
+                isCompleted: false,
+            };
         }
 
         if (account.tenant_id !== this.tenantId) {
             this.logger.info('Account initial tenant id is not the same, skipping initialization');
-            return;
+            return {
+                isCompleted: false,
+                message: 'No data has been exported into Xero because initially you had connected your account to another organization',
+            };
         }
 
         const result: ISyncResult = {
-            errors: {},
+            isCompleted: true,
+            data: {
+                errors: {},
+            },
         };
 
         let isSuccessful = true;
@@ -39,41 +47,41 @@ export class Manager implements IManager {
         try {
             this.logger.info(`Sync tax rates started`);
             const taxRatesCount = await this.synchronizeTaxRates();
-            result.taxRatesCount = taxRatesCount;
+            result.data!.taxRatesCount = taxRatesCount;
         } catch (err) {
             isSuccessful = false;
 
-            result.errors.taxRates = 'Sync tax rates failed';
+            result.data!.errors!.taxRates = 'Sync tax rates failed';
         }
 
         try {
             this.logger.info(`Sync chart of accounts started`);
-            result.accountCodesCount = await this.synchronizeChartOfAccounts();
+            result.data!.accountCodesCount = await this.synchronizeChartOfAccounts();
         } catch (err) {
             isSuccessful = false;
 
-            result.errors.accountCodes = 'Sync chart of accounts failed';
+            result.data!.errors!.accountCodes = 'Sync chart of accounts failed';
         }
 
         try {
             this.logger.info(`Sync bank accounts started`);
             const currencies = await this.synchronizeBankAccounts();
-            result.bankAccounts = currencies;
+            result.data!.bankAccounts = currencies;
         } catch (err) {
             isSuccessful = false;
 
-            result.errors.bankAccounts = 'Sync bank accounts failed';
+            result.data!.errors!.bankAccounts = 'Sync bank accounts failed';
         }
 
         try {
             this.logger.info(`Creating default expense accounts`);
             await this.xeroEntities.ensureDefaultExpenseAccountsExist();
 
-            result.expenseAccounts = [DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_NAME];
+            result.data!.expenseAccounts = [DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_NAME];
         } catch (err) {
             isSuccessful = false;
 
-            result.errors.expenseAccounts = 'Creating default expense accounts failed';
+            result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
 
         if (isSuccessful && !account.initial_sync_completed) {
