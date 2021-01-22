@@ -27,7 +27,7 @@ export class Manager implements IManager {
         return accessToken.tokenSet;
     }
 
-    async createAccount(tenantId: string): Promise<void> {
+    async createOrUpdateAccount(tenantId: string): Promise<void> {
         await this.store.accounts.upsert({
             account_id: this.accountId,
             tenant_id: tenantId,

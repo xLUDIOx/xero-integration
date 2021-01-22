@@ -109,12 +109,13 @@ export class AuthController {
                 return;
             }
 
-            const tenantId = await connectionManager.getActiveTenantId();
+            const tenantId = authorizedTenants[0].tenantId;
             if (!tenantId) {
                 throw Error('No active tenant found for this account after callback received');
             }
 
-            await connectionManager.createAccount(tenantId);
+            await connectionManager.createOrUpdateAccount(tenantId);
+            await connectionManager.connectTenant(tenantId);
 
             const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
 
@@ -165,7 +166,7 @@ export class AuthController {
             throw new InternalServerError('No access token found');
         }
 
-        await connectionManager.createAccount(tenantId);
+        await connectionManager.createOrUpdateAccount(tenantId);
 
         const integrationManager = this.integrationManagerFactory({ accessToken, accountId, tenantId }, logger);
         const organisation = await integrationManager.getOrganisation();

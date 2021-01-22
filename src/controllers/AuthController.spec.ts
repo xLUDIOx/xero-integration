@@ -120,13 +120,12 @@ describe('AuthController', () => {
             } as restify.Request;
 
             connectionManagerMock
-                .setup(m => m.getActiveTenantId())
-                .returns(async () => '1')
+                .setup(m => m.getAuthorizedTenants(token))
+                .returns(async () => [{ tenantId: '1' } as any])
                 .verifiable(TypeMoq.Times.once());
 
             connectionManagerMock
-                .setup(m => m.getAuthorizedTenants(token))
-                .returns(async () => [{ tenantId: '1' } as any])
+                .setup(m => m.connectTenant('1'))
                 .verifiable(TypeMoq.Times.once());
 
             integrationManagerMock
