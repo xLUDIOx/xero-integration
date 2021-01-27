@@ -1,13 +1,15 @@
 export class HttpError extends Error {
     code: number;
-    data: any;
+    requestData: any;
+    responseData: any;
 
-    constructor({ message, code, data }: IHttpErrorParams) {
+    constructor({ message, code, requestData, responseData }: IHttpErrorParams) {
         super(message);
 
         this.name = this.constructor.name;
         this.code = code;
-        this.data = data;
+        this.requestData = requestData;
+        this.responseData = responseData;
 
         Error.captureStackTrace(this, this.constructor);
     }
@@ -16,5 +18,6 @@ export class HttpError extends Error {
 export interface IHttpErrorParams {
     message: string;
     code: number;
-    data: any;
+    requestData: any;
+    responseData: any;
 }

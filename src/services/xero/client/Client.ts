@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
 import { FEES_ACCOUNT_CODE, Intersection, TaxType } from '@shared';
-import { IDocumentSanitizer, ILogger, OperationNotAllowedError } from '@utils';
+import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths, OperationNotAllowedError } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -155,7 +155,7 @@ export class Client implements IClient {
             x => x.accountingApi.getAccounts(
                 this.tenantId,
                 undefined,
-                `${AccountKeys.type}=="${AccountType.BANK}" && ${AccountKeys.code}=="${escapeParam(code)}"`,
+                `${AccountKeys.type}=="${AccountType.BANK}"&&${AccountKeys.code}=="${escapeParam(code)}"`,
             ),
             XeroEntityResponseType.Accounts,
         );
@@ -168,7 +168,7 @@ export class Client implements IClient {
             x => x.accountingApi.getBankTransactions(
                 this.tenantId,
                 undefined,
-                `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${BankTransactionStatusCode.Deleted}"`,
+                `${AccountingItemKeys.url}="${escapeParam(url)}"&&${AccountingItemKeys.status}!="${BankTransactionStatusCode.Deleted}"`,
             ),
             XeroEntityResponseType.BankTransactions
         );
@@ -233,7 +233,7 @@ export class Client implements IClient {
     }
 
     async getBillByUrl(url: string): Promise<IInvoice | undefined> {
-        const where = `${AccountingItemKeys.url}="${escapeParam(url)}" && ${AccountingItemKeys.status}!="${InvoiceStatusCode.Deleted}"`;
+        const where = `${AccountingItemKeys.url}="${escapeParam(url)}"&&${AccountingItemKeys.status}!="${InvoiceStatusCode.Deleted}"`;
         const invoices = await this.xeroClient.makeClientRequest<IInvoice[] | undefined>(
             x => x.accountingApi.getInvoices(this.tenantId, undefined, where),
             XeroEntityResponseType.Invoices
@@ -506,7 +506,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
             description: feesDescription,
             accountCode: FEES_ACCOUNT_CODE,
             quantity: 1,
-            unitAmount: fxFees + posFees,
+            unitAmount: getFeesTotal(fxFees, posFees),
             taxType: TaxType.None,
         });
     }
@@ -553,4 +553,15 @@ export function normalizeName(name: string): string {
         .replace(/["]/g, '')
         .replace(/\s+/g, ' ');
     return res.trim();
+}
+
+function getFeesTotal(fxFees: number, posFees: number) {
+    const result = myriadthsToNumber(
+        (
+            BigInt(numberToMyriadths(fxFees)) +
+            BigInt(numberToMyriadths(posFees))
+        ).toString()
+    );
+
+    return result;
 }

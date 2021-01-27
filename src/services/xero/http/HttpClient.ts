@@ -114,7 +114,8 @@ export class HttpClient implements IHttpClient {
         const baseError: IHttpErrorParams = {
             message: err.message,
             code: statusCode || 500,
-            data: err.response ? err.response.data : undefined,
+            responseData: err.response?.data,
+            requestData: err.request,
         };
 
         if (!err.response) {

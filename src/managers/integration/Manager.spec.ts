@@ -6,7 +6,7 @@ import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores'
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
-import { Manager } from './Manager';
+import { getTransactionTotalAmount, Manager } from './Manager';
 
 describe('integrations/Manager', () => {
     const accountId = 'account_id';
@@ -822,6 +822,13 @@ describe('integrations/Manager', () => {
 
                 await manager.initialSynchronization();
             });
+        });
+    });
+
+    describe('getTransactionTotalAmount', () => {
+        it('should calculate correctly', () => {
+            const result = getTransactionTotalAmount({ cardAmount: 336.1400, fees: { fx: 3.03, pos: 0 } } as any);
+            expect(result).toEqual(339.17);
         });
     });
 });

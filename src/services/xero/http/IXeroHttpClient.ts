@@ -4,6 +4,7 @@ import { Response } from 'request';
 import { ValidationError, XeroClient } from 'xero-node';
 
 /**
+ * @deprecated Use IHttpClient instead
  * An interface for a Xero client wrapper that enables making Xero API calls
  */
 export interface IXeroHttpClient {

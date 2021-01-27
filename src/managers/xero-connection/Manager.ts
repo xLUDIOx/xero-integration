@@ -90,7 +90,7 @@ export class Manager implements IManager {
                 await this.authClient.disconnect(tenantId, accessToken);
             }
         } catch (err) {
-            this.logger.error(err);
+            this.logger.child({ tenantId, err }).info('Failed to disconnect tenant');
         } finally {
             await this.store.accessTokens.delete(tenantId);
         }

@@ -1,7 +1,7 @@
 import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -206,21 +206,17 @@ export class Manager implements IManager {
         const logger = this.logger.child({ accountId: this.accountId, balanceId, transferId });
         const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
         if (!transfer) {
-            logger.error(Error('Transfer not found'));
-            return;
+            throw logger.error(Error('Transfer not found'));
         }
 
         const organisation = await this.getOrganisation();
         this.validateExportDate(organisation, transfer.date, logger);
 
         const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
-        try {
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
-            const bankAccountId = bankAccount.accountID;
-            await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
-        } catch (err) {
-            logger.error(err);
-        }
+        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
+        const bankAccountId = bankAccount.accountID;
+
+        await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
     }
 
     async getOrganisation(): Promise<XeroEntities.IOrganisation> {
@@ -250,8 +246,7 @@ export class Manager implements IManager {
 
         const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
         if (!transfer) {
-            logger.error(Error('Transfer not found'));
-            return;
+            throw logger.error(Error('Transfer not found'));
         }
 
         const organisation = await this.getOrganisation();
@@ -620,7 +615,7 @@ export class Manager implements IManager {
                 throw err;
             }
 
-            const error = err.data as IFeedConnectionError | undefined;
+            const error = err.responseData as IFeedConnectionError | undefined;
             if (!error) {
                 throw err;
             }
@@ -670,7 +665,7 @@ export class Manager implements IManager {
                 throw err;
             }
 
-            const items = err.data.items as IRejectedBankStatement[] | undefined;
+            const items = err.responseData.items as IRejectedBankStatement[] | undefined;
             const rejectedItem = items ? items[0] : undefined;
             if (!rejectedItem) {
                 throw err;
@@ -856,6 +851,9 @@ export class Manager implements IManager {
             throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         }
 
+        // unhandled, we need to log it
+        this.logger.error(err);
+
         throw new ExportError(genericErrorMessage);
     }
 
@@ -888,8 +886,13 @@ function formatDescription(name: string, expenseNote?: string): string {
     return `${name}${expenseNote ? ` | ${expenseNote}` : ''}`;
 }
 
-function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
-    return t.cardAmount + t.fees.fx + t.fees.pos;
+export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
+    return myriadthsToNumber((
+        BigInt(numberToMyriadths(t.cardAmount)) +
+        BigInt(numberToMyriadths(t.fees.fx)) +
+        BigInt(numberToMyriadths(t.fees.pos)))
+        .toString()
+    );
 }
 
 function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {

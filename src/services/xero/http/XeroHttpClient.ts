@@ -7,6 +7,9 @@ import { ForbiddenError, ILock, ILogger } from '@utils';
 
 import { IApiResponse, IErrorResponse, IXeroHttpClient, IXeroRequestOptions, ResponseErrorType, XeroEntityResponseType } from './IXeroHttpClient';
 
+/**
+ * @deprecated Use HttpClient instead
+ */
 export class XeroHttpClient implements IXeroHttpClient {
     constructor(
         private readonly inner: XeroClient,

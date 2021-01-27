@@ -6,6 +6,7 @@ export * from './logger';
 export * from './request';
 
 export * from './Base64Converter';
+export * from './NumberConversion';
 export * from './DateFormatter';
 
 export async function sleep(timeout: number) {
