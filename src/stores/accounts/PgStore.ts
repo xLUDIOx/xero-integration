@@ -31,17 +31,19 @@ export class PgStore implements IStore {
         });
     }
 
-    async upsert({ account_id, tenant_id, initial_sync_completed }: IAccountRecord): Promise<void> {
+    async create({ account_id, tenant_id, initial_sync_completed }: IAccountRecord): Promise<void> {
         await this.dbClient.query<{ payhawk_api_key: string }>({
             text: `
-                INSERT INTO "${this.tableName}" as CURRENT("${AccountRecordKeys.account_id}", "${AccountRecordKeys.tenant_id}", "${AccountRecordKeys.initial_sync_completed}")
+                INSERT INTO "${this.tableName}" ("${AccountRecordKeys.account_id}", "${AccountRecordKeys.tenant_id}", "${AccountRecordKeys.initial_sync_completed}")
                 VALUES ($1, $2, $3)
                 ON CONFLICT ("${AccountRecordKeys.account_id}")
-                DO
-                    UPDATE SET "${AccountRecordKeys.initial_sync_completed}"=$3
-                    WHERE CURRENT."${AccountRecordKeys.initial_sync_completed}"=false
+                DO NOTHING
             `,
-            values: [account_id, tenant_id, initial_sync_completed],
+            values: [
+                account_id,
+                tenant_id,
+                initial_sync_completed,
+            ],
         });
     }
 }

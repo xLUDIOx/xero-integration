@@ -691,6 +691,7 @@ describe('integrations/Manager', () => {
                         contactId,
                         reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,
                         amount: -t.amount,
+                        taxType: TaxType.None,
                         fxFees: 0,
                         posFees: 0,
                         files: [],

@@ -1,6 +1,6 @@
 import { Xero } from '@services';
 import { ITokenSet } from '@shared';
-import { ISchemaStore } from '@stores';
+import { AccessTokens, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
@@ -19,16 +19,13 @@ export class Manager implements IManager {
         return url;
     }
 
-    async authenticate(authCode: string): Promise<ITokenSet | undefined> {
-        const accessToken = await this.authClient.getAccessToken(authCode);
-
-        await this.createAccessToken(accessToken);
-
-        return accessToken.tokenSet;
+    async authenticate(authCode: string): Promise<ITokenSet> {
+        const accessToken = await this.authClient.getAccessTokenFromCode(authCode);
+        return accessToken;
     }
 
-    async createOrUpdateAccount(tenantId: string): Promise<void> {
-        await this.store.accounts.upsert({
+    async createAccount(tenantId: string): Promise<void> {
+        await this.store.accounts.create({
             account_id: this.accountId,
             tenant_id: tenantId,
             initial_sync_completed: false,
@@ -66,15 +63,6 @@ export class Manager implements IManager {
         }
 
         return xeroAccessTokenRecord.tenant_id;
-    }
-
-    async connectTenant(tenantId: string): Promise<void> {
-        const xeroAccessTokenRecord = await this.store.accessTokens.getByAccountId(this.accountId);
-        if (xeroAccessTokenRecord === undefined) {
-            throw Error('No token found for this account');
-        }
-
-        await this.store.accessTokens.updateTenant(this.accountId, tenantId);
     }
 
     async disconnectActiveTenant(): Promise<void> {
@@ -132,17 +120,19 @@ export class Manager implements IManager {
         return undefined;
     }
 
-    private async createAccessToken(accessToken: Xero.IAccessToken) {
+    async createAccessToken(accessToken: ITokenSet, tenantId: string) {
+        const xeroUserId = extractXeroUserIdFromToken(accessToken);
+
         await this.store.accessTokens.create({
             account_id: this.accountId,
-            tenant_id: accessToken.tenantId,
-            user_id: accessToken.xeroUserId,
-            token_set: accessToken.tokenSet,
+            tenant_id: tenantId,
+            user_id: xeroUserId,
+            token_set: accessToken,
         });
     }
 
     private async updateAccessToken(tenantId: string, accessToken: ITokenSet) {
-        await this.store.accessTokens.update(this.accountId, tenantId, accessToken);
+        await this.store.accessTokens.updateToken(this.accountId, tenantId, accessToken);
     }
 }
 
@@ -154,5 +144,15 @@ export const isAccessTokenExpired = (accessToken: ITokenSet): boolean => {
     // e.g. 15 sec left in it
     return !accessToken.expires_in || !Number.isInteger(accessToken.expires_in) || accessToken.expires_in <= MIN_EXPIRATION_TIME;
 };
+
+function extractXeroUserIdFromToken(tokenSet: ITokenSet): string {
+    const tokenPayload = AccessTokens.parseToken(tokenSet);
+    if (!tokenPayload) {
+        throw Error('Could not parse token payload. Unable to extract Xero user ID');
+    }
+
+    const xeroUserId = tokenPayload.xero_userid;
+    return xeroUserId;
+}
 
 const MIN_EXPIRATION_TIME = 60; // seconds

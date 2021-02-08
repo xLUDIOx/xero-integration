@@ -196,7 +196,7 @@ export class Manager implements IManager {
     async deleteBill(billUrl: string) {
         const bill = await this.xeroClient.getBillByUrl(billUrl);
         if (!bill) {
-            throw Error('Bill not found');
+            return;
         }
 
         if (bill.status === Xero.InvoiceStatus.PAID) {

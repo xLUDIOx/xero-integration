@@ -15,12 +15,10 @@ Object {
 exports[`Accounts store should insert and handle conflict 1`] = `
 Object {
   "text": "
-                INSERT INTO \\"accounts\\" as CURRENT(\\"account_id\\", \\"tenant_id\\", \\"initial_sync_completed\\")
+                INSERT INTO \\"accounts\\" (\\"account_id\\", \\"tenant_id\\", \\"initial_sync_completed\\")
                 VALUES ($1, $2, $3)
                 ON CONFLICT (\\"account_id\\")
-                DO
-                    UPDATE SET \\"initial_sync_completed\\"=$3
-                    WHERE CURRENT.\\"initial_sync_completed\\"=false
+                DO NOTHING
             ",
   "values": Array [
     "acc_id",

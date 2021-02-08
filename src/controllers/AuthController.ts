@@ -3,13 +3,13 @@ import { URL, URLSearchParams } from 'url';
 
 import { boundMethod } from 'autobind-decorator';
 import { Next, Request, Response } from 'restify';
-import { InternalServerError } from 'restify-errors';
 
 import { Integration, XeroConnection } from '@managers';
-import { ForbiddenError, fromBase64, ILogger, requiredBodyParams, requiredQueryParams } from '@utils';
+import { Xero } from '@services';
+import { ITokenSet } from '@shared';
+import { ForbiddenError, fromBase64, ILogger, requiredBodyParams, requiredQueryParams, TenantConflictError, toBase64 } from '@utils';
 
 import { IConfig } from '../Config';
-import { Xero } from '../services';
 import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 
 export class AuthController {
@@ -48,86 +48,79 @@ export class AuthController {
         const returnUrl = state.get('returnUrl');
         if (!accountId || !returnUrl) {
             this.baseLogger.error(Error('State param does not contain required account ID and return URL'));
-            res.send(500);
-            return;
+            return res.send(500);
         }
 
         const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
         const url = new URL(absoluteReturnUrl);
 
-        const logger = this.baseLogger.child({ accountId }, req);
+        let logger = this.baseLogger.child({ accountId }, req);
         if (error) {
             logger.info('Xero authorization declined. Redirecting to portal...');
-
-            url.searchParams.set('error', error);
-            res.redirect(url.toString(), next);
-            return;
+            return res.redirect(url.toString(), next);
         }
 
         logger.info('Callback start');
 
         if (!code) {
             logger.error(Error('Auth code is required for retrieving access token'));
-            res.send(500);
-            return;
+            return res.send(500);
         }
 
         try {
             const connectionManager = this.connectionManagerFactory({ accountId }, logger);
             const accessToken = await connectionManager.authenticate(code);
-            if (!accessToken) {
-                logger.error(Error('Could not create access token from callback'));
-                res.send(401);
-                return;
-            }
-
             const authorizedTenants = await connectionManager.getAuthorizedTenants(accessToken);
+
+            logger = logger.child({
+                authorizedTenants: authorizedTenants.map(t => ({
+                    tenantId: t.tenantId,
+                    tenantName: t.tenantName,
+                })),
+            });
 
             // should never happen
             if (authorizedTenants.length === 0) {
-                throw Error('No authorized tenants');
+                logger.error(Error('No authorized tenants'));
+                return res.redirect(url.toString(), next);
             }
 
             if (authorizedTenants.length > 1) {
-                const nonce = crypto.randomBytes(16).toString('base64');
-                const body = this.getTenantSelectorHtml(accountId, authorizedTenants, returnUrl, nonce);
+                logger.info('Multiple tenants authorized, rendering tenant selector');
 
-                res.writeHead(200, {
-                    'content-length': Buffer.byteLength(body),
-                    'content-type': 'text/html',
-                    'strict-transport-security': 'max-age=63072000; includeSubdomains; preload',
-                    'content-security-policy': `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'`,
-                    'x-content-type-options': 'nosniff',
-                    'x-xss-protection': '1; mode=block',
-                    'referrer-policy': 'same-origin',
-                    'x-permitted-cross-domain-policies': 'none',
-                    'x-frame-options': 'DENY',
-                });
+                const nonce = crypto.randomBytes(16).toString('base64');
+                const body = this.getTenantSelectorHtml(
+                    accountId,
+                    authorizedTenants,
+                    returnUrl,
+                    toBase64(JSON.stringify(accessToken)),
+                    nonce,
+                );
+
+                const headers = this.getTenantSelectorHeaders(body, nonce);
+
+                res.writeHead(200, headers);
 
                 res.write(body);
                 res.end();
                 return;
             }
 
+            logger.info('Single tenant is authorized, connecting...');
+
             const tenantId = authorizedTenants[0].tenantId;
             if (!tenantId) {
                 throw Error('No active tenant found for this account after callback received');
             }
 
-            await connectionManager.createOrUpdateAccount(tenantId);
-            await connectionManager.connectTenant(tenantId);
+            const redirectUrl = await this.connectSingleTenant(
+                connectionManager,
+                accessToken,
+                tenantId,
+                url,
+            );
 
-            const integrationManager = this.integrationManagerFactory({ accessToken, tenantId, accountId }, logger);
-
-            const organisation = await integrationManager.getOrganisation();
-            const organisationName = organisation.name;
-
-            url.searchParams.append('connection', 'xero');
-            if (organisationName) {
-                url.searchParams.append('label', organisationName);
-            }
-
-            res.redirect(url.toString(), next);
+            res.redirect(redirectUrl.toString(), next);
 
             logger.info('Callback complete');
         } catch (err) {
@@ -154,33 +147,54 @@ export class AuthController {
     @boundMethod
     @requiredBodyParams('accountId', 'tenantId', 'returnUrl')
     async connectTenant(req: Request, res: Response, next: Next) {
-        const { accountId, tenantId, returnUrl } = req.body;
+        const { accountId, tenantId, accessToken: accessTokenString, returnUrl } = req.body;
 
-        const logger = this.baseLogger.child({ accountId }, req);
+        const logger = this.baseLogger.child({ accountId, tenantId }, req);
+
+        logger.info('Tenant selected, connecting...');
 
         const connectionManager = this.connectionManagerFactory({ accountId }, logger);
-        await connectionManager.connectTenant(tenantId);
-
-        const accessToken = await connectionManager.getAccessToken();
-        if (!accessToken) {
-            throw new InternalServerError('No access token found');
-        }
-
-        await connectionManager.createOrUpdateAccount(tenantId);
-
-        const integrationManager = this.integrationManagerFactory({ accessToken, accountId, tenantId }, logger);
-        const organisation = await integrationManager.getOrganisation();
-        const organisationName = organisation.name;
+        const accessToken = JSON.parse(fromBase64(accessTokenString));
 
         const absoluteReturnUrl = `${this.config.portalUrl}${returnUrl.startsWith('/') ? returnUrl : `/${returnUrl}`}`;
         const url = new URL(absoluteReturnUrl);
 
-        url.searchParams.append('connection', 'xero');
-        if (organisationName) {
-            url.searchParams.append('label', organisationName);
+        const redirectUrl = await this.connectSingleTenant(
+            connectionManager,
+            accessToken,
+            tenantId,
+            url,
+        );
+
+        res.redirect(redirectUrl, next);
+    }
+
+    private async connectSingleTenant(
+        connectionManager: XeroConnection.IManager,
+        accessToken: ITokenSet,
+        tenantId: string,
+        redirectUrl: URL,
+    ) {
+        redirectUrl.searchParams.append('connection', 'xero');
+
+        try {
+            await connectionManager.createAccessToken(accessToken, tenantId);
+        } catch (err) {
+            if (err instanceof TenantConflictError) {
+                const authorizedTenants = await connectionManager.getAuthorizedTenants(accessToken);
+                const tenant = authorizedTenants.find(t => t.tenantId === err.tenantId);
+
+                redirectUrl.searchParams.set('errorType', 'conflict');
+                redirectUrl.searchParams.set('organisationName', tenant!.tenantName);
+                redirectUrl.searchParams.set('conflictingAccountId', err.conflictingAccountId);
+
+                return redirectUrl.toString();
+            }
         }
 
-        res.redirect(url.toString(), next);
+        await connectionManager.createAccount(tenantId);
+
+        return redirectUrl.toString();
     }
 
     private async resolveConnectionStatus(accountId: string, logger: ILogger): Promise<IConnectionStatus> {
@@ -219,7 +233,7 @@ export class AuthController {
         }
     }
 
-    private getTenantSelectorHtml(accountId: string, tenants: Xero.ITenant[], returnUrl: string, nonce: string) {
+    private getTenantSelectorHtml(accountId: string, tenants: Xero.ITenant[], returnUrl: string, token: string, nonce: string) {
         // cspell: disable
         const body = `
             <html>
@@ -300,7 +314,7 @@ export class AuthController {
                         <img class="phwk-logo" src="/images/logo.png" />
                         <form action="/connect-tenant" method="POST" class="tenant-selector-form">
                             <div class="form-group">
-                                <label for="tenantSelector">Select tenant</label>
+                                <label for="tenantSelector">Select organisation</label>
                                 <select class="form-control" name="tenantId" id="tenantSelector">
                                     ${tenants.map(t => `<option value="${t.tenantId}">${t.tenantName}</option>`)}
                                 </select>
@@ -311,6 +325,10 @@ export class AuthController {
                             <div class="form-group">
                                 <input type="hidden" name="returnUrl" value="${returnUrl}" />
                             </div>
+                            <div class="form-group">
+                                <input type="hidden" name="accessToken" value="${token}" />
+                            </div>
+
                             <button type="submit" class="btn btn-primary mt-3 btn-connect">Continue</button>
                         </form>
                     </div>
@@ -320,5 +338,19 @@ export class AuthController {
         // cspell: enable
 
         return body;
+    }
+
+    private getTenantSelectorHeaders(body: any, nonce: string) {
+        return {
+            'content-length': Buffer.byteLength(body),
+            'content-type': 'text/html',
+            'strict-transport-security': 'max-age=63072000; includeSubdomains; preload',
+            'content-security-policy': `default-src 'none'; img-src 'self'; style-src 'nonce-${nonce}'; script-src 'nonce-${nonce}'`,
+            'x-content-type-options': 'nosniff',
+            'x-xss-protection': '1; mode=block',
+            'referrer-policy': 'same-origin',
+            'x-permitted-cross-domain-policies': 'none',
+            'x-frame-options': 'DENY',
+        };
     }
 }

@@ -1,8 +1,7 @@
 import { ITokenSet } from '@shared';
-import { AccessTokens } from '@stores';
 
 import { AuthClient, ITenant } from '../client';
-import { IAccessToken, IAuth } from './IAuth';
+import { IAuth } from './IAuth';
 
 export class Auth implements IAuth {
     constructor(
@@ -14,9 +13,9 @@ export class Auth implements IAuth {
         return this.client.getAuthUrl();
     }
 
-    async getAccessToken(code: string): Promise<IAccessToken> {
+    async getAccessTokenFromCode(code: string): Promise<ITokenSet> {
         const accessToken = await this.client.getAccessToken(code);
-        return this.buildAccessTokenData(accessToken);
+        return accessToken;
     }
 
     async getAuthorizedTenants(accessToken: ITokenSet): Promise<ITenant[]> {
@@ -29,26 +28,5 @@ export class Auth implements IAuth {
 
     async disconnect(tenantId: string, currentToken: ITokenSet): Promise<void> {
         return this.client.disconnect(tenantId, currentToken);
-    }
-
-    private async buildAccessTokenData(tokenSet: ITokenSet): Promise<IAccessToken> {
-        const tenants = await this.getAuthorizedTenants(tokenSet);
-        if (tenants.length === 0) {
-            throw Error('Client did not load tenants. Unable to extract Xero active tenant ID');
-        }
-
-        const tokenPayload = AccessTokens.parseToken(tokenSet);
-        if (!tokenPayload) {
-            throw Error('Could not parse token payload. Unable to extract Xero user ID');
-        }
-
-        const xeroUserId = tokenPayload.xero_userid;
-        const tenantId = tenants[0].tenantId;
-
-        return {
-            xeroUserId,
-            tenantId,
-            tokenSet,
-        };
     }
 }

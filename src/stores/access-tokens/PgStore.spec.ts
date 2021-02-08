@@ -1,7 +1,7 @@
 import { It, Mock, Times } from 'typemoq';
 
 import { IDbClient, ITokenSet } from '@shared';
-import { ILogger } from '@utils';
+import { ILogger, TenantConflictError } from '@utils';
 
 import { PgStore } from './PgStore';
 
@@ -14,7 +14,7 @@ describe('Access Tokens store', () => {
         dbClientMock
             .setup(d => d.query(It.isAny()))
             .callback(req => expect(req).toMatchSnapshot())
-            .returns(async () => ({ rows: [{ count: 0 }], rowCount: 1 }));
+            .returns(async () => ({ rows: [], rowCount: 0 }));
 
         loggerMock
             .setup(l => l.child(It.isAny()))
@@ -41,11 +41,14 @@ describe('Access Tokens store', () => {
     });
 
     it('should match snapshot for updating access token for tenant', async () => {
-        await store.update('account_id', 'tenant_id', { access_token: 'token' } as ITokenSet);
-    });
+        dbClientMock.reset();
 
-    it('should match snapshot for updating tenant for account', async () => {
-        await store.updateTenant('account_id', 'tenant_id');
+        dbClientMock
+            .setup(x => x.query(It.isAny()))
+            .returns(async () => ({ rows: [{}], rowCount: 1 }))
+            .verifiable(Times.once());
+
+        await store.updateToken('account_id', 'tenant_id', { access_token: 'token' } as ITokenSet);
     });
 
     it('should match snapshot for creating access token for account', async () => {
@@ -62,7 +65,7 @@ describe('Access Tokens store', () => {
 
         dbClientMock
             .setup(x => x.query(It.isAny()))
-            .returns(async () => ({ rows: [{ count: 1 }], rowCount: 1 }))
+            .returns(async () => ({ rows: [{ account_id: 'acc_id' }], rowCount: 1 }))
             .verifiable(Times.once());
 
         const create = store.create({
@@ -72,6 +75,6 @@ describe('Access Tokens store', () => {
             token_set: { access_token: 'token' } as ITokenSet,
         });
 
-        await expect(create).rejects.toThrowError('Another active account already uses the same tenant ID');
+        await expect(create).rejects.toThrowError(TenantConflictError);
     });
 });

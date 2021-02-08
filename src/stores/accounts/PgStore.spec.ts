@@ -25,6 +25,6 @@ describe('Accounts store', () => {
     });
 
     it('should insert and handle conflict', async () => {
-        await store.upsert({ account_id: 'acc_id', tenant_id: 't_id', initial_sync_completed: true });
+        await store.create({ account_id: 'acc_id', tenant_id: 't_id', initial_sync_completed: true });
     });
 });

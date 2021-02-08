@@ -1,10 +1,9 @@
 import { TokenSet } from 'openid-client';
 
 import { IDbClient, INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord, SCHEMA, UserTokenSetRecordKeys } from '@shared';
-import { ILogger } from '@utils';
+import { ILogger, TenantConflictError } from '@utils';
 
 import { IStore } from './IStore';
-
 export class PgStore implements IStore {
     private readonly tableName: string = SCHEMA.TABLE_NAMES.ACCESS_TOKENS;
 
@@ -12,7 +11,8 @@ export class PgStore implements IStore {
     }
 
     async create({ account_id, user_id, tenant_id, token_set }: INewUserTokenSetRecord): Promise<void> {
-        await this.ensureNoOtherActiveAccountIsConnectedToTenant(account_id, tenant_id);
+        await this.preventAccountTenantConflict(account_id, tenant_id);
+
         await this.dbClient.query({
             text: `
                 INSERT INTO "${this.tableName}" (
@@ -26,6 +26,7 @@ export class PgStore implements IStore {
                 DO
                     UPDATE SET
                         "${UserTokenSetRecordKeys.user_id}" = $2,
+                        "${UserTokenSetRecordKeys.tenant_id}" = $3,
                         "${UserTokenSetRecordKeys.token_set}" = $4,
                         "${UserTokenSetRecordKeys.updated_at}" = now();
             `,
@@ -38,7 +39,7 @@ export class PgStore implements IStore {
         });
     }
 
-    async update(accountId: string, tenantId: string, tokenSet: ITokenSet): Promise<void> {
+    async updateToken(accountId: string, tenantId: string, tokenSet: ITokenSet): Promise<void> {
         const result = await this.dbClient.query({
             text: `
                 UPDATE "${this.tableName}"
@@ -61,27 +62,6 @@ export class PgStore implements IStore {
                 tenantId,
                 tokenSet,
             }).error(Error('Failed to update token'));
-        }
-    }
-
-    async updateTenant(accountId: string, tenantId: string): Promise<void> {
-        const result = await this.dbClient.query({
-            text: `
-                UPDATE "${this.tableName}"
-                SET
-                    "${UserTokenSetRecordKeys.tenant_id}" = $2,
-                    "${UserTokenSetRecordKeys.updated_at}" = now()
-                WHERE "${UserTokenSetRecordKeys.account_id}"=$1
-                RETURNING *
-            `,
-            values: [
-                accountId,
-                tenantId,
-            ],
-        });
-
-        if (result.rows.length === 0) {
-            throw this.logger.child({ accountId }).error(Error('Failed to update token'));
         }
     }
 
@@ -116,13 +96,13 @@ export class PgStore implements IStore {
         });
     }
 
-    private async ensureNoOtherActiveAccountIsConnectedToTenant(accountId: string, tenantId: string): Promise<void> {
-        const otherNonDemoAccountsWithSameTenant = await this.dbClient.query<{ count: number }>({
+    private async preventAccountTenantConflict(accountId: string, tenantId: string): Promise<void> {
+        const queryResult = await this.dbClient.query<Pick<INewUserTokenSetRecord, 'account_id'>>({
             text: `
-                SELECT COUNT(*) FROM "${this.tableName}"
+                SELECT "${UserTokenSetRecordKeys.account_id}" FROM "${this.tableName}"
                 WHERE
                     "${UserTokenSetRecordKeys.account_id}"!=$1 AND
-                    "${UserTokenSetRecordKeys.account_id}" NOT LIKE '%_demo' AND
+                    "${UserTokenSetRecordKeys.account_id}" NOT LIKE '%${DEMO_SUFFIX}' AND
                     "${UserTokenSetRecordKeys.tenant_id}"=$2
             `,
             values: [
@@ -131,10 +111,9 @@ export class PgStore implements IStore {
             ],
         });
 
-        const hasOtherNonDemoAccountsWithSameTenant = otherNonDemoAccountsWithSameTenant.rows[0].count > 0;
-        if (hasOtherNonDemoAccountsWithSameTenant && !accountId.endsWith(DEMO_SUFFIX)) {
-            throw this.logger.child({ tenantId })
-                .error(Error('Another active account already uses the same tenant ID'));
+        const hasConflictingAccount = queryResult.rows.length > 0;
+        if (hasConflictingAccount && !accountId.endsWith(DEMO_SUFFIX)) {
+            throw new TenantConflictError(tenantId, accountId, queryResult.rows[0].account_id);
         }
     }
 }

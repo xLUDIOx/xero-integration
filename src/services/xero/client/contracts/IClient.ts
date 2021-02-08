@@ -19,7 +19,7 @@ export interface IClient {
 
     getBankAccounts(): Promise<IBankAccount[]>;
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
-    getBankAccountByCode(code: string): Promise<IBankAccount | undefined>;
+    getBankAccountByCodeOrName(code: string, name: string): Promise<IBankAccount | undefined>;
     createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount>;
 
     getTransactionByUrl(url: string): Promise<IBankTransaction | undefined>;

@@ -3,7 +3,7 @@
 exports[`Access Tokens store should match snapshot for creating access token for account 1`] = `
 Object {
   "text": "
-                SELECT COUNT(*) FROM \\"oauth2_access_tokens\\"
+                SELECT \\"account_id\\" FROM \\"oauth2_access_tokens\\"
                 WHERE
                     \\"account_id\\"!=$1 AND
                     \\"account_id\\" NOT LIKE '%_demo' AND
@@ -30,6 +30,7 @@ Object {
                 DO
                     UPDATE SET
                         \\"user_id\\" = $2,
+                        \\"tenant_id\\" = $3,
                         \\"token_set\\" = $4,
                         \\"updated_at\\" = now();
             ",
@@ -64,43 +65,6 @@ Object {
             ",
   "values": Array [
     "acc_id",
-  ],
-}
-`;
-
-exports[`Access Tokens store should match snapshot for updating access token for tenant 1`] = `
-Object {
-  "text": "
-                UPDATE \\"oauth2_access_tokens\\"
-                SET
-                    \\"token_set\\" = $3,
-                    \\"updated_at\\" = now()
-                WHERE \\"account_id\\"=$1 AND \\"tenant_id\\"=$2
-                RETURNING *
-            ",
-  "values": Array [
-    "account_id",
-    "tenant_id",
-    Object {
-      "access_token": "token",
-    },
-  ],
-}
-`;
-
-exports[`Access Tokens store should match snapshot for updating tenant for account 1`] = `
-Object {
-  "text": "
-                UPDATE \\"oauth2_access_tokens\\"
-                SET
-                    \\"tenant_id\\" = $2,
-                    \\"updated_at\\" = now()
-                WHERE \\"account_id\\"=$1
-                RETURNING *
-            ",
-  "values": Array [
-    "account_id",
-    "tenant_id",
   ],
 }
 `;

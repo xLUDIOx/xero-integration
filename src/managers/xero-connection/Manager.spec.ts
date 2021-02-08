@@ -73,27 +73,13 @@ describe('xero-connection/Manager', () => {
     });
 
     describe('authenticate', () => {
-        test('throws if called without verifier argument', async () => {
-            try {
-                await manager.authenticate('');
-                fail();
-            } catch (err) {
-                expect(err).toBeDefined();
-            }
-        });
-
         test('returns token and saves it on success', async () => {
             const verifier = 'verifier';
             const accessToken = createAccessToken();
 
             authMock
-                .setup(a => a.getAccessToken(verifier))
-                .returns(async () => ({ tokenSet: accessToken, tenantId: '', xeroUserId: '' }));
-
-            accessTokensStoreMock
-                .setup(s => s.create({ account_id: accountId, token_set: accessToken, tenant_id: '', user_id: '' }))
-                .returns(() => Promise.resolve())
-                .verifiable(TypeMoq.Times.once());
+                .setup(a => a.getAccessTokenFromCode(verifier))
+                .returns(async () => (accessToken));
 
             const result = await manager.authenticate(verifier);
 
@@ -105,7 +91,7 @@ describe('xero-connection/Manager', () => {
             const verifier = 'verifier';
 
             authMock
-                .setup(a => a.getAccessToken(verifier))
+                .setup(a => a.getAccessTokenFromCode(verifier))
                 .returns(() => Promise.reject(expectedError));
 
             try {

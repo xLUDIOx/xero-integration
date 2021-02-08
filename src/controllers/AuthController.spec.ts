@@ -97,21 +97,12 @@ describe('AuthController', () => {
             await expect(controller.callback(req, responseMock.object, nextMock.object)).rejects.toThrow();
         });
 
-        test('sends 401 when authentication fails', async () => {
-            const req = { url: '', query: { code: 'code', state: 'YWNjb3VudElkPXBlc2hvXzEyMyZyZXR1cm5Vcmw9Lw==' } } as restify.Request;
-
-            responseMock.setup(r => r.send(401)).verifiable(TypeMoq.Times.once());
-            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => undefined);
-
-            await controller.callback(req, responseMock.object, nextMock.object);
-        });
-
         test('redirects to return url', async () => {
             const token = createAccessToken();
 
             const returnUrl = '/my-path';
             responseMock
-                .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero&label=My+demo+company`, nextMock.object))
+                .setup(r => r.redirect(`http://localhost${returnUrl}?connection=xero`, nextMock.object))
                 .verifiable(TypeMoq.Times.once());
 
             const req = {
@@ -124,16 +115,7 @@ describe('AuthController', () => {
                 .returns(async () => [{ tenantId: '1' } as any])
                 .verifiable(TypeMoq.Times.once());
 
-            connectionManagerMock
-                .setup(m => m.connectTenant('1'))
-                .verifiable(TypeMoq.Times.once());
-
-            integrationManagerMock
-                .setup(m => m.getOrganisation())
-                .returns(async () => ({ name: 'My demo company' } as any))
-                .verifiable(TypeMoq.Times.once());
-
-            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => token);
+            connectionManagerMock.setup(m => m.authenticate(req.query.code)).returns(async () => (token));
 
             await controller.callback(req, responseMock.object, nextMock.object);
         });

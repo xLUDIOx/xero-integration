@@ -31,7 +31,7 @@ describe('XeroEntities.Manager', () => {
 
         test('gets existing bank account for currency', async () => {
             xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
+                .setup(x => x.getBankAccountByCodeOrName(accountCode, accountName))
                 .returns(async () => ({
                     accountID: bankAccountId,
                     code: 'PHWK-EUR',
@@ -58,7 +58,7 @@ describe('XeroEntities.Manager', () => {
                 currencyCode: CurrencyCode.EUR,
             };
             xeroClientMock
-                .setup(x => x.getBankAccountByCode(accountCode))
+                .setup(x => x.getBankAccountByCodeOrName(accountCode, accountName))
                 .returns(async () => undefined);
 
             xeroClientMock

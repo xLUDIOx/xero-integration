@@ -74,7 +74,7 @@ export class Client implements IClient {
     async getOrCreateExpenseAccount({ name, code, taxType, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
         const logger = this.logger.child({ name, code, taxType, addToWatchlist });
 
-        let expenseAccount = await this.getExpenseAccountByCode(code);
+        let expenseAccount = await this.getExpenseAccountByCodeOrName(code, name);
         if (!expenseAccount) {
             expenseAccount = await this.createExpenseAccount(name, code, taxType, logger);
         }
@@ -86,12 +86,12 @@ export class Client implements IClient {
         return expenseAccount;
     }
 
-    private async getExpenseAccountByCode(code: string): Promise<IAccountCode | undefined> {
+    private async getExpenseAccountByCodeOrName(code: string, name: string): Promise<IAccountCode | undefined> {
         const url = buildUrl(
             this.baseUrl(),
             '/Accounts',
             {
-                where: `Class=="${AccountType.Expense}"&&Code=="${code}"`,
+                where: `Class=="${AccountType.Expense}"`,
             }
         );
 
@@ -102,7 +102,8 @@ export class Client implements IClient {
 
         const responseItems = response[EntityResponseType.Accounts];
         const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
-        return expenseAccounts[0];
+        const expenseAccount = expenseAccounts.find(x => x.code === code || x.name.toLowerCase() === name.toLowerCase());
+        return expenseAccount;
     }
 
     private async createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {

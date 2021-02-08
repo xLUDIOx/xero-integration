@@ -150,17 +150,18 @@ export class Client implements IClient {
         return bankAccount;
     }
 
-    async getBankAccountByCode(code: string): Promise<IBankAccount | undefined> {
+    async getBankAccountByCodeOrName(code: string, name: string): Promise<IBankAccount | undefined> {
         const accounts = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.getAccounts(
                 this.tenantId,
                 undefined,
-                `${AccountKeys.type}=="${AccountType.BANK}"&&${AccountKeys.code}=="${escapeParam(code)}"`,
+                `${AccountKeys.type}=="${AccountType.BANK}"`,
             ),
             XeroEntityResponseType.Accounts,
         );
 
-        return accounts[0];
+        const account = accounts.find(a => a.code === code || a.name.toLowerCase() === name.toLowerCase());
+        return account;
     }
 
     async getTransactionByUrl(url: string): Promise<IBankTransaction | undefined> {

@@ -86,7 +86,7 @@ describe('Synchronize Account Codes', () => {
         const payhawkRequest = payhawkClientMock.requests[0];
         const payhawkRequestBody = payhawkRequest.body;
         expect(payhawkRequestBody).to.deep.eq(
-            [accountCode].map(x => ({ name: x.name, code: x.code }))
+            [accountCode].map(x => ({ name: x.name, defaultTaxCode: x.taxType, code: x.code }))
         );
 
         const payhawkRequestHeaders = payhawkRequest.headers;

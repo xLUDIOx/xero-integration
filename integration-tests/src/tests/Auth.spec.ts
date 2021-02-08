@@ -1,8 +1,7 @@
 import { expect } from 'chai';
-import { HttpError } from 'restify-errors';
 
 import { ITokenSet, SCHEMA } from '@shared';
-import { httpClient, sendResponse, XERO_API_PREFIX, xeroClientMock, XeroDbClient } from '@utils';
+import { httpClient, sendResponse, xeroClientMock, XeroDbClient } from '@utils';
 
 describe('Auth tests', () => {
     const authCode = '123456';
@@ -19,14 +18,11 @@ describe('Auth tests', () => {
     it('exchanges auth code for access token', async () => {
         xeroClientMock.addRequestListener(async (req, res) => {
             switch (req.url) {
-                case `${XERO_API_PREFIX}/Organisations`:
-                    sendResponse(res, { Organisations: [organisationMock] });
-                    break;
-                case `/connections`:
-                    sendResponse(res, singleTenantResponseMock);
-                    break;
-                case `/connect/token`:
+                case XeroApiUrl.Connect:
                     sendResponse(res, tokenMock);
+                    break;
+                case XeroApiUrl.Tenants:
+                    sendResponse(res, singleTenantResponseMock);
                     break;
                 default:
                     res.writeHead(500);
@@ -38,23 +34,23 @@ describe('Auth tests', () => {
         const state = Buffer.from(`accountId=${accountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
         const result = await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
         expect(result.status).to.eq(302);
-        expect(result.headers.location).to.eq('http://localhost:3000/my-url?connection=xero&label=My+Org');
+        expect(result.headers.location).to.eq('http://localhost:3000/my-url?connection=xero');
 
         const tokenRecord = await XeroDbClient.getAccessTokenForAccount(accountId);
         expect(tokenRecord).not.to.eq(undefined);
         expect(tokenRecord.tenant_id).to.eq(singleTenantResponseMock[0].tenantId);
         expect(tokenRecord.user_id).to.eq(xeroUserId);
 
-        expect(xeroClientMock.requests).to.have.lengthOf(4);
+        expect(xeroClientMock.requests).to.have.lengthOf(2);
     });
 
-    it('throws error if another active account uses same tenant ID', async () => {
+    it('redirects with error if another active account uses same tenant ID', async () => {
         xeroClientMock.addRequestListener(async (req, res) => {
             switch (req.url) {
-                case `/connect/token`:
+                case XeroApiUrl.Connect:
                     sendResponse(res, tokenMock);
                     break;
-                case `/connections`:
+                case XeroApiUrl.Tenants:
                     sendResponse(res, singleTenantResponseMock);
                     break;
                 default:
@@ -64,32 +60,30 @@ describe('Auth tests', () => {
             }
         });
 
+        let state = Buffer.from(`accountId=${accountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
+
         const secondAccountId = `${accountId}_other`;
 
-        const state = Buffer.from(`accountId=${secondAccountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        state = Buffer.from(`accountId=${secondAccountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
         const result = await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
-        expect(result.status).to.eq(500);
-
-        const error: HttpError = result.data;
-        expect(error.message).to.include('Another active account already uses the same tenant ID');
+        expect(result.headers.location).to.eq('http://localhost:3000/my-url?connection=xero&errorType=conflict&organisationName=My+Org&conflictingAccountId=demo_gmbh_1');
+        expect(result.status).to.eq(302);
 
         const tokenRecord = await XeroDbClient.getAccessTokenForAccount(secondAccountId);
         expect(tokenRecord).to.eq(undefined);
 
-        expect(xeroClientMock.requests).to.have.lengthOf(2);
+        expect(xeroClientMock.requests).to.have.lengthOf(5);
     });
 
-    it('does not throw error if another demo account uses same tenant ID', async () => {
+    it('does not redirect with error if another demo account uses same tenant ID', async () => {
         xeroClientMock.addRequestListener(async (req, res) => {
             switch (req.url) {
-                case `${XERO_API_PREFIX}/Organisations`:
-                    sendResponse(res, { Organisations: [organisationMock] });
-                    break;
-                case `/connections`:
-                    sendResponse(res, singleTenantResponseMock);
-                    break;
-                case `/connect/token`:
+                case XeroApiUrl.Connect:
                     sendResponse(res, tokenMock);
+                    break;
+                case XeroApiUrl.Tenants:
+                    sendResponse(res, singleTenantResponseMock);
                     break;
                 default:
                     res.writeHead(500);
@@ -98,12 +92,15 @@ describe('Auth tests', () => {
             }
         });
 
+        let state = Buffer.from(`accountId=${accountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
+
         const secondAccountId = `${accountId}_demo`;
 
-        const state = Buffer.from(`accountId=${secondAccountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        state = Buffer.from(`accountId=${secondAccountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
         const result = await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
         expect(result.status).to.eq(302);
-        expect(result.headers.location).to.eq('http://localhost:3000/my-url?connection=xero&label=My+Org');
+        expect(result.headers.location).to.eq('http://localhost:3000/my-url?connection=xero');
 
         const tokenRecord = await XeroDbClient.getAccessTokenForAccount(secondAccountId);
         expect(tokenRecord).not.to.eq(undefined);
@@ -113,10 +110,44 @@ describe('Auth tests', () => {
         expect(xeroClientMock.requests).to.have.lengthOf(4);
     });
 
-    before(async () => {
+    it('responds with tenant selector', async () => {
+        xeroClientMock.addRequestListener(async (req, res) => {
+            switch (req.url) {
+                case XeroApiUrl.Connect:
+                    sendResponse(res, tokenMock);
+                    break;
+                case XeroApiUrl.Tenants:
+                    sendResponse(res, multiTenantResponseMock);
+                    break;
+                default:
+                    res.writeHead(500);
+                    res.end();
+                    break;
+            }
+        });
+
+        let state = Buffer.from(`accountId=${accountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
+
+        const secondAccountId = `${accountId}_other_2`;
+
+        state = Buffer.from(`accountId=${secondAccountId}&returnUrl=${returnUrl}`, 'utf8').toString('base64');
+        const result = await httpClient.get(`/callback?code=${encodeURIComponent(authCode)}&state=${encodeURIComponent(state)}`);
+        expect(result.status).to.eq(200);
+        expect(result.data).to.contain('Select organisation');
+
+        expect(xeroClientMock.requests).to.have.lengthOf(4);
+    });
+
+    beforeEach(async () => {
         await Promise.all(
-            [SCHEMA.TABLE_NAMES.ACCESS_TOKENS, SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS]
-                .map(t => XeroDbClient.cleanupTable(t)),
+            [
+                SCHEMA.TABLE_NAMES.ACCOUNTS,
+                SCHEMA.TABLE_NAMES.ACCESS_TOKENS,
+                SCHEMA.TABLE_NAMES.PAYHAWK_API_KEYS,
+            ].map(t =>
+                XeroDbClient.cleanupTable(t)
+            ),
         );
     });
 });
@@ -136,6 +167,16 @@ const singleTenantResponseMock = [{
     tenantName: 'My Org',
 }];
 
-const organisationMock = {
-    name: singleTenantResponseMock[0].tenantName,
-};
+const multiTenantResponseMock = [
+    ...singleTenantResponseMock,
+    {
+        id: 'connection-id-2',
+        tenantId: 'tenant-id-2',
+        tenantName: 'My Second Org',
+    },
+];
+
+enum XeroApiUrl {
+    Connect = '/connect/token',
+    Tenants = '/connections',
+}
