@@ -1,7 +1,7 @@
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
-import { ILogger, Lock, OperationNotAllowedError } from '@utils';
+import { ILogger, Lock } from '@utils';
 
 import { BankFeedsClient } from '.';
 import { FEES_ACCOUNT_CODE, TaxType } from '../../../shared';
@@ -368,7 +368,11 @@ describe('Xero client', () => {
                 status: InvoiceStatusCode.Paid as any,
             } as IInvoice;
 
-            await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
+            xeroClientMock
+                .setup(x => x.updateInvoice(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await client.updateBill({ ...invoice, billId: id }, existing);
         });
 
         it('should throw error if invoice is already authorised in Xero', async () => {
@@ -381,7 +385,11 @@ describe('Xero client', () => {
                 status: InvoiceStatusCode.Authorised as any,
             } as IInvoice;
 
-            await expect(client.updateBill({ ...invoice, billId: id }, existing)).rejects.toThrow(OperationNotAllowedError);
+            xeroClientMock
+                .setup(x => x.updateInvoice(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await client.updateBill({ ...invoice, billId: id }, existing);
         });
 
         it('should throw error', async () => {
@@ -540,7 +548,11 @@ describe('Xero client', () => {
                 }) as any)
                 .verifiable(TypeMoq.Times.once());
 
-            await expect(client.payBill(paymentDetails)).rejects.toThrow(OperationNotAllowedError);
+                xeroClientMock
+                    .setup(x => x.createPayment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                    .verifiable(TypeMoq.Times.never());
+
+                await client.payBill(paymentDetails);
         });
     });
 

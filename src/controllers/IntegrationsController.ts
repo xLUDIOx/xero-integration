@@ -5,7 +5,7 @@ import { Request, Response } from 'restify';
 import { Integration, XeroConnection } from '@managers';
 import { Xero } from '@services';
 import { IPayhawkPayload, PayhawkEvent } from '@shared';
-import { ExportError, ILogger, OperationNotAllowedError, payhawkSigned } from '@utils';
+import { ExportError, ILogger, payhawkSigned } from '@utils';
 
 export class IntegrationsController {
     constructor(
@@ -59,115 +59,104 @@ export class IntegrationsController {
             return;
         }
 
-        try {
-            switch (event) {
-                case PayhawkEvent.Initialize: {
-                    const result = await this.initialize(
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
+        switch (event) {
+            case PayhawkEvent.Initialize: {
+                const result = await this.initialize(
+                    connectionManager,
+                    accountId,
+                    xeroAccessToken,
+                    logger,
+                );
 
-                    res.send(200, result);
-                    return;
-                }
-                case PayhawkEvent.ExpenseExport: {
-                    try {
-                        await this.exportExpense(
-                            payloadData,
-                            connectionManager,
-                            accountId,
-                            xeroAccessToken,
-                            logger,
-                        );
-                    } catch (err) {
-                        if (err instanceof ExportError) {
-                            res.send(400, err.message);
-                            return;
-                        } else {
-                            throw err;
-                        }
-                    }
-                    break;
-                }
-                case PayhawkEvent.ExpenseDelete: {
-                    await this.deleteExpense(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
-                    break;
-                }
-                case PayhawkEvent.TransferExport: {
-                    await this.exportSingleTransfer(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
-                    break;
-                }
-                case PayhawkEvent.TransfersExport: {
-                    await this.exportTransfers(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    );
-                    break;
-                }
-                case PayhawkEvent.BankStatementExport: {
-                    try {
-                        await this.exportBankStatement(
-                            payloadData,
-                            connectionManager,
-                            accountId,
-                            xeroAccessToken,
-                            logger,
-                        );
-                    } catch (err) {
-                        if (err instanceof ExportError) {
-                            res.send(400, err.message);
-                            return;
-                        } else {
-                            throw err;
-                        }
-                    }
-                    break;
-                }
-                case PayhawkEvent.ChartOfAccountSynchronize: {
-                    await this.syncChartOfAccounts(connectionManager, xeroAccessToken, accountId, logger);
-                    break;
-                }
-                case PayhawkEvent.TaxRatesSynchronize: {
-                    await this.syncTaxRates(connectionManager, xeroAccessToken, accountId, logger);
-                    break;
-                }
-                case PayhawkEvent.BankAccountsSynchronize: {
-                    await this.syncBankAccounts(connectionManager, xeroAccessToken, accountId, logger);
-                    break;
-                }
-                default:
-                    res.send(400, 'Unknown event');
-                    return;
-            }
-
-            res.send(204);
-            return;
-        } catch (err) {
-            if (err instanceof OperationNotAllowedError) {
-                logger.warn(`Operation not allowed: ${err.message}`);
-                res.send(204);
+                res.send(200, result);
                 return;
             }
-
-            throw err;
+            case PayhawkEvent.ExpenseExport: {
+                try {
+                    await this.exportExpense(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    );
+                } catch (err) {
+                    if (err instanceof ExportError) {
+                        res.send(400, err.message);
+                        return;
+                    } else {
+                        throw err;
+                    }
+                }
+                break;
+            }
+            case PayhawkEvent.ExpenseDelete: {
+                await this.deleteExpense(
+                    payloadData,
+                    connectionManager,
+                    accountId,
+                    xeroAccessToken,
+                    logger,
+                );
+                break;
+            }
+            case PayhawkEvent.TransferExport: {
+                await this.exportSingleTransfer(
+                    payloadData,
+                    connectionManager,
+                    accountId,
+                    xeroAccessToken,
+                    logger,
+                );
+                break;
+            }
+            case PayhawkEvent.TransfersExport: {
+                await this.exportTransfers(
+                    payloadData,
+                    connectionManager,
+                    accountId,
+                    xeroAccessToken,
+                    logger,
+                );
+                break;
+            }
+            case PayhawkEvent.BankStatementExport: {
+                try {
+                    await this.exportBankStatement(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    );
+                } catch (err) {
+                    if (err instanceof ExportError) {
+                        res.send(400, err.message);
+                        return;
+                    } else {
+                        throw err;
+                    }
+                }
+                break;
+            }
+            case PayhawkEvent.ChartOfAccountSynchronize: {
+                await this.syncChartOfAccounts(connectionManager, xeroAccessToken, accountId, logger);
+                break;
+            }
+            case PayhawkEvent.TaxRatesSynchronize: {
+                await this.syncTaxRates(connectionManager, xeroAccessToken, accountId, logger);
+                break;
+            }
+            case PayhawkEvent.BankAccountsSynchronize: {
+                await this.syncBankAccounts(connectionManager, xeroAccessToken, accountId, logger);
+                break;
+            }
+            default:
+                res.send(400, 'Unknown event');
+                return;
         }
+
+        res.send(204);
     }
 
     private async initialize(connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, logger: ILogger) {

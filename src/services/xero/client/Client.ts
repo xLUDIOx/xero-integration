@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
 import { FEES_ACCOUNT_CODE, Intersection, TaxType } from '@shared';
-import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths, OperationNotAllowedError } from '@utils';
+import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -280,9 +280,11 @@ export class Client implements IClient {
         const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid, billId);
 
         if (existingBill.status === InvoiceStatus.PAID) {
-            throw new OperationNotAllowedError('Bill is already paid. It cannot be updated.');
+            this.logger.warn('Bill is already paid. It cannot be updated.');
+            return;
         } else if (existingBill.status === InvoiceStatus.AUTHORISED && billModel.status !== Invoice.StatusEnum.AUTHORISED) {
-            throw new OperationNotAllowedError(`Bill status '${existingBill.status}' does not allow modification`);
+            this.logger.warn(`Bill status '${existingBill.status}' does not allow modification`);
+            return;
         }
 
         await this.xeroClient.makeClientRequest<Invoice[]>(
@@ -383,7 +385,8 @@ export class Client implements IClient {
         const paymentModel = getNewPaymentModel(date, amount, bankAccountId, fxRate, billId);
 
         if (invoice.status === Invoice.StatusEnum.PAID) {
-            throw new OperationNotAllowedError('Bill is already paid. Payment cannot be updated.');
+            this.logger.warn('Bill is already paid. Payment cannot be updated.');
+            return;
         }
 
         const payments = await this.xeroClient.makeClientRequest<Payment[]>(

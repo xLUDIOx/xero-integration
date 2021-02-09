@@ -4,7 +4,7 @@ import * as TypeMoq from 'typemoq';
 
 import { Integration, XeroConnection } from '@managers';
 import { ITokenSet, PayhawkEvent } from '@shared';
-import { ILogger, OperationNotAllowedError } from '@utils';
+import { ILogger } from '@utils';
 
 import { IConfig } from '../Config';
 import { IntegrationsController } from './IntegrationsController';
@@ -97,36 +97,6 @@ describe('IntegrationsController', () => {
             integrationManagerMock
                 .setup(m => m.exportExpense(expenseId))
                 .returns(() => Promise.resolve())
-                .verifiable(TypeMoq.Times.once());
-
-            responseMock
-                .setup(r => r.send(204))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: { expenseId } } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
-        });
-
-        test('logs warning if operation is not allowed', async () => {
-            const accessToken = createAccessToken();
-            const expenseId = 'expId';
-
-            connectionManagerMock
-                .setup(m => m.getActiveTenantId())
-                .returns(async () => '1')
-                .verifiable(TypeMoq.Times.once());
-
-            connectionManagerMock
-                .setup(m => m.getAccessToken())
-                .returns(async () => accessToken);
-
-            integrationManagerMock
-                .setup(m => m.exportExpense(expenseId))
-                .returns(() => Promise.reject(new OperationNotAllowedError('Error.')))
-                .verifiable(TypeMoq.Times.once());
-
-            loggerMock
-                .setup(l => l.warn(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock

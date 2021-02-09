@@ -1,4 +1,3 @@
-export * from './OperationNotAllowedError';
 export * from './ExportError';
 export * from './ForbiddenError';
 export * from './TenantConflictError';
