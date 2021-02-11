@@ -2,7 +2,7 @@ import { TokenSet } from 'openid-client';
 import * as restify from 'restify';
 import * as TypeMoq from 'typemoq';
 
-import { Integration, XeroConnection } from '@managers';
+import { XeroConnection } from '@managers';
 import { ITokenSet } from '@shared';
 import { ForbiddenError, ILogger } from '@utils';
 
@@ -13,7 +13,6 @@ import { ConnectionMessage } from './IConnectionStatus';
 describe('AuthController', () => {
     const accountId = 'accountId';
     let connectionManagerMock: TypeMoq.IMock<XeroConnection.IManager>;
-    let integrationManagerMock: TypeMoq.IMock<Integration.IManager>;
     let configMock: TypeMoq.IMock<IConfig>;
     let responseMock: TypeMoq.IMock<restify.Response>;
     let nextMock: TypeMoq.IMock<restify.Next>;
@@ -23,7 +22,6 @@ describe('AuthController', () => {
 
     beforeEach(() => {
         connectionManagerMock = TypeMoq.Mock.ofType<XeroConnection.IManager>();
-        integrationManagerMock = TypeMoq.Mock.ofType<Integration.IManager>();
         configMock = TypeMoq.Mock.ofType<IConfig>();
         responseMock = TypeMoq.Mock.ofType<restify.Response>();
         nextMock = TypeMoq.Mock.ofType<restify.Next>();
@@ -37,7 +35,6 @@ describe('AuthController', () => {
 
         controller = new AuthController(
             () => connectionManagerMock.object,
-            () => integrationManagerMock.object,
             configMock.object,
             loggerMock.object,
         );
@@ -45,7 +42,6 @@ describe('AuthController', () => {
 
     afterEach(() => {
         connectionManagerMock.verifyAll();
-        integrationManagerMock.verifyAll();
         responseMock.verifyAll();
         nextMock.verifyAll();
         loggerMock.verifyAll();
@@ -130,13 +126,15 @@ describe('AuthController', () => {
                 .returns(async () => '1')
                 .verifiable(TypeMoq.Times.once());
 
+            const accessToken = createAccessToken();
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => createAccessToken());
+                .returns(async () => accessToken);
 
-            integrationManagerMock
-                .setup(m => m.getOrganisation())
-                .returns(() => Promise.resolve({ name: organisationName } as any))
+            connectionManagerMock
+                .setup(m => m.getAuthorizedTenants(accessToken))
+                .returns(() => Promise.resolve([{ tenantId: '1', tenantName: organisationName } as any]))
                 .verifiable(TypeMoq.Times.once());
 
             responseMock
@@ -166,12 +164,14 @@ describe('AuthController', () => {
                 .returns(async () => '1')
                 .verifiable(TypeMoq.Times.once());
 
+            const accessToken = createAccessToken();
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => createAccessToken());
+                .returns(async () => accessToken);
 
-            integrationManagerMock
-                .setup(m => m.getOrganisation())
+            connectionManagerMock
+                .setup(m => m.getAuthorizedTenants(accessToken))
                 .throws(new ForbiddenError())
                 .verifiable(TypeMoq.Times.once());
 
@@ -203,13 +203,15 @@ describe('AuthController', () => {
                 .returns(async () => '1')
                 .verifiable(TypeMoq.Times.once());
 
+            const accessToken = createAccessToken();
+
             connectionManagerMock
                 .setup(m => m.getAccessToken())
-                .returns(async () => createAccessToken());
+                .returns(async () => accessToken);
 
             const error = new Error('Oops, something broke...');
-            integrationManagerMock
-                .setup(m => m.getOrganisation())
+            connectionManagerMock
+                .setup(m => m.getAuthorizedTenants(accessToken))
                 .throws(error)
                 .verifiable(TypeMoq.Times.once());
 

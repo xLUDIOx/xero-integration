@@ -4,7 +4,7 @@ import { URL, URLSearchParams } from 'url';
 import { boundMethod } from 'autobind-decorator';
 import { Next, Request, Response } from 'restify';
 
-import { Integration, XeroConnection } from '@managers';
+import { XeroConnection } from '@managers';
 import { Xero } from '@services';
 import { ITokenSet } from '@shared';
 import { ForbiddenError, fromBase64, ILogger, requiredBodyParams, requiredQueryParams, TenantConflictError, toBase64 } from '@utils';
@@ -15,7 +15,6 @@ import { ConnectionMessage, IConnectionStatus } from './IConnectionStatus';
 export class AuthController {
     constructor(
         private readonly connectionManagerFactory: XeroConnection.IManagerFactory,
-        private readonly integrationManagerFactory: Integration.IManagerFactory,
         private readonly config: IConfig,
         private readonly baseLogger: ILogger,
     ) {
@@ -219,9 +218,13 @@ export class AuthController {
             }
 
             // try get some information from Xero to validate whether the token is still valid
-            const integrationManager = this.integrationManagerFactory({ accessToken: xeroAccessToken, tenantId, accountId }, logger);
-            const organisation = await integrationManager.getOrganisation();
-            const title = organisation.name;
+            const tenants = await connectionManager.getAuthorizedTenants(xeroAccessToken);
+            const organisation = tenants.find(t => t.tenantId === tenantId);
+            if (!organisation) {
+                return { isAlive: false, message: ConnectionMessage.DisconnectedRemotely };
+            }
+
+            const title = organisation.tenantName;
 
             return { isAlive: true, title };
         } catch (err) {

@@ -8,7 +8,7 @@ export { AuthController, IntegrationsController };
 
 export const createAuth = () => {
     const logger = createLogger();
-    return new AuthController(XeroConnection.createManager, Integration.createManager, config, logger);
+    return new AuthController(XeroConnection.createManager, config, logger);
 };
 
 export const createIntegrations = () => {
