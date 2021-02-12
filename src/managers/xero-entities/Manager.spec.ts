@@ -1,7 +1,8 @@
 import * as TypeMoq from 'typemoq';
 
 import { Payhawk, Xero } from '@services';
-import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxType } from '@shared';
+import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxRateStatus, TaxType } from '@shared';
+import { ILogger } from '@utils';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -14,6 +15,7 @@ const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 describe('XeroEntities.Manager', () => {
     let accountingClientMock: TypeMoq.IMock<Xero.AccountingClient.IClient>;
     let xeroClientMock: TypeMoq.IMock<Xero.IClient>;
+    let loggerMock: TypeMoq.IMock<ILogger>;
 
     let manager: IManager;
 
@@ -35,12 +37,13 @@ describe('XeroEntities.Manager', () => {
     beforeEach(() => {
         xeroClientMock = TypeMoq.Mock.ofType<Xero.IClient>();
         accountingClientMock = TypeMoq.Mock.ofType<Xero.AccountingClient.IClient>();
+        loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
         xeroClientMock
             .setup(x => x.accounting)
             .returns(() => accountingClientMock.object);
 
-        manager = new Manager(xeroClientMock.object);
+        manager = new Manager(xeroClientMock.object, loggerMock.object);
     });
 
     afterEach(() => {
@@ -960,6 +963,15 @@ describe('XeroEntities.Manager', () => {
                         ]
                     `))
                         .verifiable(TypeMoq.Times.exactly(2));
+
+                    accountingClientMock
+                        .setup(x => x.getTaxRates())
+                        .returns(async () => [{
+                            name: 'Tax Exempt',
+                            effectiveRate: '20',
+                            taxType: TaxType.None,
+                            status: TaxRateStatus.Active,
+                        }]);
 
                     accountingClientMock
                         .setup(x => x.getOrCreateExpenseAccount({

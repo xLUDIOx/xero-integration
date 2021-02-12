@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, fromDateTicks, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -14,7 +14,7 @@ export class Manager implements IManager {
     bankAccounts: IBankAccountsManager;
     bankFeeds: IBankFeedsManager;
 
-    constructor(private readonly xeroClient: Xero.IClient) {
+    constructor(private readonly xeroClient: Xero.IClient, private readonly logger: ILogger) {
         this.bankAccounts = createBankAccountsManager(this.xeroClient);
         this.bankFeeds = createBankFeedsManager(this.xeroClient);
     }
@@ -90,7 +90,7 @@ export class Manager implements IManager {
 
         const totalAttachments = filesToUpload.length + existingFileNames.length;
         if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-            throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
+            throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
         }
 
         // Files should be uploaded in the right order so Promise.all is no good
@@ -164,7 +164,7 @@ export class Manager implements IManager {
 
         const totalAttachments = filesToUpload.length + existingFileNames.length;
         if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-            throw Error(`The maximum allowed number of attachments is ${MAX_ATTACHMENTS_PER_DOCUMENT}. You are trying to upload a total of ${totalAttachments}`);
+            throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
         }
 
         if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId && newBill.totalAmount > 0) {
@@ -196,6 +196,7 @@ export class Manager implements IManager {
     async deleteBill(billUrl: string) {
         const bill = await this.xeroClient.getBillByUrl(billUrl);
         if (!bill) {
+            this.logger.info('Bill not found, nothing to delete');
             return;
         }
 
@@ -213,10 +214,20 @@ export class Manager implements IManager {
             addToWatchlist: true,
         });
 
+        const taxRates = await this.xeroClient.accounting.getTaxRates();
+
+        const feesTaxRate = taxRates.find(f => FEES_TAX_TYPES.includes(f.taxType));
+        const feesTaxType = feesTaxRate ? feesTaxRate.taxType as TaxType : undefined;
+        if (!feesTaxType) {
+            this.logger.info(`Fees expense account will be created using default Xero tax type. Tax types ${TaxType.None} and ${TaxType.ExemptExpenses} do not exist`);
+        } else {
+            this.logger.info(`Using tax rate type ${feesTaxType} for Fees expense account`);
+        }
+
         const feesExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
             name: FEES_ACCOUNT_NAME,
             code: FEES_ACCOUNT_CODE,
-            taxType: TaxType.None,
+            taxType: feesTaxType,
             addToWatchlist: true,
         });
 
@@ -313,3 +324,5 @@ const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
 const DEFAULT_CURRENCY = 'GBP';
 
 const MAX_ATTACHMENTS_PER_DOCUMENT = 10;
+
+const FEES_TAX_TYPES: string[] = [TaxType.None, TaxType.ExemptExpenses];

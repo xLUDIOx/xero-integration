@@ -47,9 +47,12 @@ export class Manager implements IManager {
         try {
             this.logger.info(`Sync tax rates started`);
             const taxRatesCount = await this.synchronizeTaxRates();
+            this.logger.info(`Completed`);
+
             result.data!.taxRatesCount = taxRatesCount;
         } catch (err) {
             isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. Sync tax rates failed'), { error: err });
 
             result.data!.errors!.taxRates = 'Sync tax rates failed';
         }
@@ -57,8 +60,10 @@ export class Manager implements IManager {
         try {
             this.logger.info(`Sync chart of accounts started`);
             result.data!.accountCodesCount = await this.synchronizeChartOfAccounts();
+            this.logger.info(`Completed`);
         } catch (err) {
             isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. Sync chart of accounts failed'), { error: err });
 
             result.data!.errors!.accountCodes = 'Sync chart of accounts failed';
         }
@@ -66,9 +71,12 @@ export class Manager implements IManager {
         try {
             this.logger.info(`Sync bank accounts started`);
             const currencies = await this.synchronizeBankAccounts();
+            this.logger.info(`Completed`);
+
             result.data!.bankAccounts = currencies;
         } catch (err) {
             isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. Sync bank accounts failed'), { error: err });
 
             result.data!.errors!.bankAccounts = 'Sync bank accounts failed';
         }
@@ -76,10 +84,12 @@ export class Manager implements IManager {
         try {
             this.logger.info(`Creating default expense accounts`);
             await this.xeroEntities.ensureDefaultExpenseAccountsExist();
+            this.logger.info(`Completed`);
 
             result.data!.expenseAccounts = [DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_NAME];
         } catch (err) {
             isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. Create default expense accounts failed'), { error: err });
 
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }

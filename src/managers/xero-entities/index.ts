@@ -16,5 +16,5 @@ export * as BankFeeds from './bank-feeds';
 
 export const createManager = (accountId: string, xeroAccessToken: ITokenSet, tenantId: string, logger: ILogger): IManager => {
     const xeroClient = Xero.createClient(accountId, xeroAccessToken, tenantId, logger);
-    return new Manager(xeroClient);
+    return new Manager(xeroClient, logger);
 };

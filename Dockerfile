@@ -1,4 +1,4 @@
-FROM node:12 AS build-env
+FROM node:14 AS build-env
 
 WORKDIR /app
 RUN chmod -R 777 /app
@@ -17,7 +17,7 @@ RUN npm run lint && npm run compile && npm test && npm prune --production
 
 RUN find ./build -name '*.spec.js' -delete -o -name '*.spec.js.map' -delete -o -name '*.spec.d.ts' -delete
 
-FROM node:12-alpine
+FROM node:14-alpine
 
 WORKDIR /app
 

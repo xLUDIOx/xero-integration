@@ -1,4 +1,4 @@
-FROM node:12 AS build-env
+FROM node:14 AS build-env
 
 WORKDIR /app
 RUN chmod -R 777 /app
@@ -13,7 +13,7 @@ COPY . ./
 
 RUN npm run lint && npm run compile && npm prune --production
 
-FROM node:12-alpine
+FROM node:14-alpine
 
 WORKDIR /app
 

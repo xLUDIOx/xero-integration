@@ -31,4 +31,5 @@ export enum TaxRateStatus {
 export enum TaxType {
     None = 'NONE',
     TaxOnPurchases = 'INPUT',
+    ExemptExpenses = 'EXEMPTEXPENSES',
 }
