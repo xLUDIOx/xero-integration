@@ -9,7 +9,7 @@ import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import { Client, escapeParam } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, IInvoice, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
 
@@ -358,40 +358,6 @@ describe('Xero client', () => {
             expect(invoiceId).toEqual(id);
         });
 
-        it('should throw error if invoice is already paid in Xero', async () => {
-            const invoice = getBillModel(false);
-
-            const id = '1';
-
-            const existing = {
-                invoiceID: id,
-                status: InvoiceStatusCode.Paid as any,
-            } as IInvoice;
-
-            xeroClientMock
-                .setup(x => x.updateInvoice(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            await client.updateBill({ ...invoice, billId: id }, existing);
-        });
-
-        it('should throw error if invoice is already authorised in Xero', async () => {
-            const invoice = getBillModel(false);
-
-            const id = '1';
-
-            const existing = {
-                invoiceID: id,
-                status: InvoiceStatusCode.Authorised as any,
-            } as IInvoice;
-
-            xeroClientMock
-                .setup(x => x.updateInvoice(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            await client.updateBill({ ...invoice, billId: id }, existing);
-        });
-
         it('should throw error', async () => {
             const invoice = getBillModel();
 
@@ -574,6 +540,7 @@ describe('Xero client', () => {
             amount: 12.05,
             fxFees: 0,
             posFees: 0,
+            feesAccountCode: FEES_ACCOUNT_CODE,
             accountCode: '310',
             taxType: 'TAX001',
             url: 'expense url',
@@ -592,6 +559,7 @@ describe('Xero client', () => {
             amount: -12.05,
             fxFees: 0,
             posFees: 0,
+            feesAccountCode: FEES_ACCOUNT_CODE,
             accountCode: '310',
             url: 'expense url',
         };

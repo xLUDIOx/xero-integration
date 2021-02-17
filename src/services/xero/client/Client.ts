@@ -1,8 +1,8 @@
 import { createReadStream } from 'fs';
 
-import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, Invoice, LineAmountTypes, Payment } from 'xero-node';
+import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
-import { FEES_ACCOUNT_CODE, Intersection, TaxType } from '@shared';
+import { Intersection, TaxType } from '@shared';
 import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
@@ -17,6 +17,7 @@ import {
     BankTransactionStatusCode,
     ContactKeys,
     CurrencyKeys,
+    IAccountingItemData,
     IAttachment,
     IBankAccount,
     IBankTransaction,
@@ -25,7 +26,6 @@ import {
     ICreateBillData,
     ICreateTransactionData,
     IInvoice,
-    InvoiceStatus,
     InvoiceStatusCode,
     IPayment,
     IUpdateBillData,
@@ -125,7 +125,16 @@ export class Client implements IClient {
     }
 
     async createBankAccount(name: string, code: string, accountNumber: string, currencyCode: string): Promise<IBankAccount> {
-        await this.ensureCurrency(currencyCode);
+        const logger = this.logger.child({
+            bankAccount: {
+                name,
+                code,
+                accountNumber,
+                currencyCode,
+            },
+        });
+
+        await this.ensureCurrency(currencyCode, logger);
 
         const bankAccounts = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.createAccount(
@@ -186,8 +195,8 @@ export class Client implements IClient {
         return transaction;
     }
 
-    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url }: ICreateTransactionData): Promise<string> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url);
+    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url }: ICreateTransactionData): Promise<string> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -205,8 +214,8 @@ export class Client implements IClient {
         return bankTransaction.bankTransactionID;
     }
 
-    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url }: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, taxType, url, transactionId);
+    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url }: IUpdateTransactionData): Promise<void> {
+        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, transactionId);
 
         await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
@@ -254,7 +263,11 @@ export class Client implements IClient {
 
     async createBill(data: ICreateBillData): Promise<string> {
         const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url } = data;
-        await this.ensureCurrency(currency);
+        const logger = this.logger.child({
+            billData: data,
+        });
+
+        await this.ensureCurrency(currency, logger);
 
         const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid);
 
@@ -275,17 +288,9 @@ export class Client implements IClient {
         return billId;
     }
 
-    async updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void> {
+    async updateBill(data: IUpdateBillData): Promise<void> {
         const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url } = data;
         const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid, billId);
-
-        if (existingBill.status === InvoiceStatus.PAID) {
-            this.logger.warn('Bill is already paid. It cannot be updated.');
-            return;
-        } else if (existingBill.status === InvoiceStatus.AUTHORISED && billModel.status !== Invoice.StatusEnum.AUTHORISED) {
-            this.logger.warn(`Bill status '${existingBill.status}' does not allow modification`);
-            return;
-        }
 
         await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.updateInvoice(
@@ -416,7 +421,11 @@ export class Client implements IClient {
         return payment as IPayment;
     }
 
-    private async ensureCurrency(currencyCode: string): Promise<void> {
+    private async ensureCurrency(currencyCode: string, logger: ILogger): Promise<void> {
+        if (!ALLOWED_CURRENCIES.includes(currencyCode)) {
+            throw logger.error(Error('Tried to create bank account with invalid currency'));
+        }
+
         const currencies = await this.xeroClient.makeClientRequest<Currency[]>(
             x => x.accountingApi.getCurrencies(
                 this.tenantId,
@@ -455,8 +464,8 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, fxFees: number, posFees: number, accountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, fxFees, posFees, accountCode, taxType, url);
+function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, fxFees: number, posFees: number, accountCode: string, feesAccountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel({ date, contactId, description, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url });
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
@@ -471,7 +480,7 @@ function getBankTransactionModel(date: string, bankAccountId: string, contactId:
 }
 
 function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, taxType: string | undefined, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
-    const commonData = getAccountingItemModel(date, contactId, description, amount, 0, 0, accountCode, taxType, url);
+    const commonData = getAccountingItemModel({ date, contactId, description, amount, accountCode, taxType, url });
 
     const bill: Invoice = {
         ...commonData,
@@ -491,7 +500,18 @@ function getNewBillModel(date: string, contactId: string, description: string, c
     return bill;
 }
 
-function getAccountingItemModel(date: string, contactId: string, description: string, amount: number, fxFees: number, posFees: number, accountCode: string, taxType: string | undefined, url: string): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+function getAccountingItemModel({
+    description,
+    accountCode,
+    amount,
+    taxType,
+    fxFees,
+    posFees,
+    feesAccountCode,
+    date,
+    url,
+    contactId,
+}: IAccountingItemData & Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>>): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
     const lineItems = [{
         description,
         accountCode,
@@ -500,7 +520,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
         taxType,
     }];
 
-    if (fxFees !== 0 || posFees !== 0) {
+    if (!!fxFees && !!posFees && feesAccountCode) {
         const feesDescription = fxFees !== 0 && posFees !== 0 ?
             'Exchange + POS fees' : fxFees !== 0 ?
                 'Exchange fees' :
@@ -508,7 +528,7 @@ function getAccountingItemModel(date: string, contactId: string, description: st
 
         lineItems.push({
             description: feesDescription,
-            accountCode: FEES_ACCOUNT_CODE,
+            accountCode: feesAccountCode,
             quantity: 1,
             unitAmount: getFeesTotal(fxFees, posFees),
             taxType: TaxType.None,
@@ -569,3 +589,10 @@ function getFeesTotal(fxFees: number, posFees: number) {
 
     return result;
 }
+
+const ALLOWED_CURRENCIES: string[] = [
+    CurrencyCode.BGN.toString(),
+    CurrencyCode.USD.toString(),
+    CurrencyCode.EUR.toString(),
+    CurrencyCode.GBP.toString(),
+];

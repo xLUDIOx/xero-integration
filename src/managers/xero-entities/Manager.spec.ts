@@ -39,11 +39,60 @@ describe('XeroEntities.Manager', () => {
         accountingClientMock = TypeMoq.Mock.ofType<Xero.AccountingClient.IClient>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
+        loggerMock
+            .setup(l => l.child(TypeMoq.It.isAny()))
+            .returns(() => loggerMock.object);
+
+        manager = new Manager(xeroClientMock.object, loggerMock.object);
+
+        const accountCodes: IAccountCode[] = [
+            {
+                accountId: '1',
+                code: DEFAULT_ACCOUNT_CODE,
+                name: DEFAULT_ACCOUNT_NAME,
+                status: AccountStatus.Active,
+                taxType: TaxType.TaxOnPurchases,
+                addToWatchlist: false,
+            },
+            {
+                accountId: '2',
+                code: FEES_ACCOUNT_CODE,
+                name: FEES_ACCOUNT_NAME,
+                status: AccountStatus.Active,
+                taxType: TaxType.None,
+                addToWatchlist: false,
+            },
+        ];
+
+        accountingClientMock
+            .setup(a => a.getOrCreateExpenseAccount({
+                code: accountCodes[0].code,
+                name: accountCodes[0].name,
+                addToWatchlist: true,
+            }))
+            .returns(async () => accountCodes[0]);
+
+        accountingClientMock
+            .setup(a => a.getOrCreateExpenseAccount({
+                code: accountCodes[1].code,
+                name: accountCodes[1].name,
+                addToWatchlist: true,
+                taxType: accountCodes[1].taxType,
+            }))
+            .returns(async () => accountCodes[1]);
+
+        accountingClientMock
+            .setup(x => x.getTaxRates())
+            .returns(async () => [{
+                name: TaxType.None,
+                effectiveRate: '0',
+                status: TaxRateStatus.Active,
+                taxType: TaxType.None,
+            }]);
+
         xeroClientMock
             .setup(x => x.accounting)
             .returns(() => accountingClientMock.object);
-
-        manager = new Manager(xeroClientMock.object, loggerMock.object);
     });
 
     afterEach(() => {
@@ -205,6 +254,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newAccountTx.amount,
                     fxFees: newAccountTx.fxFees,
                     posFees: newAccountTx.posFees,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
@@ -273,6 +323,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newAccountTx.amount,
                     fxFees: newAccountTx.fxFees,
                     posFees: newAccountTx.posFees,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
                     accountCode: newAccountTx.accountCode!,
                     taxType: undefined,
                     url: newAccountTx.url,
@@ -350,6 +401,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newAccountTx.amount,
                     fxFees: newAccountTx.fxFees,
                     posFees: newAccountTx.posFees,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
@@ -402,6 +454,7 @@ describe('XeroEntities.Manager', () => {
                     amount: newAccountTx.amount,
                     fxFees: newAccountTx.fxFees,
                     posFees: newAccountTx.posFees,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     taxType: undefined,
                     url: newAccountTx.url,
@@ -479,13 +532,11 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: newBill.taxType,
                     url: newBill.url,
-                },
-                    existingBill))
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -504,6 +555,91 @@ describe('XeroEntities.Manager', () => {
             xeroClientMock
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
+
+            await manager.createOrUpdateBill(newBill);
+        });
+
+        test('does not update bill and does not upload any files if is it paid', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+            };
+
+            const id = 'bId';
+
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID } as Xero.IInvoice;
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(newBill.url))
+                .returns(async () => existingBill)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.updateBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await manager.createOrUpdateBill(newBill);
+        });
+
+        test('does not update bill and does not upload any files if is it awaiting payment', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+                isPaid: false,
+            };
+
+            const id = 'bId';
+
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.AUTHORISED } as Xero.IInvoice;
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(newBill.url))
+                .returns(async () => existingBill)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.updateBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
 
             await manager.createOrUpdateBill(newBill);
         });
@@ -558,13 +694,11 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: newBill.taxType,
                     url: newBill.url,
-                },
-                    existingBill))
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());
@@ -644,13 +778,11 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: undefined,
                     url: newBill.url,
-                },
-                    existingBill))
+                }))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(
-                    TypeMoq.It.isAny(),
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.once());

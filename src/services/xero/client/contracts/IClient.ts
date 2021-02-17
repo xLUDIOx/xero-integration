@@ -31,7 +31,7 @@ export interface IClient {
 
     getBillByUrl(url: string): Promise<IInvoice | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
-    updateBill(data: IUpdateBillData, existingBill: IInvoice): Promise<void>;
+    updateBill(data: IUpdateBillData): Promise<void>;
     deleteBill(billId: string): Promise<void>;
     payBill(data: IBillPaymentData): Promise<void>;
     getBillPayment(paymentId: string): Promise<IPayment | undefined>;
@@ -69,6 +69,7 @@ export interface ICreateTransactionData extends IAccountingItemData {
     reference: string;
     fxFees: number;
     posFees: number;
+    feesAccountCode: string;
 }
 
 export interface IUpdateTransactionData extends ICreateTransactionData {

@@ -55,30 +55,59 @@ export class Manager implements IManager {
             return transaction.bankTransactionID;
         }
 
+        const [generalExpenseAccount, feesExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
+
         let transactionId = transaction ? transaction.bankTransactionID : undefined;
+
+        const logger = this.logger.child({ transactionId });
+
         let filesToUpload = newTransaction.files;
 
         let existingFileNames: string[] = [];
 
         if (!transactionId) {
-            const createData = this.getTransactionData(newTransaction);
+            logger.info('Bank transaction will be created');
+
+            const createData = this.getTransactionData(
+                newTransaction,
+                generalExpenseAccount.code,
+                feesExpenseAccount.code,
+            );
 
             try {
                 transactionId = await this.xeroClient.createTransaction(createData);
             } catch (err) {
-                const createDataFallback = await this.tryFallbackItemData(err, createData);
+                const createDataFallback = await this.tryFallbackItemData(
+                    err,
+                    createData,
+                    generalExpenseAccount.code,
+                    logger,
+                );
+
                 transactionId = await this.xeroClient.createTransaction(createDataFallback);
             }
         } else {
+            logger.info('Bank transaction will be updated');
+
             const updateData = {
                 transactionId,
-                ...this.getTransactionData(newTransaction),
+                ...this.getTransactionData(
+                    newTransaction,
+                    generalExpenseAccount.code,
+                    feesExpenseAccount.code,
+                ),
             };
 
             try {
                 await this.xeroClient.updateTransaction(updateData);
             } catch (err) {
-                const updateDataFallback = await this.tryFallbackItemData(err, updateData);
+                const updateDataFallback = await this.tryFallbackItemData(
+                    err,
+                    updateData,
+                    generalExpenseAccount.code,
+                    logger,
+                );
+
                 await this.xeroClient.updateTransaction(updateDataFallback);
             }
 
@@ -128,20 +157,33 @@ export class Manager implements IManager {
     async createOrUpdateBill(newBill: INewBill): Promise<string> {
         const bill = await this.xeroClient.getBillByUrl(newBill.url);
 
+        const logger = this.logger.child({ billId: bill ? bill.invoiceID : undefined });
+
+        const [generalExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
+
         let billId: string;
         let filesToUpload = newBill.files;
-
         let existingFileNames: string[] = [];
 
         const billData = this.getBillData(newBill);
         if (!bill) {
+            logger.info('Bill will be created');
+
             try {
                 billId = await this.xeroClient.createBill(billData);
             } catch (err) {
-                const createDataFallback = await this.tryFallbackItemData(err, billData);
+                const createDataFallback = await this.tryFallbackItemData(
+                    err,
+                    billData,
+                    generalExpenseAccount.code,
+                    logger,
+                );
+
                 billId = await this.xeroClient.createBill(createDataFallback);
             }
         } else {
+            logger.info('Bill will be updated');
+
             billId = bill.invoiceID;
 
             const updateData: Xero.IUpdateBillData = {
@@ -149,11 +191,28 @@ export class Manager implements IManager {
                 ...billData,
             };
 
+            if (bill.status === Xero.InvoiceStatus.PAID) {
+                this.logger.warn('Bill is already paid. It cannot be updated.');
+                return bill.invoiceID;
+            }
+
+            const isAwaitingPayment = bill.status === Xero.InvoiceStatus.AUTHORISED;
+            if (isAwaitingPayment && !updateData.isPaid) {
+                this.logger.warn(`Bill is already authorised and is expecting a payment. Bill status cannot be updated at this point`);
+                return bill.invoiceID;
+            }
+
             try {
-                await this.xeroClient.updateBill(updateData, bill);
+                await this.xeroClient.updateBill(updateData);
             } catch (err) {
-                const updateDataFallback = await this.tryFallbackItemData(err, updateData);
-                await this.xeroClient.updateBill(updateDataFallback, bill);
+                const updateDataFallback = await this.tryFallbackItemData(
+                    err,
+                    updateData,
+                    generalExpenseAccount.code,
+                    logger,
+                );
+
+                await this.xeroClient.updateBill(updateDataFallback);
             }
 
             const existingFiles = await this.xeroClient.getBillAttachments(billId);
@@ -207,7 +266,7 @@ export class Manager implements IManager {
         await this.xeroClient.deleteBill(bill.invoiceID);
     }
 
-    async ensureDefaultExpenseAccountsExist() {
+    async ensureDefaultExpenseAccountsExist(): Promise<IAccountCode[]> {
         const generalExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
             name: DEFAULT_ACCOUNT_NAME,
             code: DEFAULT_ACCOUNT_CODE,
@@ -238,14 +297,14 @@ export class Manager implements IManager {
         if (feesExpenseAccount.status !== AccountStatus.Active) {
             throw Error(`Default fees expense account is required but it is currently of status '${feesExpenseAccount.status}'`);
         }
+
+        return [generalExpenseAccount, feesExpenseAccount];
     }
 
-    private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData): Promise<TData> {
+    private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData, defaultAccountCode: string, logger: ILogger): Promise<TData> {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
-            // Force default account code
-            await this.ensureDefaultExpenseAccountsExist();
-
-            data.accountCode = DEFAULT_ACCOUNT_CODE;
+            logger.info(`Bank transaction create failed, falling back to default account code ${defaultAccountCode}`);
+            data.accountCode = defaultAccountCode;
         } else {
             throw error;
         }
@@ -253,19 +312,24 @@ export class Manager implements IManager {
         return data;
     }
 
-    private getTransactionData({
-        date,
-        bankAccountId,
-        contactId,
-        description,
-        reference,
-        amount,
-        fxFees,
-        posFees,
-        accountCode,
-        taxType,
-        url,
-    }: INewAccountTransaction): Xero.ICreateTransactionData {
+    private getTransactionData(
+        {
+            date,
+            bankAccountId,
+            contactId,
+            description,
+            reference,
+            amount,
+            fxFees,
+            posFees,
+            accountCode,
+            taxType,
+            url,
+        }: INewAccountTransaction,
+
+        defaultAccountCode: string,
+        feesAccountCode: string,
+    ): Xero.ICreateTransactionData {
         return {
             date,
             bankAccountId,
@@ -275,7 +339,8 @@ export class Manager implements IManager {
             amount,
             fxFees,
             posFees,
-            accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            feesAccountCode,
+            accountCode: accountCode || defaultAccountCode,
             taxType,
             url,
         };

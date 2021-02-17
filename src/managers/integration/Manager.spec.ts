@@ -6,7 +6,7 @@ import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores'
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
-import { getTransactionTotalAmount, Manager } from './Manager';
+import { convertAmount, getTransactionTotalAmount, Manager } from './Manager';
 
 describe('integrations/Manager', () => {
     const accountId = 'account_id';
@@ -830,6 +830,16 @@ describe('integrations/Manager', () => {
         it('should calculate correctly', () => {
             const result = getTransactionTotalAmount({ cardAmount: 336.1400, fees: { fx: 3.03, pos: 0 } } as any);
             expect(result).toEqual(339.17);
+        });
+    });
+
+    describe('convertAmount', () => {
+        it('should calculate correctly', () => {
+            const eurAmount = 50;
+            const bgnToEur = 0.511292;
+
+            const bgnAmount = convertAmount(eurAmount, bgnToEur);
+            expect(bgnAmount).toEqual(97.79);
         });
     });
 });

@@ -1,3 +1,5 @@
+import { Decimal } from 'decimal.js';
+
 import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, TaxType } from '@shared';
 import { ISchemaStore } from '@stores';
@@ -803,7 +805,7 @@ export class Manager implements IManager {
             }
 
             currency = this.xeroEntities.bankAccounts.getCurrencyByBankAccountCode(fullPayment.account.code);
-            amount = Math.round(100 * payment.amount / payment.currencyRate) / 100;
+            amount = convertAmount(payment.amount, payment.currencyRate);
         }
 
         const contactName = bill.contact.name!;
@@ -904,6 +906,10 @@ export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
         BigInt(numberToMyriadths(t.fees.pos)))
         .toString()
     );
+}
+
+export function convertAmount(amount: number, currencyRate: number): number {
+    return Number(Decimal.div(amount, currencyRate).toFixed(2));
 }
 
 function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {
