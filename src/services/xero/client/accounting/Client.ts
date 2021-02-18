@@ -1,10 +1,10 @@
 import { IEnvironment } from '@environment';
-import { AccountStatus, AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, TaxRateStatus } from '@shared';
+import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, TaxRateStatus } from '@shared';
 import { ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
 import { buildUrl } from '../../shared';
-import { IClient } from './contracts';
+import { IClient, IExpenseAccountsFilter } from './contracts';
 
 export class Client implements IClient {
     constructor(
@@ -52,12 +52,20 @@ export class Client implements IClient {
         return taxRates;
     }
 
-    async getExpenseAccounts(): Promise<IAccountCode[]> {
+    async getExpenseAccounts({ status }: IExpenseAccountsFilter = {}): Promise<IAccountCode[]> {
+        const whereFilters = [
+            DEFAULT_EXPENSE_ACCOUNT_FILTER,
+        ];
+
+        if (status) {
+            whereFilters.push(`Status=="${status}"`);
+        }
+
         const url = buildUrl(
             this.baseUrl(),
             '/Accounts',
             {
-                where: DEFAULT_EXPENSE_ACCOUNT_FILTER,
+                where: whereFilters.join('&&'),
             }
         );
 
@@ -71,42 +79,21 @@ export class Client implements IClient {
         return expenseAccounts;
     }
 
-    async getOrCreateExpenseAccount({ name, code, taxType, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
+    async createExpenseAccount({ name, code, taxType, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
         const logger = this.logger.child({ name, code, taxType, addToWatchlist });
 
-        let expenseAccount = await this.getExpenseAccountByCodeOrName(code, name);
-        if (!expenseAccount) {
-            expenseAccount = await this.createExpenseAccount(name, code, taxType, logger);
-        }
+        let expenseAccount = await this._createExpenseAccount(name, code, taxType, logger);
 
         if (addToWatchlist && !expenseAccount.addToWatchlist) {
-            expenseAccount = await this.addExpenseAccountToWatchlist(expenseAccount.accountId, logger);
+            const updatedExpenseAccount = await this.addExpenseAccountToWatchlist(expenseAccount.accountId, logger);
+
+            expenseAccount = updatedExpenseAccount || expenseAccount;
         }
 
         return expenseAccount;
     }
 
-    private async getExpenseAccountByCodeOrName(code: string, name: string): Promise<IAccountCode | undefined> {
-        const url = buildUrl(
-            this.baseUrl(),
-            '/Accounts',
-            {
-                where: `Class=="${AccountType.Expense}"`,
-            }
-        );
-
-        const response = await this.httpClient.request({
-            url,
-            method: 'GET',
-        });
-
-        const responseItems = response[EntityResponseType.Accounts];
-        const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
-        const expenseAccount = expenseAccounts.find(x => x.code === code || x.name.toLowerCase() === name.toLowerCase());
-        return expenseAccount;
-    }
-
-    private async createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {
+    private async _createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {
         const url = buildUrl(
             this.baseUrl(),
             '/Accounts',
@@ -133,7 +120,7 @@ export class Client implements IClient {
         return expenseAccounts[0];
     }
 
-    private async addExpenseAccountToWatchlist(expenseAccountId: string, logger: ILogger): Promise<IAccountCode> {
+    private async addExpenseAccountToWatchlist(expenseAccountId: string, logger: ILogger): Promise<IAccountCode | undefined> {
         const url = buildUrl(
             this.baseUrl(),
             `/Accounts/${encodeURIComponent(expenseAccountId)}`,
@@ -151,7 +138,7 @@ export class Client implements IClient {
         const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
 
         if (expenseAccounts.length === 0) {
-            throw logger.error(Error('Failed to add expense account to watchlist'));
+            logger.warn('Failed to add expense account to watchlist');
         }
 
         return expenseAccounts[0];
@@ -162,6 +149,6 @@ export class Client implements IClient {
     }
 }
 
-const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"&&Status=="${AccountStatus.Active}"`;
+const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"`;
 
 const API_PREFIX = '/api.xro/2.0';

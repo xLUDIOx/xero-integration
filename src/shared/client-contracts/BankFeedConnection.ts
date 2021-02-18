@@ -2,9 +2,14 @@ import { Currency } from './Currency';
 
 export interface INewBankFeedConnection {
     /**
-     * Associated bank account id
+     * Associated bank account name
      */
-    accountId: string;
+    accountName: string;
+
+    /**
+     * Associated bank account number
+     */
+    accountNumber: string;
 
     /**
      * Unique bank account token

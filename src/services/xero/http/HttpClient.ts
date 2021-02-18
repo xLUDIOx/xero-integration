@@ -32,7 +32,8 @@ export class HttpClient implements IHttpClient {
 
         const result = await this.makeRequest<TBody>(requestOptions, requestLogger);
 
-        requestLogger.info('Request completed');
+        const responseLogger = requestLogger.child({ response: result });
+        responseLogger.info('Request completed');
 
         return result;
     }

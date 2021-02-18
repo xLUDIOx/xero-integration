@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, Payment } from 'xero-node';
 
-import { Intersection, TaxType } from '@shared';
+import { Intersection } from '@shared';
 import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
@@ -512,7 +512,7 @@ function getAccountingItemModel({
     url,
     contactId,
 }: IAccountingItemData & Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>>): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
-    const lineItems = [{
+    const lineItems: IBankTransactionLineItem[] = [{
         description,
         accountCode,
         quantity: 1,
@@ -531,7 +531,6 @@ function getAccountingItemModel({
             accountCode: feesAccountCode,
             quantity: 1,
             unitAmount: getFeesTotal(fxFees, posFees),
-            taxType: TaxType.None,
         });
     }
 
@@ -596,3 +595,11 @@ const ALLOWED_CURRENCIES: string[] = [
     CurrencyCode.EUR.toString(),
     CurrencyCode.GBP.toString(),
 ];
+
+interface IBankTransactionLineItem {
+    description: string;
+    accountCode: string;
+    quantity: number;
+    unitAmount: number,
+    taxType?: string;
+}

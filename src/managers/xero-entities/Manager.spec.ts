@@ -65,7 +65,11 @@ describe('XeroEntities.Manager', () => {
         ];
 
         accountingClientMock
-            .setup(a => a.getOrCreateExpenseAccount({
+            .setup(x => x.getExpenseAccounts())
+            .returns(async () => accountCodes);
+
+        accountingClientMock
+            .setup(a => a.createExpenseAccount({
                 code: accountCodes[0].code,
                 name: accountCodes[0].name,
                 addToWatchlist: true,
@@ -73,7 +77,7 @@ describe('XeroEntities.Manager', () => {
             .returns(async () => accountCodes[0]);
 
         accountingClientMock
-            .setup(a => a.getOrCreateExpenseAccount({
+            .setup(a => a.createExpenseAccount({
                 code: accountCodes[1].code,
                 name: accountCodes[1].name,
                 addToWatchlist: true,
@@ -121,7 +125,9 @@ describe('XeroEntities.Manager', () => {
             ];
 
             accountingClientMock
-                .setup(x => x.getExpenseAccounts())
+                .setup(x => x.getExpenseAccounts({
+                    status: AccountStatus.Active,
+                }))
                 .returns(async () => accountCodes);
 
             const result = await manager.getExpenseAccounts();
@@ -1106,7 +1112,7 @@ describe('XeroEntities.Manager', () => {
                         }]);
 
                     accountingClientMock
-                        .setup(x => x.getOrCreateExpenseAccount({
+                        .setup(x => x.createExpenseAccount({
                             name: DEFAULT_ACCOUNT_NAME,
                             code: DEFAULT_ACCOUNT_CODE,
                             addToWatchlist: true,
@@ -1121,7 +1127,7 @@ describe('XeroEntities.Manager', () => {
                         }));
 
                     accountingClientMock
-                        .setup(x => x.getOrCreateExpenseAccount({
+                        .setup(x => x.createExpenseAccount({
                             name: FEES_ACCOUNT_NAME,
                             code: FEES_ACCOUNT_CODE,
                             taxType: TaxType.None,

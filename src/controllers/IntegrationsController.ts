@@ -40,8 +40,18 @@ export class IntegrationsController {
             logger.info('Disconnect received');
 
             if (xeroAccessToken) {
-                const integrationManager = await this.createIntegrationManager(connectionManager, accountId, xeroAccessToken, logger);
-                await integrationManager.disconnect();
+                const activeTenantId = await connectionManager.getActiveTenantId();
+                const authorizedTenants = await connectionManager.getAuthorizedTenants(xeroAccessToken);
+                const isAuthorizedForActiveTenant = authorizedTenants.some(t => t.tenantId === activeTenantId);
+
+                if (isAuthorizedForActiveTenant) {
+                    logger.info('Current tenant is authorized with available access token, disconnecting bank feed');
+
+                    const integrationManager = await this.createIntegrationManager(connectionManager, accountId, xeroAccessToken, logger);
+                    await integrationManager.disconnectBankFeed();
+                } else {
+                    logger.info('Current tenant is not authorized with available access token, will not disconnect bank feed');
+                }
             }
 
             await connectionManager.disconnectActiveTenant();

@@ -32,7 +32,9 @@ export class Manager implements IManager {
     }
 
     async getExpenseAccounts(): Promise<IAccountCode[]> {
-        return await this.xeroClient.accounting.getExpenseAccounts();
+        return await this.xeroClient.accounting.getExpenseAccounts({
+            status: AccountStatus.Active,
+        });
     }
 
     async getTaxRates(): Promise<ITaxRate[]> {
@@ -50,16 +52,17 @@ export class Manager implements IManager {
     }
 
     async createOrUpdateAccountTransaction(newTransaction: INewAccountTransaction): Promise<string> {
+        const logger = this.logger.child({ bankAccountTransaction: newTransaction });
+
         const transaction = await this.xeroClient.getTransactionByUrl(newTransaction.url);
         if (transaction && transaction.isReconciled) {
+            logger.info('Bank account transaction already exists and is reconciled, skipping update');
             return transaction.bankTransactionID;
         }
 
         const [generalExpenseAccount, feesExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
 
         let transactionId = transaction ? transaction.bankTransactionID : undefined;
-
-        const logger = this.logger.child({ transactionId });
 
         let filesToUpload = newTransaction.files;
 
@@ -70,8 +73,8 @@ export class Manager implements IManager {
 
             const createData = this.getTransactionData(
                 newTransaction,
-                generalExpenseAccount.code,
-                feesExpenseAccount.code,
+                generalExpenseAccount,
+                feesExpenseAccount,
             );
 
             try {
@@ -86,6 +89,8 @@ export class Manager implements IManager {
 
                 transactionId = await this.xeroClient.createTransaction(createDataFallback);
             }
+
+            logger.info('Bank transaction created successfully');
         } else {
             logger.info('Bank transaction will be updated');
 
@@ -93,8 +98,8 @@ export class Manager implements IManager {
                 transactionId,
                 ...this.getTransactionData(
                     newTransaction,
-                    generalExpenseAccount.code,
-                    feesExpenseAccount.code,
+                    generalExpenseAccount,
+                    feesExpenseAccount,
                 ),
             };
 
@@ -111,21 +116,27 @@ export class Manager implements IManager {
                 await this.xeroClient.updateTransaction(updateDataFallback);
             }
 
-            const existingFiles = await this.xeroClient.getTransactionAttachments(transactionId);
-            existingFileNames = existingFiles.map(f => f.fileName);
+            logger.info('Bank transaction updated successfully');
 
-            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+            if (filesToUpload.length > 0) {
+                const existingFiles = await this.xeroClient.getTransactionAttachments(transactionId);
+                existingFileNames = existingFiles.map(f => f.fileName);
+
+                filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+            }
         }
 
-        const totalAttachments = filesToUpload.length + existingFileNames.length;
-        if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-            throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
-        }
+        if (filesToUpload.length > 0) {
+            const totalAttachments = filesToUpload.length + existingFileNames.length;
+            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+                throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+            }
 
-        // Files should be uploaded in the right order so Promise.all is no good
-        for (const f of filesToUpload) {
-            const fileName = f.fileName;
-            await this.xeroClient.uploadTransactionAttachment(transactionId, fileName, f.path, f.contentType);
+            // Files should be uploaded in the right order so Promise.all is no good
+            for (const f of filesToUpload) {
+                const fileName = f.fileName;
+                await this.xeroClient.uploadTransactionAttachment(transactionId, fileName, f.path, f.contentType);
+            }
         }
 
         return transactionId;
@@ -198,7 +209,7 @@ export class Manager implements IManager {
 
             const isAwaitingPayment = bill.status === Xero.InvoiceStatus.AUTHORISED;
             if (isAwaitingPayment && !updateData.isPaid) {
-                this.logger.warn(`Bill is already authorised and is expecting a payment. Bill status cannot be updated at this point`);
+                this.logger.warn(`Bill is already authorised and is expecting a payment. Bill cannot be updated at this point`);
                 return bill.invoiceID;
             }
 
@@ -215,18 +226,29 @@ export class Manager implements IManager {
                 await this.xeroClient.updateBill(updateDataFallback);
             }
 
-            const existingFiles = await this.xeroClient.getBillAttachments(billId);
-            existingFileNames = existingFiles.map(f => f.fileName);
+            if (filesToUpload.length > 0) {
+                const existingFiles = await this.xeroClient.getBillAttachments(billId);
+                existingFileNames = existingFiles.map(f => f.fileName);
 
-            filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+                filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+            }
         }
 
-        const totalAttachments = filesToUpload.length + existingFileNames.length;
-        if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-            throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+        if (filesToUpload.length > 0) {
+            const totalAttachments = filesToUpload.length + existingFileNames.length;
+            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+                throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+            }
+
+            // Files should be uploaded in the right order so Promise.all is no good
+            for (const f of filesToUpload) {
+                const fileName = f.fileName;
+                await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
+            }
         }
 
         if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId && newBill.totalAmount > 0) {
+            logger.info('Expense is paid and a new payment will be created for this bill');
             const paymentData: Xero.IBillPaymentData = {
                 date: newBill.paymentDate,
                 amount: billData.amount,
@@ -237,12 +259,6 @@ export class Manager implements IManager {
             };
 
             await this.xeroClient.payBill(paymentData);
-        }
-
-        // Files should be uploaded in the right order so Promise.all is no good
-        for (const f of filesToUpload) {
-            const fileName = f.fileName;
-            await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
         }
 
         return billId;
@@ -260,35 +276,52 @@ export class Manager implements IManager {
         }
 
         if (bill.status === Xero.InvoiceStatus.PAID) {
-            throw Error('Paid bill cannot be deleted');
+            throw new ExportError('Export expense into Xero failed. Bill is already paid and cannot be modified or deleted');
         }
 
         await this.xeroClient.deleteBill(bill.invoiceID);
     }
 
     async ensureDefaultExpenseAccountsExist(): Promise<IAccountCode[]> {
-        const generalExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
-            name: DEFAULT_ACCOUNT_NAME,
-            code: DEFAULT_ACCOUNT_CODE,
-            addToWatchlist: true,
-        });
+        // we get all expense accounts because the Xero API does not allow "OR" filters
+        const expenseAccounts = await this.xeroClient.accounting.getExpenseAccounts();
 
-        const taxRates = await this.xeroClient.accounting.getTaxRates();
+        let generalExpenseAccount = expenseAccounts.find(
+            x => x.name.toLowerCase() === DEFAULT_ACCOUNT_NAME.toLowerCase() ||
+                x.code === DEFAULT_ACCOUNT_CODE,
+        );
 
-        const feesTaxRate = taxRates.find(f => FEES_TAX_TYPES.includes(f.taxType));
-        const feesTaxType = feesTaxRate ? feesTaxRate.taxType as TaxType : undefined;
-        if (!feesTaxType) {
-            this.logger.info(`Fees expense account will be created using default Xero tax type. Tax types ${TaxType.None} and ${TaxType.ExemptExpenses} do not exist`);
-        } else {
-            this.logger.info(`Using tax rate type ${feesTaxType} for Fees expense account`);
+        if (!generalExpenseAccount) {
+            generalExpenseAccount = await this.xeroClient.accounting.createExpenseAccount({
+                name: DEFAULT_ACCOUNT_NAME,
+                code: DEFAULT_ACCOUNT_CODE,
+                addToWatchlist: true,
+            });
         }
 
-        const feesExpenseAccount = await this.xeroClient.accounting.getOrCreateExpenseAccount({
-            name: FEES_ACCOUNT_NAME,
-            code: FEES_ACCOUNT_CODE,
-            taxType: feesTaxType,
-            addToWatchlist: true,
-        });
+        let feesExpenseAccount = expenseAccounts.find(
+            x => x.name.toLowerCase() === FEES_ACCOUNT_NAME.toLowerCase() ||
+                x.code === FEES_ACCOUNT_CODE,
+        );
+
+        if (!feesExpenseAccount) {
+            const taxRates = await this.xeroClient.accounting.getTaxRates();
+
+            const feesTaxRate = taxRates.find(f => FEES_TAX_TYPES.includes(f.taxType));
+            const feesTaxType = feesTaxRate ? feesTaxRate.taxType as TaxType : undefined;
+            if (!feesTaxType) {
+                this.logger.info(`Fees expense account will be created using default Xero tax type. Tax types ${TaxType.None} and ${TaxType.ExemptExpenses} do not exist`);
+            } else {
+                this.logger.info(`Using tax rate type ${feesTaxType} for Fees expense account`);
+            }
+
+            feesExpenseAccount = await this.xeroClient.accounting.createExpenseAccount({
+                name: FEES_ACCOUNT_NAME,
+                code: FEES_ACCOUNT_CODE,
+                taxType: feesTaxType,
+                addToWatchlist: true,
+            });
+        }
 
         if (generalExpenseAccount.status !== AccountStatus.Active) {
             throw Error(`Default general expense account is required but it is currently of status '${generalExpenseAccount.status}'`);
@@ -323,12 +356,13 @@ export class Manager implements IManager {
             fxFees,
             posFees,
             accountCode,
+            taxExempt,
             taxType,
             url,
         }: INewAccountTransaction,
 
-        defaultAccountCode: string,
-        feesAccountCode: string,
+        defaultAccount: IAccountCode,
+        taxExemptAccount: IAccountCode,
     ): Xero.ICreateTransactionData {
         return {
             date,
@@ -339,9 +373,9 @@ export class Manager implements IManager {
             amount,
             fxFees,
             posFees,
-            feesAccountCode,
-            accountCode: accountCode || defaultAccountCode,
-            taxType,
+            feesAccountCode: taxExemptAccount.code,
+            accountCode: accountCode || defaultAccount.code,
+            taxType: taxExempt ? taxExemptAccount.taxType : taxType,
             url,
         };
     }

@@ -1,13 +1,13 @@
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
+import { FEES_ACCOUNT_CODE } from '@shared';
 import { ILogger, Lock } from '@utils';
 
-import { BankFeedsClient } from '.';
-import { FEES_ACCOUNT_CODE, TaxType } from '../../../shared';
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
+import * as BankFeedsClient from './bank-feeds';
 import { Client, escapeParam } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
@@ -154,7 +154,6 @@ describe('Xero client', () => {
                                     accountCode: FEES_ACCOUNT_CODE,
                                     quantity: 1,
                                     unitAmount: transaction.fxFees + transaction.posFees,
-                                    taxType: TaxType.None,
                                 },
                             ],
                         },

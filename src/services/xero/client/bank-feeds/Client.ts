@@ -14,12 +14,12 @@ export class Client implements IClient {
     ) {
     }
 
-    async getOrCreateBankFeedConnection({ accountId, accountToken, accountType, currency }: INewBankFeedConnection): Promise<IBankFeedConnection> {
-        const logger = this.logger.child({ bankFeedConnection: { accountId, accountToken, currency } });
+    async getOrCreateBankFeedConnection({ accountName, accountNumber, accountToken, accountType, currency }: INewBankFeedConnection): Promise<IBankFeedConnection> {
+        const logger = this.logger.child({ bankFeedConnection: { accountNumber, accountToken, currency } });
 
-        let feedConnection = await this.getBankFeedConnectionByAccountDetails(accountId, accountToken, currency);
+        let feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency);
         if (!feedConnection) {
-            feedConnection = await this.createBankFeedConnection({ accountId, accountToken, accountType, currency });
+            feedConnection = await this.createBankFeedConnection({ accountName, accountNumber, accountToken, accountType, currency });
         }
 
         if (!feedConnection) {
@@ -41,7 +41,7 @@ export class Client implements IClient {
 
             await sleep(BANK_FEED_CONNECTIONS_DELAY);
 
-            feedConnection = await this.getBankFeedConnectionByAccountDetails(accountId, accountToken, currency);
+            feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency);
 
             if (!feedConnection) {
                 throw logger.error(Error('Could not get bank feed connection'));
@@ -86,7 +86,7 @@ export class Client implements IClient {
         });
     }
 
-    private async getBankFeedConnectionByAccountDetails(accountId: string, accountToken: string, currency: Currency): Promise<IBankFeedConnection | undefined> {
+    private async getBankFeedConnectionByAccountDetails(accountNumber: string, accountToken: string, currency: Currency): Promise<IBankFeedConnection | undefined> {
         const url = buildUrl(
             this.baseUrl(),
             '/FeedConnections',
@@ -98,7 +98,7 @@ export class Client implements IClient {
             entityResponseType: EntityResponseType.Items.toLowerCase(),
         });
 
-        const feedConnection = getItems.find(c => c.accountId === accountId && c.accountToken === accountToken && c.currency === currency);
+        const feedConnection = getItems.find(c => c.accountNumber === accountNumber && c.accountToken === accountToken && c.currency === currency);
         return feedConnection;
     }
 

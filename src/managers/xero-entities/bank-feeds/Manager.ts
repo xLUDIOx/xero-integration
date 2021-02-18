@@ -11,7 +11,8 @@ export class Manager implements IManager {
 
     async getConnectionIdForBankAccount(bankAccount: Xero.IBankAccount): Promise<string> {
         const connection = await this.xeroClient.bankFeeds.getOrCreateBankFeedConnection({
-            accountId: bankAccount.accountID,
+            accountName: bankAccount.name,
+            accountNumber: bankAccount.bankAccountNumber,
             currency: bankAccount.currencyCode as any,
             accountToken: BANK_FEED_TOKEN_MAP.get(bankAccount.currencyCode)!,
             accountType: BankFeedAccountType.Bank,

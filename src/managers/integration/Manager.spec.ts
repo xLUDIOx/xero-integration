@@ -691,7 +691,7 @@ describe('integrations/Manager', () => {
                         contactId,
                         reference: `Bank wire received on ${new Date(t.date).toUTCString()}`,
                         amount: -t.amount,
-                        taxType: TaxType.None,
+                        taxExempt: true,
                         fxFees: 0,
                         posFees: 0,
                         files: [],
@@ -733,7 +733,7 @@ describe('integrations/Manager', () => {
                 .setup(m => m.closeBankFeedConnection(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.never());
 
-            await manager.disconnect();
+            await manager.disconnectBankFeed();
         });
 
         it('should do nothing if no connections', async () => {
@@ -750,7 +750,7 @@ describe('integrations/Manager', () => {
                 .setup(m => m.closeBankFeedConnection(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.never());
 
-            await manager.disconnect();
+            await manager.disconnectBankFeed();
         });
 
         it('should iterate all connections and disconnect them', async () => {
@@ -771,7 +771,7 @@ describe('integrations/Manager', () => {
                     .verifiable(TypeMoq.Times.once());
             });
 
-            await manager.disconnect();
+            await manager.disconnectBankFeed();
         });
     });
 

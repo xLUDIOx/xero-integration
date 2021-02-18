@@ -1,7 +1,7 @@
 import { Decimal } from 'decimal.js';
 
 import { FxRates, Payhawk, Xero } from '@services';
-import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, TaxType } from '@shared';
+import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths } from '@utils';
 
@@ -164,19 +164,25 @@ export class Manager implements IManager {
                 await this.exportExpenseAsBill(expense, files, organisation);
             }
         } catch (err) {
-            this.handleExportError(err, expense, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
+            this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
             await Promise.all(files.map(async (f: Payhawk.IDownloadedFile) => this.deleteFile(f.path)));
         }
     }
 
     async deleteExpense(expenseId: string): Promise<void> {
-        const expenseTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
-        if (expenseTransactions.length === 0) {
-            await this.deleteBill(expenseId);
-        } else {
-            const transactionIds = expenseTransactions.map(x => x.transaction_id);
-            await this.deleteTransactions(expenseId, transactionIds);
+        const logger = this.logger.child({ expenseId });
+
+        try {
+            const expenseTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
+            if (expenseTransactions.length === 0) {
+                await this.deleteBillIfExists(expenseId, logger);
+            } else {
+                const transactionIds = expenseTransactions.map(x => x.transaction_id);
+                await this.deleteTransactions(expenseId, transactionIds, logger);
+            }
+        } catch (err) {
+            this.handleExpenseDeleteError(err);
         }
     }
 
@@ -215,20 +221,24 @@ export class Manager implements IManager {
     }
 
     async exportTransfer(balanceId: string, transferId: string): Promise<void> {
-        const logger = this.logger.child({ accountId: this.accountId, balanceId, transferId });
-        const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
-        if (!transfer) {
-            throw logger.error(Error('Transfer not found'));
+        try {
+            const logger = this.logger.child({ accountId: this.accountId, balanceId, transferId });
+            const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
+            if (!transfer) {
+                throw logger.error(Error('Transfer not found'));
+            }
+
+            const organisation = await this.getOrganisation();
+            this.validateExportDate(organisation, transfer.date, logger);
+
+            const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
+            const bankAccountId = bankAccount.accountID;
+
+            await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
+        } catch (err) {
+            this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
         }
-
-        const organisation = await this.getOrganisation();
-        this.validateExportDate(organisation, transfer.date, logger);
-
-        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
-        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
-        const bankAccountId = bankAccount.accountID;
-
-        await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
     }
 
     async getOrganisation(): Promise<XeroEntities.IOrganisation> {
@@ -249,7 +259,7 @@ export class Manager implements IManager {
                 await this.exportBankStatementForTransactions(expense, organisation, logger);
             }
         } catch (err) {
-            this.handleExportError(err, expense, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
+            this.handleExportError(err, expense.category, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
     }
 
@@ -316,7 +326,7 @@ export class Manager implements IManager {
             bankTransaction.bankTransactionID,
             bankAccount,
             date,
-            -Math.abs(transfer.amount),
+            -transfer.amount,
             transferId,
             EntityType.Transfer,
             contactName!,
@@ -325,34 +335,46 @@ export class Manager implements IManager {
         );
     }
 
-    async disconnect(): Promise<void> {
-        const organisation = await this.getOrganisation();
-        await this.disconnectBankFeed(organisation);
-    }
+    async disconnectBankFeed() {
+        let organisation: XeroEntities.IOrganisation;
 
-    private async disconnectBankFeed(organisation: XeroEntities.IOrganisation) {
+        try {
+            organisation = await this.getOrganisation();
+        } catch (err) {
+            if (err instanceof Xero.ForbiddenError || err instanceof Xero.UnauthorizedError) {
+                this.logger.info(`Organisation is not authorized, skipping disconnect`);
+                return;
+            }
+
+            throw err;
+        }
+
+        const logger = this.logger.child({ organisation });
+
         if (organisation.isDemoCompany) {
-            this.logger.info(`Demo organisations are not authorized for bank feed, skipping bank feed disconnect`);
+            logger.info(`Demo organisations are not authorized for bank feed, skipping bank feed disconnect`);
             return;
         }
 
         const connectionIds = await this.store.bankFeeds.getConnectionIdsForAccount(this.accountId);
         if (connectionIds.length === 0) {
+            logger.info('Account has no active bank feed connections, skipping bank feed disconnect');
             return;
         }
 
         for (const connectionId of connectionIds) {
-            const logger = this.logger.child({ connectionId });
-            logger.info('Closing bank feed connection');
+            const connectionLogger = logger.child({ connectionId });
+            connectionLogger.info('Closing bank feed connection');
 
             try {
                 await this.xeroEntities.bankFeeds.closeBankFeedConnection(connectionId);
-                await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, connectionId);
             } catch (err) {
-                throw logger.error(err);
+                throw connectionLogger.warn(err);
+            } finally {
+                await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, connectionId);
             }
 
-            logger.info('Bank feed connection closed');
+            connectionLogger.info('Bank feed connection closed');
         }
     }
 
@@ -410,9 +432,9 @@ export class Manager implements IManager {
             date,
             bankAccountId,
             contactId,
-            reference: `Bank wire received on ${new Date(date).toUTCString()}`,
-            amount: -Math.abs(transfer.amount),
-            taxType: TaxType.None,
+            reference: `Bank wire ${transfer.amount > 0 ? 'received' : 'sent'} on ${new Date(date).toUTCString()}`,
+            amount: -transfer.amount,
+            taxExempt: true,
             fxFees: 0,
             posFees: 0,
             files: [],
@@ -518,21 +540,32 @@ export class Manager implements IManager {
         }
     }
 
-    private async deleteBill(expenseId: string): Promise<void> {
+    private async deleteBillIfExists(expenseId: string, logger: ILogger): Promise<void> {
         const billUrl = this.buildExpenseUrl(expenseId);
+
+        const billLogger = logger.child({ billUrl });
+
+        billLogger.info('Deleting bill');
         await this.xeroEntities.deleteBill(billUrl);
+        billLogger.info('Bill deleted');
     }
 
-    private async deleteTransactions(expenseId: string, transactionIds: string[]): Promise<void> {
+    private async deleteTransactions(expenseId: string, transactionIds: string[], logger: ILogger): Promise<void> {
         for (const transactionId of transactionIds) {
-            await this.deleteTransaction(expenseId, transactionId);
+            await this.deleteTransaction(expenseId, transactionId, logger);
         }
     }
 
-    private async deleteTransaction(expenseId: string, transactionId: string) {
+    private async deleteTransaction(expenseId: string, transactionId: string, logger: ILogger) {
         const transactionUrl = this.buildTransactionUrl(transactionId);
+        const txLogger = logger.child({ transactionId, transactionUrl });
+
+        txLogger.info('Deleting bank transaction');
+
         await this.xeroEntities.deleteAccountTransaction(transactionUrl);
         await this.store.expenseTransactions.delete(this.accountId, expenseId, transactionId);
+
+        txLogger.info('Bank transaction deleted');
     }
 
     private async updateExpenseLinks(expenseId: string, urls: string[]) {
@@ -842,16 +875,17 @@ export class Manager implements IManager {
         );
     }
 
-    private handleExportError(err: Error, expense: Payhawk.IExpense, genericErrorMessage: string) {
+    private handleExportError(err: Error, category: string | undefined, genericErrorMessage: string) {
         if (err instanceof ExportError) {
             throw err;
         }
 
         const errorMessage = err.message;
+        const categoryName = category || DEFAULT_ACCOUNT_NAME;
         if (ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw new ExportError(`The Xero account code for category "${expense.category}" is archived or deleted. Please sync your chart of accounts.`);
+            throw new ExportError(`The Xero account code for category "${categoryName}" is archived or deleted. Please sync your chart of accounts.`);
         } else if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(errorMessage)) {
-            throw new ExportError(`The Xero account code for category "${expense.category}" cannot be used. Please use a different one.`);
+            throw new ExportError(`The Xero account code for category "${categoryName}" cannot be used. Please use a different one.`);
         } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
             throw new ExportError(`${errorMessage}. Please activate it.`);
         } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
@@ -868,6 +902,16 @@ export class Manager implements IManager {
         this.logger.error(err);
 
         throw new ExportError(genericErrorMessage);
+    }
+
+    private handleExpenseDeleteError(err: Error) {
+        if (err instanceof ExportError) {
+            throw err;
+        }
+
+        this.logger.error(err);
+
+        throw new ExportError('Failed to delete expense from Xero');
     }
 
     private buildExpenseUrl(expenseId: string, date?: Date): string {
@@ -929,4 +973,5 @@ const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);
 
 const GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. Please check that all expense data is correct and try again.';
+const GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE = 'Failed to export deposit into Xero. Please check that all deposit data is correct and try again.';
 const GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. There is an error with your bank feed connection. Make sure you are not using a demo organization in Xero.';

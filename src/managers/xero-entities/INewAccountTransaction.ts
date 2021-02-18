@@ -11,6 +11,7 @@ export interface INewAccountTransaction {
     posFees: number;
     accountCode?: string;
     taxType?: string;
+    taxExempt?: boolean;
     files: Payhawk.IDownloadedFile[];
     url: string;
 }

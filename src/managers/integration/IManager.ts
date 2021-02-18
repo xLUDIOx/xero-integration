@@ -17,7 +17,7 @@ export interface IManager {
     synchronizeBankAccounts(): Promise<string[]>;
     synchronizeTaxRates(): Promise<number>;
 
-    disconnect(): Promise<void>;
+    disconnectBankFeed(): Promise<void>;
 }
 
 export interface ISyncResult {
