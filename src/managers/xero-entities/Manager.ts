@@ -249,6 +249,7 @@ export class Manager implements IManager {
 
         if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId && newBill.totalAmount > 0) {
             logger.info('Expense is paid and a new payment will be created for this bill');
+
             const paymentData: Xero.IBillPaymentData = {
                 date: newBill.paymentDate,
                 amount: billData.amount,
@@ -269,17 +270,47 @@ export class Manager implements IManager {
     }
 
     async deleteBill(billUrl: string) {
+        let logger = this.logger.child({ billUrl });
+
         const bill = await this.xeroClient.getBillByUrl(billUrl);
         if (!bill) {
-            this.logger.info('Bill not found, nothing to delete');
+            logger.info('Bill not found, nothing to delete');
             return;
         }
 
+        logger = logger.child({ billId: bill.invoiceID, billStatus: bill.status });
+
         if (bill.status === Xero.InvoiceStatus.PAID) {
-            throw new ExportError('Export expense into Xero failed. Bill is already paid and cannot be modified or deleted');
+            const payment = await this.getAndValidateBillPayment(bill, logger);
+
+            logger.info('Deleting bill payment');
+            await this.xeroClient.accounting.deletePayment(payment.paymentID);
+            logger.info('Bill payment deleted');
         }
 
+        logger.info('Deleting invoice');
         await this.xeroClient.deleteBill(bill.invoiceID);
+        logger.info('Invoice deleted');
+    }
+
+    private async getAndValidateBillPayment(bill: Xero.IInvoice, logger: ILogger): Promise<Xero.IPayment> {
+        const paymentId = bill.payments && bill.payments.length > 0 ? bill.payments[0].paymentID : undefined;
+        logger = logger.child({ billPaymentId: paymentId });
+
+        if (!paymentId) {
+            throw logger.error(Error('Bill is marked as paid but no payments found'));
+        }
+
+        const payment = await this.xeroClient.getBillPayment(paymentId);
+        if (!payment) {
+            throw logger.error(Error('Bill is marked as paid but the Xero API returned no payment for this payment id'));
+        }
+
+        if (payment.isReconciled) {
+            throw new ExportError('Export expense into Xero failed. Bill payment is already reconciled and cannot be modified or deleted');
+        }
+
+        return payment;
     }
 
     async ensureDefaultExpenseAccountsExist(): Promise<IAccountCode[]> {

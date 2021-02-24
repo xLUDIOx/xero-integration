@@ -6,6 +6,8 @@ export interface IClient {
     getExpenseAccounts(filter?: IExpenseAccountsFilter): Promise<IAccountCode[]>;
     createExpenseAccount(account: INewAccountCode): Promise<IAccountCode>;
     getTaxRates(): Promise<ITaxRate[]>;
+
+    deletePayment(paymentId: string): Promise<void>;
 }
 
 export interface IExpenseAccountsFilter {

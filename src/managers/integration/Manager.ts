@@ -488,10 +488,7 @@ export class Manager implements IManager {
                     }
                 }
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
-                if (bankAccount) {
-                    bankAccountId = bankAccount.accountID;
-                }
+                this.logger.info('Expense is marked as paid, but no bank account was specified, no payment will be exported');
             }
         }
 
@@ -617,11 +614,6 @@ export class Manager implements IManager {
                 continue;
             }
 
-            if (bankTransaction.isReconciled) {
-                logger.info(EXPENSE_RECONCILED_ERROR_MESSAGE);
-                throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
-            }
-
             const statementId = await this.store.bankFeeds.getStatementByEntityId({
                 account_id: this.accountId,
                 xero_entity_id: bankTransaction.bankTransactionID,
@@ -632,6 +624,11 @@ export class Manager implements IManager {
             if (statementId) {
                 logger.info('Bank statement for this expense transaction is already exported');
                 return;
+            }
+
+            if (bankTransaction.isReconciled) {
+                logger.info(EXPENSE_RECONCILED_ERROR_MESSAGE);
+                throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
             }
 
             const contactName = bankTransaction.contact.name;
@@ -876,9 +873,7 @@ export class Manager implements IManager {
     }
 
     private handleExportError(err: Error, category: string | undefined, genericErrorMessage: string) {
-        if (err instanceof ExportError) {
-            throw err;
-        }
+        this.handleExportErrorCommon(err);
 
         const errorMessage = err.message;
         const categoryName = category || DEFAULT_ACCOUNT_NAME;
@@ -904,10 +899,22 @@ export class Manager implements IManager {
         throw new ExportError(genericErrorMessage);
     }
 
-    private handleExpenseDeleteError(err: Error) {
+    private handleExportErrorCommon(err: Error) {
         if (err instanceof ExportError) {
             throw err;
         }
+
+        if (
+            err instanceof Xero.HttpError && (
+                err.code === Xero.HttpStatusCodes.InternalError ||
+                err.code === Xero.HttpStatusCodes.Timeout
+        )) {
+            throw new ExportError('Failed to export into Xero due to an internal Xero API error. Please try again in a minute.');
+        }
+    }
+
+    private handleExpenseDeleteError(err: Error) {
+        this.handleExportErrorCommon(err);
 
         this.logger.error(err);
 

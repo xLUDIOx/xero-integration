@@ -93,6 +93,22 @@ export class Client implements IClient {
         return expenseAccount;
     }
 
+    async deletePayment(paymentId: string): Promise<void> {
+        const url = buildUrl(
+            this.baseUrl(),
+            `/Payments/${encodeURIComponent(paymentId)}`,
+        );
+
+        const response = await this.httpClient.request({
+            url,
+            method: 'POST',
+        });
+
+        if (response) {
+            return;
+        }
+    }
+
     private async _createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {
         const url = buildUrl(
             this.baseUrl(),

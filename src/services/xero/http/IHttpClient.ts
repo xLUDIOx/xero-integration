@@ -43,3 +43,13 @@ export enum EntityResponseType {
     Payments = 'Payments',
     TaxRates = 'TaxRates',
 }
+
+export enum HttpStatusCodes {
+    BadRequest = 400,
+    Unauthorized = 401,
+    Forbidden = 403,
+    NotFound = 404,
+    TooManyRequests = 429,
+    InternalError = 500,
+    Timeout = 504,
+}

@@ -3,7 +3,7 @@ import Axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 import { ILock, ILogger, toBase64 } from '@utils';
 
 import { ForbiddenError, HttpError, IHttpErrorParams, ResourceNotError, UnauthorizedError } from './errors';
-import { AUTHORIZATION_HEADER, CONTENT_TYPE_HEADER, IHttpClient, IRequestOptions, XERO_TENANT_ID_HEADER } from './IHttpClient';
+import { AUTHORIZATION_HEADER, CONTENT_TYPE_HEADER, HttpStatusCodes, IHttpClient, IRequestOptions, XERO_TENANT_ID_HEADER } from './IHttpClient';
 
 export class HttpClient implements IHttpClient {
     private readonly client: AxiosInstance;
@@ -114,7 +114,7 @@ export class HttpClient implements IHttpClient {
         const statusCode = err.response?.status;
         const baseError: IHttpErrorParams = {
             message: err.message,
-            code: statusCode || 500,
+            code: statusCode || HttpStatusCodes.InternalError,
             responseData: err.response?.data,
             requestData: err.request,
         };
@@ -124,13 +124,13 @@ export class HttpClient implements IHttpClient {
         }
 
         switch (statusCode) {
-            case 401:
+            case HttpStatusCodes.Unauthorized:
                 throw new UnauthorizedError(baseError);
-            case 403:
+            case HttpStatusCodes.Forbidden:
                 throw new ForbiddenError(baseError);
-            case 404:
+            case HttpStatusCodes.NotFound:
                 throw new ResourceNotError(baseError);
-            case 429:
+            case HttpStatusCodes.TooManyRequests:
                 const headers = err.response.headers;
                 const retryAfterHeaderValue = headers['retry-after'];
 
@@ -162,7 +162,7 @@ export class HttpClient implements IHttpClient {
 
                     setTimeout(handledRetry, millisecondsToRetryAfter);
                 });
-            case 400:
+            case HttpStatusCodes.BadRequest:
             default:
                 throw new HttpError(baseError);
         }
