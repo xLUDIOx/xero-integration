@@ -5,6 +5,7 @@ export * from './BankStatement';
 export * from './CreditDebitIndicator';
 export * from './Currency';
 export * from './Organisation';
+export * from './Payments';
 export * from './TaxRate';
 
 export const DEFAULT_ACCOUNT_CODE = '999999';

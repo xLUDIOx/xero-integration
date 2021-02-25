@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, TaxRateStatus } from '@shared';
+import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, PaymentStatus, TaxRateStatus } from '@shared';
 import { ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -99,14 +99,15 @@ export class Client implements IClient {
             `/Payments/${encodeURIComponent(paymentId)}`,
         );
 
-        const response = await this.httpClient.request({
+        await this.httpClient.request({
             url,
             method: 'POST',
+            data: {
+                [EntityResponseType.Payments]: [{
+                    Status: PaymentStatus.Deleted,
+                }],
+            },
         });
-
-        if (response) {
-            return;
-        }
     }
 
     private async _createExpenseAccount(name: string, code: string, taxType: string | undefined, logger: ILogger): Promise<IAccountCode> {
