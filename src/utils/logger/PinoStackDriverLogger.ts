@@ -52,8 +52,8 @@ export class PinoStackDriverLogger implements ILogger {
     }
 
     error(error: Error, obj?: object): Error {
-        if (error === undefined) {
-            throw Error('Error is undefined!');
+        if (error instanceof LoggedError) {
+            return error;
         }
 
         // "message" must contain stacktrace for StackDriver to work properly

@@ -834,7 +834,13 @@ export class Manager implements IManager {
                 return;
             }
 
-            currency = this.xeroEntities.bankAccounts.getCurrencyByBankAccountCode(fullPayment.account.code);
+            const bankAccountCurrency = await this.xeroEntities.bankAccounts.getCurrencyByBankAccountCode(fullPayment.account.code);
+            if (!bankAccountCurrency) {
+                throw Error('Couldn\'t find payment bank account');
+            }
+
+            currency = bankAccountCurrency;
+
             amount = convertAmount(payment.amount, payment.currencyRate);
         }
 
@@ -908,7 +914,7 @@ export class Manager implements IManager {
             err instanceof Xero.HttpError && (
                 err.code === Xero.HttpStatusCodes.InternalError ||
                 err.code === Xero.HttpStatusCodes.Timeout
-        )) {
+            )) {
             throw new ExportError('Failed to export into Xero due to an internal Xero API error. Please try again in a minute.');
         }
     }

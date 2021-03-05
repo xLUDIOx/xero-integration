@@ -3,7 +3,7 @@ import { Account } from 'xero-node';
 import { Xero } from '@services';
 
 import { IBankAccount } from './IBankAccount';
-import { defBankAccountCode, defBankAccountName, defBankAccountNumber, IManager, mapBankAccountCodeToCurrency } from './IManager';
+import { defBankAccountCode, defBankAccountName, defBankAccountNumber, IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(private readonly xeroClient: Xero.IClient) { }
@@ -32,7 +32,8 @@ export class Manager implements IManager {
         return bankAccount;
     }
 
-    getCurrencyByBankAccountCode(bankAccountCode: string): string {
-        return mapBankAccountCodeToCurrency(bankAccountCode);
+    async getCurrencyByBankAccountCode(bankAccountCode: string): Promise<string | undefined> {
+        const bankAccount = await this.xeroClient.getBankAccountByCodeOrName(bankAccountCode);
+        return bankAccount?.currencyCode?.toString();
     }
 }
