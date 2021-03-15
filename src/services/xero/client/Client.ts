@@ -134,7 +134,11 @@ export class Client implements IClient {
             },
         });
 
-        await this.ensureCurrency(currencyCode, logger);
+        if (!ALLOWED_CURRENCIES.includes(currencyCode)) {
+            throw logger.error(Error('Tried to create bank account with invalid currency'));
+        }
+
+        await this.ensureCurrency(currencyCode);
 
         const bankAccounts = await this.xeroClient.makeClientRequest<IBankAccount[]>(
             x => x.accountingApi.createAccount(
@@ -263,11 +267,8 @@ export class Client implements IClient {
 
     async createBill(data: ICreateBillData): Promise<string> {
         const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url } = data;
-        const logger = this.logger.child({
-            billData: data,
-        });
 
-        await this.ensureCurrency(currency, logger);
+        await this.ensureCurrency(currency);
 
         const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, taxType, url, dueDate, isPaid);
 
@@ -421,11 +422,7 @@ export class Client implements IClient {
         return payment as IPayment;
     }
 
-    private async ensureCurrency(currencyCode: string, logger: ILogger): Promise<void> {
-        if (!ALLOWED_CURRENCIES.includes(currencyCode)) {
-            throw logger.error(Error('Tried to create bank account with invalid currency'));
-        }
-
+    private async ensureCurrency(currencyCode: string): Promise<void> {
         const currencies = await this.xeroClient.makeClientRequest<Currency[]>(
             x => x.accountingApi.getCurrencies(
                 this.tenantId,
