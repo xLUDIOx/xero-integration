@@ -161,6 +161,10 @@ export class IntegrationsController {
                 await this.syncBankAccounts(connectionManager, xeroAccessToken, accountId, logger);
                 break;
             }
+            case PayhawkEvent.TrackingCategories: {
+                await this.syncTrackingCategories(connectionManager, xeroAccessToken, accountId, logger);
+                break;
+            }
             default:
                 res.send(400, 'Unknown event');
                 return;
@@ -294,6 +298,15 @@ export class IntegrationsController {
         await integrationManager.synchronizeChartOfAccounts();
 
         logger.info('Sync chart of accounts completed');
+    }
+
+    private async syncTrackingCategories(connectionManager: XeroConnection.IManager, accessToken: TokenSet, accountId: string, logger: ILogger) {
+        logger.info('Sync tracking categories started');
+
+        const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
+        await integrationManager.synchronizeTrackingCategories();
+
+        logger.info('Sync tracking categories completed');
     }
 
     private async syncTaxRates(connectionManager: XeroConnection.IManager, accessToken: TokenSet, accountId: string, logger: ILogger) {

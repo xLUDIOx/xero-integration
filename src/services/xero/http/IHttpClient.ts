@@ -42,6 +42,7 @@ export enum EntityResponseType {
     Organisations = 'Organisations',
     Payments = 'Payments',
     TaxRates = 'TaxRates',
+    TrackingCategories = 'TrackingCategories',
 }
 
 export enum HttpStatusCodes {

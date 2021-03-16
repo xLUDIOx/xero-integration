@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, PaymentStatus, TaxRateStatus } from '@shared';
+import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus } from '@shared';
 import { ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -12,6 +12,21 @@ export class Client implements IClient {
         private readonly logger: ILogger,
         private readonly env: IEnvironment,
     ) {
+    }
+    async getTrackingCategories(): Promise<ITrackingCategory[]> {
+        const url = buildUrl(
+            this.baseUrl(),
+            '/TrackingCategories',
+        );
+
+        const response = await this.httpClient.request({
+            url,
+            method: 'GET',
+        });
+
+        const responseItems = response[EntityResponseType.TrackingCategories];
+        const categories = ObjectSerializer.deserialize<ITrackingCategory[]>(responseItems);
+        return categories;
     }
 
     async getOrganisation(): Promise<IOrganisation> {

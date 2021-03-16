@@ -96,11 +96,35 @@ export class Manager implements IManager {
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
 
+        try {
+            this.logger.info(`Sync tracking codes of account started`);
+            result.data!.accountCodesCount = await this.synchronizeTrackingCategories();
+            this.logger.info(`Completed`);
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. `Sync tracking codes of account failed'), { error: err });
+
+            result.data!.errors!.accountCodes = '`Sync tracking codes of account failed';
+        }
+
         if (isSuccessful && !account.initial_sync_completed) {
             await this.store.accounts.update(this.accountId, true);
         }
 
         return result;
+    }
+
+    async synchronizeTrackingCategories(): Promise<number> {
+        const xeroTrackingCategories = await this.xeroEntities.getTrackingCategories();
+        // const accountCodeModels = xeroTrackingCategories.map(x => ({
+        //     code: x.code,
+        //     name: x.name,
+        //     defaultTaxCode: x.taxType,
+        // }));
+
+        // await this.payhawkClient.synchronizeChartOfAccounts(accountCodeModels);
+
+        return xeroTrackingCategories.length;
     }
 
     async synchronizeChartOfAccounts(): Promise<number> {

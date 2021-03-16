@@ -16,6 +16,7 @@ export interface IManager {
     synchronizeChartOfAccounts(): Promise<number>;
     synchronizeBankAccounts(): Promise<string[]>;
     synchronizeTaxRates(): Promise<number>;
+    synchronizeTrackingCategories(): Promise<number>;
 
     disconnectBankFeed(): Promise<void>;
 }

@@ -10,6 +10,7 @@ export enum PayhawkEvent {
     ExpenseExport = 'expense-export',
     ExpenseDelete = 'expense-delete',
     BankStatementExport = 'bank-statement-export',
+    TrackingCategories = 'tracking-categories',
     TransferExport = 'transfer-export',
 
     Disconnect = 'disconnect',
