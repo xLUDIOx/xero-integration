@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus } from '@shared';
+import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
 import { ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -17,6 +17,9 @@ export class Client implements IClient {
         const url = buildUrl(
             this.baseUrl(),
             '/TrackingCategories',
+            {
+                where: `Status==${TrackingCategoryStatus.Active}`,
+            }
         );
 
         const response = await this.httpClient.request({

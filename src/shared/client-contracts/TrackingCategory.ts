@@ -1,5 +1,5 @@
 export interface ITrackingCategory {
-    trackingOptionID: string;
+    trackingCategoryID: string;
     name: string;
     status: TrackingCategoryStatus;
     options: ITrackingOption[];
