@@ -8,7 +8,7 @@ import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
-import { Client, escapeParam } from './Client';
+import { Client, escapeParam, getAccountingItemModel } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
@@ -526,6 +526,78 @@ describe('Xero client', () => {
             const expected = 'My Company Ltd.';
             expect(escapeParam('"My Company" Ltd.')).toEqual(expected);
             expect(escapeParam('"  My Company   " Ltd.')).toEqual(expected);
+        });
+    });
+
+    describe('transaction model', () => {
+        it('should map fx fees', () => {
+            const model = getAccountingItemModel({
+                description: 'desc',
+                accountCode: '100',
+                amount: 100,
+                contactId: '1',
+                date: new Date().toISOString(),
+                url: '/',
+                feesAccountCode: '200',
+                fxFees: 1,
+            });
+
+            const feesItem = model.lineItems[1];
+            expect(feesItem).not.toEqual(undefined);
+            expect(feesItem.description).toEqual('Exchange fees');
+            expect(feesItem.unitAmount).toEqual(1);
+        });
+
+        it('should map pos fees', () => {
+            const model = getAccountingItemModel({
+                description: 'desc',
+                accountCode: '100',
+                amount: 100,
+                contactId: '1',
+                date: new Date().toISOString(),
+                url: '/',
+                feesAccountCode: '200',
+                posFees: 1,
+            });
+
+            const feesItem = model.lineItems[1];
+            expect(feesItem).not.toEqual(undefined);
+            expect(feesItem.description).toEqual('POS fees');
+            expect(feesItem.unitAmount).toEqual(1);
+        });
+
+        it('should map fx + pos fees', () => {
+            const model = getAccountingItemModel({
+                description: 'desc',
+                accountCode: '100',
+                amount: 100,
+                contactId: '1',
+                date: new Date().toISOString(),
+                url: '/',
+                feesAccountCode: '200',
+                posFees: 1,
+                fxFees: 3,
+            });
+
+            const feesItem = model.lineItems[1];
+            expect(feesItem).not.toEqual(undefined);
+            expect(feesItem.description).toEqual('Exchange + POS fees');
+            expect(feesItem.unitAmount).toEqual(4);
+        });
+
+        it('should map no fees', () => {
+            const model = getAccountingItemModel({
+                description: 'desc',
+                accountCode: '100',
+                amount: 100,
+                contactId: '1',
+                date: new Date().toISOString(),
+                url: '/',
+                feesAccountCode: '200',
+            });
+
+            const feesItem = model.lineItems[1];
+            expect(feesItem).toEqual(undefined);
         });
     });
 
