@@ -497,13 +497,13 @@ function getNewBillModel(date: string, contactId: string, description: string, c
     return bill;
 }
 
-function getAccountingItemModel({
+export function getAccountingItemModel({
     description,
     accountCode,
     amount,
     taxType,
-    fxFees,
-    posFees,
+    fxFees = 0,
+    posFees = 0,
     feesAccountCode,
     date,
     url,
@@ -517,7 +517,7 @@ function getAccountingItemModel({
         taxType,
     }];
 
-    if (!!fxFees && !!posFees && feesAccountCode) {
+    if (feesAccountCode && fxFees + posFees > 0) {
         const feesDescription = fxFees !== 0 && posFees !== 0 ?
             'Exchange + POS fees' : fxFees !== 0 ?
                 'Exchange fees' :
