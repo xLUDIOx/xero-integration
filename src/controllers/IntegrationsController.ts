@@ -161,7 +161,7 @@ export class IntegrationsController {
                 await this.syncBankAccounts(connectionManager, xeroAccessToken, accountId, logger);
                 break;
             }
-            case PayhawkEvent.TrackingCategories: {
+            case PayhawkEvent.ExternalCustomFieldsSynchronize: {
                 await this.syncTrackingCategories(connectionManager, xeroAccessToken, accountId, logger);
                 break;
             }

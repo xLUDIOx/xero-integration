@@ -6,11 +6,11 @@ export enum PayhawkEvent {
     BankAccountsSynchronize = 'bank-accounts-synchronize',
     ChartOfAccountSynchronize = 'chart-of-accounts-synchronize',
     TaxRatesSynchronize = 'tax-rates-synchronize',
+    ExternalCustomFieldsSynchronize = 'external-custom-fields-synchronize',
 
     ExpenseExport = 'expense-export',
     ExpenseDelete = 'expense-delete',
     BankStatementExport = 'bank-statement-export',
-    TrackingCategories = 'tracking-categories',
     TransferExport = 'transfer-export',
 
     Disconnect = 'disconnect',

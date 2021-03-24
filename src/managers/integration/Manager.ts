@@ -99,13 +99,12 @@ export class Manager implements IManager {
 
         try {
             this.logger.info(`Sync tracking categories started`);
-            result.data!.trackingCategoriesCount = await this.synchronizeTrackingCategories();
+            result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
             this.logger.info(`Completed`);
         } catch (err) {
             isSuccessful = false;
             this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
-
-            result.data!.errors!.trackingCategories = 'Sync tracking categories failed';
+            result.data!.errors!.customFields = 'Sync tracking categories failed';
         }
 
         if (isSuccessful && !account.initial_sync_completed) {
@@ -118,9 +117,9 @@ export class Manager implements IManager {
     async synchronizeTrackingCategories(): Promise<number> {
         const xeroTrackingCategories = await this.xeroEntities.getTrackingCategories();
         const customFields: ICustomField[] = xeroTrackingCategories.map<ICustomField>(category => ({
-            externalId: category.trackingCategoryID,
+            externalId: category.trackingCategoryId,
             label: category.name,
-            values: category.options.map<ICustomFieldValue>(option => ({ label: option.name, externalId: option.trackingOptionID })),
+            values: category.options.map<ICustomFieldValue>(option => ({ label: option.name, externalId: option.trackingOptionId })),
         }));
 
         await this.payhawkClient.synchronizeExternalCustomFields(customFields);

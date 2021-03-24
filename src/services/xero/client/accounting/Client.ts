@@ -18,7 +18,7 @@ export class Client implements IClient {
             this.baseUrl(),
             '/TrackingCategories',
             {
-                where: `Status==${TrackingCategoryStatus.Active}`,
+                where: `Status=="${TrackingCategoryStatus.Active}"`,
             }
         );
 
@@ -26,10 +26,10 @@ export class Client implements IClient {
             url,
             method: 'GET',
         });
-
         const responseItems = response[EntityResponseType.TrackingCategories];
         const categories = ObjectSerializer.deserialize<ITrackingCategory[]>(responseItems);
         return categories;
+
     }
 
     async getOrganisation(): Promise<IOrganisation> {

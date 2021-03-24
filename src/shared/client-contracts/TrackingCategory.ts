@@ -1,14 +1,18 @@
 export interface ITrackingCategory {
-    trackingCategoryID: string;
+    trackingCategoryId: string;
     name: string;
     status: TrackingCategoryStatus;
     options: ITrackingOption[];
 }
 
 export interface ITrackingOption {
-    trackingOptionID: string;
+    trackingOptionId: string;
     name: string;
     status: TrackingOptionStatus;
+    isDeleted: boolean;
+    isArchived: boolean;
+    isActive: boolean;
+    hasValidationErrors: boolean;
 }
 
 export enum TrackingOptionStatus {

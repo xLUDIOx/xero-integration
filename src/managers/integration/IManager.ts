@@ -32,14 +32,14 @@ export interface ISyncResultData {
     accountCodesCount?: number;
     taxRatesCount?: number;
     expenseAccounts?: string[];
-    trackingCategoriesCount?: number;
+    customFieldsCount?: number;
     errors?: ISyncResultDataErrors;
 };
 
 export interface ISyncResultDataErrors {
     bankAccounts?: string;
     accountCodes?: string;
-    trackingCategories?: string;
+    customFields?: string;
     taxRates?: string;
     expenseAccounts?: string;
 };
