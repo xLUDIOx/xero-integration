@@ -97,15 +97,16 @@ export class Manager implements IManager {
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
 
-        try {
-            this.logger.info(`Sync tracking categories started`);
-            result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
-            this.logger.info(`Completed`);
-        } catch (err) {
-            isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
-            result.data!.errors!.customFields = 'Sync tracking categories failed';
-        }
+        // TODO: add it after it is tested on live
+        // try {
+        //     this.logger.info(`Sync tracking categories started`);
+        //     result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
+        //     this.logger.info(`Completed`);
+        // } catch (err) {
+        //     isSuccessful = false;
+        //     this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
+        //     result.data!.errors!.customFields = 'Sync tracking categories failed';
+        // }
 
         if (isSuccessful && !account.initial_sync_completed) {
             await this.store.accounts.update(this.accountId, true);
