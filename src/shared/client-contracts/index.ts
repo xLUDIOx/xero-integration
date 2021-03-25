@@ -7,6 +7,7 @@ export * from './Currency';
 export * from './Organisation';
 export * from './Payments';
 export * from './TaxRate';
+export * from './TrackingCategory';
 
 export const DEFAULT_ACCOUNT_CODE = '999999';
 export const DEFAULT_ACCOUNT_NAME = 'Payhawk General';

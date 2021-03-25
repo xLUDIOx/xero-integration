@@ -6,3 +6,4 @@ export * from './IClient';
 export * from './IDownloadedFile';
 export * from './IExpense';
 export * from './ITaxRate';
+export * from './ICustomFields';

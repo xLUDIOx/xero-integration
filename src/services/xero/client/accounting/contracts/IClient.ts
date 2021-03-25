@@ -1,4 +1,4 @@
-import { AccountStatus, IAccountCode, INewAccountCode, IOrganisation, ITaxRate } from '@shared';
+import { AccountStatus, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory } from '@shared';
 
 export interface IClient {
     getOrganisation(): Promise<IOrganisation>;
@@ -6,6 +6,7 @@ export interface IClient {
     getExpenseAccounts(filter?: IExpenseAccountsFilter): Promise<IAccountCode[]>;
     createExpenseAccount(account: INewAccountCode): Promise<IAccountCode>;
     getTaxRates(): Promise<ITaxRate[]>;
+    getTrackingCategories(): Promise<ITrackingCategory[]>
 
     deletePayment(paymentId: string): Promise<void>;
 }

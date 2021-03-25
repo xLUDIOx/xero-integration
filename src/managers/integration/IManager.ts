@@ -16,6 +16,7 @@ export interface IManager {
     synchronizeChartOfAccounts(): Promise<number>;
     synchronizeBankAccounts(): Promise<string[]>;
     synchronizeTaxRates(): Promise<number>;
+    synchronizeTrackingCategories(): Promise<number>;
 
     disconnectBankFeed(): Promise<void>;
 }
@@ -31,12 +32,14 @@ export interface ISyncResultData {
     accountCodesCount?: number;
     taxRatesCount?: number;
     expenseAccounts?: string[];
+    customFieldsCount?: number;
     errors?: ISyncResultDataErrors;
 };
 
 export interface ISyncResultDataErrors {
     bankAccounts?: string;
     accountCodes?: string;
+    customFields?: string;
     taxRates?: string;
     expenseAccounts?: string;
 };

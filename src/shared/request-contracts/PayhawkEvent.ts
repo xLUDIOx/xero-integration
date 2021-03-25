@@ -6,6 +6,7 @@ export enum PayhawkEvent {
     BankAccountsSynchronize = 'bank-accounts-synchronize',
     ChartOfAccountSynchronize = 'chart-of-accounts-synchronize',
     TaxRatesSynchronize = 'tax-rates-synchronize',
+    ExternalCustomFieldsSynchronize = 'external-custom-fields-synchronize',
 
     ExpenseExport = 'expense-export',
     ExpenseDelete = 'expense-delete',

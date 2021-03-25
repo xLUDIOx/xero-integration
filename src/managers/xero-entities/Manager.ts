@@ -1,5 +1,5 @@
 import { Payhawk, Xero } from '@services';
-import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, TaxType } from '@shared';
+import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
@@ -39,6 +39,10 @@ export class Manager implements IManager {
 
     async getTaxRates(): Promise<ITaxRate[]> {
         return this.xeroClient.accounting.getTaxRates();
+    }
+
+    async getTrackingCategories(): Promise<ITrackingCategory[]> {
+        return this.xeroClient.accounting.getTrackingCategories();
     }
 
     async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {

@@ -5,6 +5,7 @@ import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NA
 import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths } from '@utils';
 
+import { ICustomField, ICustomFieldValue } from '../../services/payhawk';
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
 
@@ -96,11 +97,35 @@ export class Manager implements IManager {
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
 
+        // TODO: add it after it is tested on live
+        // try {
+        //     this.logger.info(`Sync tracking categories started`);
+        //     result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
+        //     this.logger.info(`Completed`);
+        // } catch (err) {
+        //     isSuccessful = false;
+        //     this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
+        //     result.data!.errors!.customFields = 'Sync tracking categories failed';
+        // }
+
         if (isSuccessful && !account.initial_sync_completed) {
             await this.store.accounts.update(this.accountId, true);
         }
 
         return result;
+    }
+
+    async synchronizeTrackingCategories(): Promise<number> {
+        const xeroTrackingCategories = await this.xeroEntities.getTrackingCategories();
+        const customFields: ICustomField[] = xeroTrackingCategories.map<ICustomField>(category => ({
+            externalId: category.trackingCategoryId,
+            label: category.name,
+            values: category.options.map<ICustomFieldValue>(option => ({ label: option.name, externalId: option.trackingOptionId })),
+        }));
+
+        await this.payhawkClient.synchronizeExternalCustomFields(customFields);
+
+        return xeroTrackingCategories.length;
     }
 
     async synchronizeChartOfAccounts(): Promise<number> {

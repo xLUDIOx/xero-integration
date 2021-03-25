@@ -7,7 +7,8 @@ import * as requestNative from 'request';
 import * as request from 'request-promise';
 
 import { config } from '../../Config';
-import { IAccountCode, IBalance, IBalanceTransfer, IBusinessAccount, IClient, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
+import { IAccountCode, IBalance, IBalanceTransfer, IBusinessAccount, IClient, ICustomField, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
+import { IItemsOf } from './contracts/Common';
 
 export class Client implements IClient {
     private readonly headers: { [key: string]: string };
@@ -78,6 +79,13 @@ export class Client implements IClient {
     async synchronizeChartOfAccounts(accountCodes: IAccountCode[]) {
         await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/accounting-codes`, {
             method: 'PUT', json: accountCodes, headers: this.headers,
+        });
+    }
+
+    async synchronizeExternalCustomFields(customFields: ICustomField[]) {
+        const json: IItemsOf<ICustomField> = { items: customFields };
+        await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/external-custom-fields-source/xero`, {
+            method: 'PUT', json, headers: this.headers,
         });
     }
 

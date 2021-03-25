@@ -1,5 +1,5 @@
 import { Payhawk, Xero } from '@services';
-import { IAccountCode, ITaxRate } from '@shared';
+import { IAccountCode, ITaxRate, ITrackingCategory } from '@shared';
 
 import { IManager as IBankAccountsManager } from './bank-accounts';
 import { IManager as IBankFeedsManager } from './bank-feeds';
@@ -15,6 +15,7 @@ export interface IManager {
     getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getTaxRates(): Promise<ITaxRate[]>;
+    getTrackingCategories(): Promise<ITrackingCategory[]>;
     createOrUpdateAccountTransaction(input: INewAccountTransaction): Promise<string>;
     getBankTransactionByUrl(url: string): Promise<Xero.IBankTransaction | undefined>;
     deleteAccountTransaction(transactionUrl: string): Promise<void>;
