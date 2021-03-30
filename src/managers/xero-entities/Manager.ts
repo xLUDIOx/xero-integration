@@ -394,6 +394,7 @@ export class Manager implements IManager {
             taxExempt,
             taxType,
             url,
+            trackingCategories,
         }: INewAccountTransaction,
 
         defaultAccount: IAccountCode,
@@ -412,6 +413,7 @@ export class Manager implements IManager {
             accountCode: accountCode || defaultAccount.code,
             taxType: taxExempt ? taxExemptAccount.taxType : taxType,
             url,
+            trackingCategories,
         };
     }
 
@@ -427,6 +429,7 @@ export class Manager implements IManager {
         accountCode,
         taxType,
         url,
+        trackingCategories,
     }: INewBill): Xero.ICreateBillData {
         return {
             date,
@@ -440,6 +443,7 @@ export class Manager implements IManager {
             accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
             taxType,
             url,
+            trackingCategories,
         };
     }
 }

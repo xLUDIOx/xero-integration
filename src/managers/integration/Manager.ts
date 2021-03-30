@@ -6,6 +6,7 @@ import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import { ICustomField, ICustomFieldValue } from '../../services/payhawk';
+import { ITrackingCategoryValue } from '../../services/xero';
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
 
@@ -442,6 +443,7 @@ export class Manager implements IManager {
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildTransactionUrl(transaction.id, new Date(date)),
+            trackingCategories: this.extractTrackingCategories(expense),
         };
 
         const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -449,6 +451,31 @@ export class Manager implements IManager {
         await this.store.expenseTransactions.createIfNotExists(this.accountId, expense.id, transaction.id);
 
         return bankTransactionId;
+    }
+
+    private extractTrackingCategories(expense: Payhawk.IExpense): ITrackingCategoryValue[] | undefined {
+        if (!expense.reconciliation.customFields2) {
+            return undefined;
+        }
+        const xeroCustomFieldsWithValues = Object.values(expense.reconciliation.customFields2!)
+            .filter(m => m.externalSource === 'xero' && m.selectedValues && Object.keys(m.selectedValues));
+
+        xeroCustomFieldsWithValues.forEach(m => {
+            if (!m.externalId) {
+                throw new Error();
+            }
+            if (!m.selectedValues) {
+                throw new Error();
+            }
+            const selectedValues = Object.values(m.selectedValues);
+            if (selectedValues.length !== 1) {
+                throw new Error();
+            }
+
+        });
+
+        return xeroCustomFieldsWithValues
+            .map<ITrackingCategoryValue>(value => ({ categoryId: value.externalId!, valueId: value.selectedValues?.[0].externalId! }));
     }
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
@@ -536,6 +563,7 @@ export class Manager implements IManager {
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildExpenseUrl(expense.id, new Date(date)),
+            trackingCategories: this.extractTrackingCategories(expense),
         };
 
         const billId = await this.xeroEntities.createOrUpdateBill(newBill);

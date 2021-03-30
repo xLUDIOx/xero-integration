@@ -47,6 +47,12 @@ export interface IAccountingItemData {
     accountCode: string;
     taxType?: string;
     url: string;
+    trackingCategories?: ITrackingCategoryValue[];
+}
+
+export interface ITrackingCategoryValue {
+    categoryId: string;
+    valueId: string;
 }
 
 export interface ICreateBillData extends IAccountingItemData {

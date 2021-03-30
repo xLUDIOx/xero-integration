@@ -2,7 +2,7 @@ import * as TypeMoq from 'typemoq';
 import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
 import { FEES_ACCOUNT_CODE } from '@shared';
-import { ILogger, Lock } from '@utils';
+import { ILogger, Lock, typeIsEqualSkipUndefined } from '@utils';
 
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
@@ -47,6 +47,8 @@ describe('Xero client', () => {
                     }],
                 },
             }) as any);
+
+        loggerMock.setup(l => l.child(TypeMoq.It.isAny(), TypeMoq.It.isAny())).returns(() => loggerMock.object);
     });
 
     afterEach(() => {
@@ -70,32 +72,33 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createBankTransactions(
                     tenantId,
-                    {
-                        bankTransactions: [{
-                            bankTransactionID: undefined,
-                            type: BankTransactionType.Spend as any,
-                            bankAccount: {
-                                accountID: transaction.bankAccountId,
-                            },
-                            reference: transaction.reference,
-                            date: transaction.date,
-                            url: transaction.url,
-                            contact: {
-                                contactID: transaction.contactId,
-                            },
-                            lineAmountTypes: LineAmountType.TaxInclusive as any,
-                            lineItems: [
-                                {
-                                    description: transaction.description,
-                                    accountCode: transaction.accountCode,
-                                    quantity: 1,
-                                    unitAmount: transaction.amount,
-                                    taxType: transaction.taxType,
+                    typeIsEqualSkipUndefined(
+                        {
+                            bankTransactions: [{
+                                bankTransactionID: undefined,
+                                type: BankTransactionType.Spend as any,
+                                bankAccount: {
+                                    accountID: transaction.bankAccountId,
                                 },
+                                reference: transaction.reference,
+                                date: transaction.date,
+                                url: transaction.url,
+                                contact: {
+                                    contactID: transaction.contactId,
+                                },
+                                lineAmountTypes: LineAmountType.TaxInclusive as any,
+                                lineItems: [
+                                    {
+                                        description: transaction.description,
+                                        accountCode: transaction.accountCode,
+                                        quantity: 1,
+                                        unitAmount: transaction.amount,
+                                        taxType: transaction.taxType,
+                                    },
+                                ],
+                            },
                             ],
-                        },
-                        ],
-                    }))
+                        })))
                 .returns(async () => {
                     return ({
                         response: {
@@ -127,38 +130,39 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createBankTransactions(
                     tenantId,
-                    {
-                        bankTransactions: [{
-                            bankTransactionID: undefined,
-                            type: BankTransactionType.Spend as any,
-                            bankAccount: {
-                                accountID: transaction.bankAccountId,
-                            },
-                            reference: transaction.reference,
-                            date: transaction.date,
-                            url: transaction.url,
-                            contact: {
-                                contactID: transaction.contactId,
-                            },
-                            lineAmountTypes: LineAmountType.TaxInclusive as any,
-                            lineItems: [
-                                {
-                                    description: transaction.description,
-                                    accountCode: transaction.accountCode,
-                                    quantity: 1,
-                                    unitAmount: transaction.amount,
-                                    taxType: transaction.taxType,
+                    typeIsEqualSkipUndefined(
+                        {
+                            bankTransactions: [{
+                                bankTransactionID: undefined,
+                                type: BankTransactionType.Spend as any,
+                                bankAccount: {
+                                    accountID: transaction.bankAccountId,
                                 },
-                                {
-                                    description: 'Exchange + POS fees',
-                                    accountCode: FEES_ACCOUNT_CODE,
-                                    quantity: 1,
-                                    unitAmount: transaction.fxFees + transaction.posFees,
+                                reference: transaction.reference,
+                                date: transaction.date,
+                                url: transaction.url,
+                                contact: {
+                                    contactID: transaction.contactId,
                                 },
+                                lineAmountTypes: LineAmountType.TaxInclusive as any,
+                                lineItems: [
+                                    {
+                                        description: transaction.description,
+                                        accountCode: transaction.accountCode,
+                                        quantity: 1,
+                                        unitAmount: transaction.amount,
+                                        taxType: transaction.taxType,
+                                    },
+                                    {
+                                        description: 'Exchange + POS fees',
+                                        accountCode: FEES_ACCOUNT_CODE,
+                                        quantity: 1,
+                                        unitAmount: transaction.fxFees + transaction.posFees,
+                                    },
+                                ],
+                            },
                             ],
-                        },
-                        ],
-                    }))
+                        })))
                 .returns(async () => {
                     return ({
                         response: {
@@ -188,32 +192,33 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createBankTransactions(
                     tenantId,
-                    {
-                        bankTransactions: [{
-                            bankTransactionID: undefined,
-                            type: BankTransactionType.Receive as any,
-                            bankAccount: {
-                                accountID: transaction.bankAccountId,
-                            },
-                            reference: transaction.reference,
-                            date: transaction.date,
-                            url: transaction.url,
-                            contact: {
-                                contactID: transaction.contactId,
-                            },
-                            lineAmountTypes: LineAmountType.TaxInclusive as any,
-                            lineItems: [
-                                {
-                                    description: transaction.description,
-                                    accountCode: transaction.accountCode,
-                                    quantity: 1,
-                                    unitAmount: Math.abs(transaction.amount),
-                                    taxType: transaction.taxType,
+                    typeIsEqualSkipUndefined(
+                        {
+                            bankTransactions: [{
+                                bankTransactionID: undefined,
+                                type: BankTransactionType.Receive as any,
+                                bankAccount: {
+                                    accountID: transaction.bankAccountId,
                                 },
+                                reference: transaction.reference,
+                                date: transaction.date,
+                                url: transaction.url,
+                                contact: {
+                                    contactID: transaction.contactId,
+                                },
+                                lineAmountTypes: LineAmountType.TaxInclusive as any,
+                                lineItems: [
+                                    {
+                                        description: transaction.description,
+                                        accountCode: transaction.accountCode,
+                                        quantity: 1,
+                                        unitAmount: Math.abs(transaction.amount),
+                                        taxType: transaction.taxType,
+                                    },
+                                ],
+                            },
                             ],
-                        },
-                        ],
-                    }))
+                        })))
                 .returns(async () => {
                     return ({
                         response: {
@@ -241,7 +246,7 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createBankTransactions(
                     tenantId,
-                    {
+                    typeIsEqualSkipUndefined({
                         bankTransactions: [{
                             bankTransactionID: undefined,
                             type: BankTransactionType.Spend as any,
@@ -266,7 +271,7 @@ describe('Xero client', () => {
                             ],
                         },
                         ],
-                    }))
+                    })))
                 .throws(({
                     response: {
                         body: {
@@ -313,31 +318,32 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createInvoices(
                     tenantId,
-                    {
-                        invoices: [{
-                            invoiceID: undefined,
-                            dueDate: invoice.dueDate,
-                            type: InvoiceType.AccountsPayable as any,
-                            currencyCode: invoice.currency as any,
-                            status: Invoice.StatusEnum.DRAFT,
-                            date: invoice.date,
-                            url: invoice.url,
-                            contact: {
-                                contactID: invoice.contactId,
-                            },
-                            lineAmountTypes: LineAmountType.TaxInclusive as any,
-                            lineItems: [
-                                {
-                                    description: invoice.description,
-                                    accountCode: invoice.accountCode,
-                                    quantity: 1,
-                                    unitAmount: invoice.amount,
-                                    taxType: invoice.taxType,
+                    typeIsEqualSkipUndefined(
+                        {
+                            invoices: [{
+                                invoiceID: undefined,
+                                dueDate: invoice.dueDate,
+                                type: InvoiceType.AccountsPayable as any,
+                                currencyCode: invoice.currency as any,
+                                status: Invoice.StatusEnum.DRAFT,
+                                date: invoice.date,
+                                url: invoice.url,
+                                contact: {
+                                    contactID: invoice.contactId,
                                 },
+                                lineAmountTypes: LineAmountType.TaxInclusive as any,
+                                lineItems: [
+                                    {
+                                        description: invoice.description,
+                                        accountCode: invoice.accountCode,
+                                        quantity: 1,
+                                        unitAmount: invoice.amount,
+                                        taxType: invoice.taxType,
+                                    },
+                                ],
+                            },
                             ],
-                        },
-                        ],
-                    }))
+                        })))
                 .returns(async () => ({
                     response: {
                         headers: {},
@@ -363,7 +369,7 @@ describe('Xero client', () => {
             xeroClientMock
                 .setup(m => m.createInvoices(
                     tenantId,
-                    {
+                    typeIsEqualSkipUndefined({
                         invoices: [{
                             invoiceID: undefined,
                             dueDate: invoice.dueDate,
@@ -387,7 +393,7 @@ describe('Xero client', () => {
                             ],
                         },
                         ],
-                    }))
+                    })))
                 .throws(({
                     body: {},
                     response: {
@@ -513,11 +519,11 @@ describe('Xero client', () => {
                 }) as any)
                 .verifiable(TypeMoq.Times.once());
 
-                xeroClientMock
-                    .setup(x => x.createPayment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                    .verifiable(TypeMoq.Times.never());
+            xeroClientMock
+                .setup(x => x.createPayment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
 
-                await client.payBill(paymentDetails);
+            await client.payBill(paymentDetails);
         });
     });
 

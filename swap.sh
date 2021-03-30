@@ -4,7 +4,7 @@ PWD=$(pwd)
 
 npm run compile || exit 1
 docker build . -f ./Dev.Dockerfile -t adapters-xero-dev || exit 1
-telepresence  --mount=/tmp/xero \
+TELEPRESENCE_USE_DEPLOYMENT=1 telepresence  --mount=/tmp/xero \
     --namespace adapters \
     --swap-deployment xero-integration --expose 8080 \
     --docker-run --rm -v "${PWD}/build:/app/build" -p 8040:8080 -p=9230:9230 \
