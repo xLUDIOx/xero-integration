@@ -430,6 +430,7 @@ export class Manager implements IManager {
 
         this.validateExportDate(organisation, date, this.logger);
 
+        const logger = this.logger.child({ expenseId: expense.id });
         const newAccountTransaction: XeroEntities.INewAccountTransaction = {
             date,
             bankAccountId,
@@ -443,7 +444,7 @@ export class Manager implements IManager {
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildTransactionUrl(transaction.id, new Date(date)),
-            trackingCategories: this.extractTrackingCategories(expense),
+            trackingCategories: this.extractTrackingCategories(expense, logger),
         };
 
         const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
@@ -453,29 +454,36 @@ export class Manager implements IManager {
         return bankTransactionId;
     }
 
-    private extractTrackingCategories(expense: Payhawk.IExpense): ITrackingCategoryValue[] | undefined {
+    private extractTrackingCategories(expense: Payhawk.IExpense, logger: ILogger): ITrackingCategoryValue[] | undefined {
         if (!expense.reconciliation.customFields2) {
             return undefined;
         }
-        const xeroCustomFieldsWithValues = Object.values(expense.reconciliation.customFields2!)
-            .filter(m => m.externalSource === 'xero' && m.selectedValues && Object.keys(m.selectedValues));
+        const xeroCustomFieldsWithEntries = Object.entries(expense.reconciliation.customFields2!)
+            .filter(([_, value]) => value.externalSource === 'xero' && value.selectedValues && Object.keys(value.selectedValues));
 
-        xeroCustomFieldsWithValues.forEach(m => {
-            if (!m.externalId) {
-                throw new Error();
+        xeroCustomFieldsWithEntries.forEach(([key, value]) => {
+            const fieldLogger = logger.child({ customFieldId: key });
+            if (!value.externalId) {
+                throw fieldLogger.error(new Error('Missing external id'));
             }
-            if (!m.selectedValues) {
-                throw new Error();
+            if (!value.selectedValues) {
+                throw fieldLogger.error(new Error('Missing selectedValues'));
             }
-            const selectedValues = Object.values(m.selectedValues);
-            if (selectedValues.length !== 1) {
-                throw new Error();
+            const valueIds = Object.keys(value.selectedValues);
+            if (valueIds.length !== 1) {
+                throw fieldLogger.error(new Error(`Multiple selectedValues. We don't support nested custom fields`));
             }
-
+            const firstValue = valueIds[0];
+            if (!value.selectedValues[firstValue].externalId) {
+                throw fieldLogger.error(new Error(`Missing value external id'`));
+            }
         });
 
-        return xeroCustomFieldsWithValues
-            .map<ITrackingCategoryValue>(value => ({ categoryId: value.externalId!, valueId: value.selectedValues?.[0].externalId! }));
+        return xeroCustomFieldsWithEntries
+            .map<ITrackingCategoryValue>(([_, value]) => ({
+                categoryId: value.externalId!,
+                valueId: value.selectedValues![Object.keys(value.selectedValues!)[0]].externalId!,
+            }));
     }
 
     private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
@@ -548,6 +556,8 @@ export class Manager implements IManager {
 
         const description = formatDescription(expense.ownerName, expense.note);
 
+        const logger = this.logger.child({ expenseId: expense.id });
+
         const newBill: XeroEntities.INewBill = {
             bankAccountId,
             date,
@@ -563,7 +573,7 @@ export class Manager implements IManager {
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: this.buildExpenseUrl(expense.id, new Date(date)),
-            trackingCategories: this.extractTrackingCategories(expense),
+            trackingCategories: this.extractTrackingCategories(expense, logger),
         };
 
         const billId = await this.xeroEntities.createOrUpdateBill(newBill);
