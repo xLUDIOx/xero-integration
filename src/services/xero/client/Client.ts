@@ -593,7 +593,6 @@ export function getAccountingItemModel({
 }
 
 function checkTrackingCategoriesAfterUpdate(logger: ILogger, lineItemsSend: LineItem[] = [], lineItemsReturned: LineItem[] = []) {
-
     for (const lineItemSend of lineItemsSend) {
         let lineItemReturned: Optional<LineItem>;
         if (lineItemSend.lineItemID) {
