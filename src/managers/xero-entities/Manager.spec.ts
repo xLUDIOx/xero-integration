@@ -2,7 +2,8 @@ import * as TypeMoq from 'typemoq';
 
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxRateStatus, TaxType } from '@shared';
-import { ILogger, typeIsEqualSkipUndefined } from '@utils';
+import { typeIsEqualSkipUndefined } from '@test-utils';
+import { ILogger } from '@utils';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';

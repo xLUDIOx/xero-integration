@@ -2,7 +2,8 @@ import * as TypeMoq from 'typemoq';
 import { AccountingApi, Invoice, XeroClient } from 'xero-node';
 
 import { FEES_ACCOUNT_CODE } from '@shared';
-import { ILogger, Lock, typeIsEqualSkipUndefined } from '@utils';
+import { typeIsEqualSkipUndefined } from '@test-utils';
+import { ILogger, Lock } from '@utils';
 
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';

@@ -44,5 +44,6 @@ module.exports = {
         "@shared": "<rootDir>/src/shared",
         "@stores": "<rootDir>/src/stores",
         "@utils": "<rootDir>/src/utils",
+        "@test-utils": "<rootDir>/src/test-utils",
     },
 };

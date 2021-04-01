@@ -3,7 +3,8 @@ import * as TypeMoq from 'typemoq';
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
 import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
-import { ILogger, typeIsEqualSkipUndefined } from '@utils';
+import { typeIsEqualSkipUndefined } from '@test-utils';
+import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { convertAmount, getTransactionTotalAmount, Manager } from './Manager';

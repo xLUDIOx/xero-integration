@@ -2,7 +2,7 @@ import * as assert from 'assert';
 
 import * as TypeMoq from 'typemoq';
 
-import { filterUndefinedFields } from '../object';
+import { filterUndefinedFields } from '@utils';
 
 /**
  *  setup typemoq param to equal object. It will skip undefined fields =>  {} is same as {a:undefined}

@@ -7,6 +7,7 @@ require('module-alias').addAliases({
     '@shared': `${__dirname}/shared`,
     '@stores': `${__dirname}/stores`,
     '@utils': `${__dirname}/utils`,
+    '@test-utils': `${__dirname}/test-utils`,
 });
 
 import * as Controllers from '@controllers';

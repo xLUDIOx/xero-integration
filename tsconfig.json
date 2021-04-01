@@ -42,6 +42,9 @@
             "@utils": [
                 "src/utils/index"
             ],
+            "@test-utils": [
+                "src/test-utils/index"
+            ],
             "*": [
                 "types/*"
             ]
