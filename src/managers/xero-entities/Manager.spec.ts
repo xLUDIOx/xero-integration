@@ -2,7 +2,7 @@ import * as TypeMoq from 'typemoq';
 
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxRateStatus, TaxType } from '@shared';
-import { ILogger } from '@utils';
+import { ILogger, typeIsEqualSkipUndefined } from '@utils';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -250,7 +250,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateTransaction({
+                .setup(x => x.updateTransaction(typeIsEqualSkipUndefined({
                     transactionId: id,
                     date: newAccountTx.date,
                     bankAccountId: newAccountTx.bankAccountId,
@@ -264,7 +264,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
-                }))
+                })))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -319,7 +319,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateTransaction({
+                .setup(x => x.updateTransaction(typeIsEqualSkipUndefined({
                     transactionId: id,
                     date: newAccountTx.date,
                     bankAccountId: newAccountTx.bankAccountId,
@@ -333,7 +333,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: undefined,
                     url: newAccountTx.url,
-                }))
+                })))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -398,7 +398,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction({
+                .setup(x => x.createTransaction(typeIsEqualSkipUndefined({
                     date: newAccountTx.date,
                     bankAccountId: newAccountTx.bankAccountId,
                     contactId: newAccountTx.contactId,
@@ -411,7 +411,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
-                }))
+                })))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -451,7 +451,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createTransaction({
+                .setup(x => x.createTransaction(typeIsEqualSkipUndefined({
                     date: newAccountTx.date,
                     bankAccountId: newAccountTx.bankAccountId,
                     contactId: newAccountTx.contactId,
@@ -464,7 +464,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     taxType: undefined,
                     url: newAccountTx.url,
-                }))
+                })))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -525,7 +525,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateBill({
+                .setup(x => x.updateBill(typeIsEqualSkipUndefined({
                     billId: id,
                     date: newBill.date,
                     dueDate: newBill.date,
@@ -538,7 +538,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: newBill.taxType,
                     url: newBill.url,
-                }))
+                })))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -687,7 +687,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateBill({
+                .setup(x => x.updateBill(typeIsEqualSkipUndefined({
                     billId: id,
                     date: newBill.date,
                     dueDate: newBill.dueDate,
@@ -700,7 +700,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: newBill.taxType,
                     url: newBill.url,
-                }))
+                })))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -771,7 +771,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.never());
 
             xeroClientMock
-                .setup(x => x.updateBill({
+                .setup(x => x.updateBill(typeIsEqualSkipUndefined({
                     billId: id,
                     date: newBill.date,
                     dueDate: newBill.date,
@@ -784,7 +784,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: undefined,
                     url: newBill.url,
-                }))
+                })))
                 .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
@@ -848,7 +848,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill({
+                .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
                     dueDate: newBill.date,
                     isPaid: newBill.isPaid,
@@ -860,7 +860,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: newBill.taxType,
                     url: newBill.url,
-                }))
+                })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -903,7 +903,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill({
+                .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
                     dueDate: newBill.dueDate,
                     isPaid: newBill.isPaid,
@@ -915,7 +915,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     taxType: undefined,
                     url: newBill.url,
-                }))
+                })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -968,7 +968,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill({
+                .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
                     dueDate: newBill.date,
                     isPaid: newBill.isPaid,
@@ -980,7 +980,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newBill.accountCode!,
                     url: newBill.url,
                     taxType: undefined,
-                }))
+                })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -1023,7 +1023,7 @@ describe('XeroEntities.Manager', () => {
             };
 
             xeroClientMock
-                .setup(x => x.createBill({
+                .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
                     dueDate: newBill.dueDate,
                     isPaid: newBill.isPaid,
@@ -1035,7 +1035,7 @@ describe('XeroEntities.Manager', () => {
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     taxType: undefined,
                     url: newBill.url,
-                }))
+                })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
 
@@ -1080,7 +1080,7 @@ describe('XeroEntities.Manager', () => {
                     };
 
                     xeroClientMock
-                        .setup(x => x.createBill({
+                        .setup(x => x.createBill(typeIsEqualSkipUndefined({
                             date: newBill.date,
                             dueDate: newBill.date,
                             isPaid: newBill.isPaid,
@@ -1092,7 +1092,7 @@ describe('XeroEntities.Manager', () => {
                             accountCode: newBill.accountCode!,
                             taxType: undefined,
                             url: newBill.url,
-                        }))
+                        })))
                         .throws(Error(`
                         [
                             {
@@ -1143,7 +1143,7 @@ describe('XeroEntities.Manager', () => {
                         }));
 
                     xeroClientMock
-                        .setup(x => x.createBill({
+                        .setup(x => x.createBill(typeIsEqualSkipUndefined({
                             date: newBill.date,
                             dueDate: newBill.date,
                             isPaid: newBill.isPaid,
@@ -1155,7 +1155,7 @@ describe('XeroEntities.Manager', () => {
                             accountCode: DEFAULT_ACCOUNT_CODE,
                             taxType: undefined,
                             url: newBill.url,
-                        }))
+                        })))
                         .returns(async () => newBillId)
                         .verifiable(TypeMoq.Times.exactly(2));
 

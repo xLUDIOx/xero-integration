@@ -47,10 +47,27 @@ export interface IReconciliation {
     baseTotalAmount: number;
     baseTaxAmount: number;
     baseCurrency: string;
-    customFields: {
-        [fieldName: string]: string;
+    customFields2?: {
+        [fieldId: string]: IExpenseCustomFieldData;
     };
     accountCode?: string;
+}
+
+export interface IExpenseCustomFieldData {
+    label: string;
+    externalId?: string;
+    externalSource?: string;
+    selectedValues: {
+        [valueId: string]: IExpenseCustomFieldValueData;
+    } | null;
+}
+
+export interface IExpenseCustomFieldValueData {
+    label: string;
+    externalId: string | null;
+    owner: string | null;
+    parentId: string | null;
+    childId: string | null;
 }
 
 export interface IPaymentData {

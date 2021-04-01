@@ -1,4 +1,5 @@
 import { Payhawk } from '../../services';
+import { ITrackingCategoryValue } from '../../services/xero';
 
 export interface INewBill {
     bankAccountId?: string;
@@ -15,4 +16,5 @@ export interface INewBill {
     taxType?: string;
     files: Payhawk.IDownloadedFile[];
     url: string;
+    trackingCategories?: ITrackingCategoryValue[];
 }

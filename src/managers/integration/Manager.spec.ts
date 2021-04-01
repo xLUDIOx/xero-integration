@@ -3,7 +3,7 @@ import * as TypeMoq from 'typemoq';
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
 import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
-import { ILogger } from '@utils';
+import { ILogger, typeIsEqualSkipUndefined } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { convertAmount, getTransactionTotalAmount, Manager } from './Manager';
@@ -141,7 +141,6 @@ describe('integrations/Manager', () => {
             baseTotalAmount: 10,
             expenseTaxAmount: 2.26,
             expenseTotalAmount: 11.28,
-            customFields: {},
         };
 
         const supplier: Payhawk.ISupplier = {
@@ -246,7 +245,7 @@ describe('integrations/Manager', () => {
 
                 expense.transactions.forEach(t => {
                     xeroEntitiesMock
-                        .setup(x => x.createOrUpdateAccountTransaction({
+                        .setup(x => x.createOrUpdateAccountTransaction(typeIsEqualSkipUndefined({
                             date: t.settlementDate || t.date,
                             accountCode: reconciliation.accountCode,
                             taxType: 'TAX001',
@@ -259,7 +258,7 @@ describe('integrations/Manager', () => {
                             posFees: t.fees.pos,
                             files,
                             url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
-                        }))
+                        })))
                         .returns(() => Promise.resolve('1'))
                         .verifiable(TypeMoq.Times.once());
 
@@ -361,7 +360,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createOrUpdateAccountTransaction({
+                    .setup(x => x.createOrUpdateAccountTransaction(typeIsEqualSkipUndefined({
                         date: transaction.settlementDate || transaction.date,
                         accountCode: reconciliation.accountCode,
                         taxType: 'TAX001',
@@ -374,7 +373,7 @@ describe('integrations/Manager', () => {
                         posFees: transaction.fees.pos,
                         files,
                         url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(transaction.id)}&accountId=${encodeURIComponent(accountId)}`,
-                    }))
+                    })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
@@ -440,7 +439,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createOrUpdateBill({
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
                         bankAccountId: undefined,
                         date: expense.createdAt,
                         dueDate: expense.paymentData.dueDate || expense.createdAt,
@@ -455,7 +454,7 @@ describe('integrations/Manager', () => {
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    }))
+                    })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
@@ -511,22 +510,18 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createOrUpdateBill({
-                        bankAccountId: undefined,
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
                         date: expense.createdAt,
                         dueDate: expense.createdAt,
-                        paymentDate: undefined,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
-                        taxType: undefined,
                         currency: reconciliation.expenseCurrency!,
-                        fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    }))
+                    })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
@@ -588,22 +583,18 @@ describe('integrations/Manager', () => {
                     .verifiable(TypeMoq.Times.once());
 
                 xeroEntitiesMock
-                    .setup(x => x.createOrUpdateBill({
-                        bankAccountId: undefined,
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
                         date: expense.createdAt,
                         dueDate: expense.paymentData.dueDate || expense.createdAt,
-                        paymentDate: undefined,
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
-                        taxType: undefined,
                         currency: reconciliation.expenseCurrency!,
-                        fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    }))
+                    })))
                     .returns(() => Promise.reject())
                     .verifiable(TypeMoq.Times.once());
 
@@ -685,7 +676,7 @@ describe('integrations/Manager', () => {
 
             transfers.forEach(t => {
                 xeroEntitiesMock
-                    .setup(e => e.createOrUpdateAccountTransaction({
+                    .setup(e => e.createOrUpdateAccountTransaction(typeIsEqualSkipUndefined({
                         date: t.date,
                         bankAccountId,
                         contactId,
@@ -696,7 +687,7 @@ describe('integrations/Manager', () => {
                         posFees: 0,
                         files: [],
                         url: `${portalUrl}/funds?transferId=${encodeURIComponent(t.id)}&${paramName}=${encodeURIComponent(accountId)}`,
-                    }))
+                    })))
                     .verifiable(TypeMoq.Times.once());
             });
 
