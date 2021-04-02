@@ -598,7 +598,7 @@ function checkTrackingCategoriesAfterUpdate(logger: ILogger, lineItemsSend: Line
         if (lineItemSend.lineItemID) {
             lineItemReturned = lineItemsReturned.find(ln => ln.lineItemID === lineItemSend.lineItemID);
         } else if (lineItemSend.description) {
-            lineItemReturned = lineItemsReturned.find(ln => ln.description === lineItemSend.description);
+            lineItemReturned = lineItemsReturned.find(ln => ln.description?.trim() === lineItemSend.description?.trim());
         }
 
         if (!lineItemReturned) {
