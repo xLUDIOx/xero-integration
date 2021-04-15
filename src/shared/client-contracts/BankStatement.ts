@@ -7,7 +7,7 @@ export interface INewBankStatement {
     startBalance: IBankStatementBalance;
     endBalance: IBankStatementBalance;
 
-    statementLines: IBankStatementLine[];
+    statementLines?: IBankStatementLine[];
 }
 
 export interface IBankStatement extends INewBankStatement {

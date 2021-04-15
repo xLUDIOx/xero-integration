@@ -1,5 +1,6 @@
 import { TokenSet } from 'openid-client';
 import * as restify from 'restify';
+import { UnauthorizedError } from 'restify-errors';
 import * as TypeMoq from 'typemoq';
 
 import { Integration, XeroConnection } from '@managers';
@@ -54,18 +55,18 @@ describe('IntegrationsController', () => {
     });
 
     describe('payhawk()', () => {
-        test('sends 400 if manager is not authenticated', async () => {
+        test('sends 401 if manager is not authenticated', async () => {
             connectionManagerMock
                 .setup(m => m.getAccessToken())
                 .returns(async () => undefined);
 
-            responseMock
-                .setup(r => r.send(401))
-                .verifiable(TypeMoq.Times.once());
-
             const req = { body: { accountId } } as restify.Request;
 
-            await controller.handlePayhawkEvent(req, responseMock.object);
+            await expect(controller.handlePayhawkEvent(req, responseMock.object)).
+                rejects.
+                toThrowError(
+                    new UnauthorizedError('Invalid Xero access token. Please reconnect and try again')
+                );
         });
 
         test('sends 400 for unknown event', async () => {

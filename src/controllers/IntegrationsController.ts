@@ -1,6 +1,7 @@
 import { boundMethod } from 'autobind-decorator';
 import { TokenSet } from 'openid-client';
 import { Request, Response } from 'restify';
+import { UnauthorizedError } from 'restify-errors';
 
 import { Integration, XeroConnection } from '@managers';
 import { Xero } from '@services';
@@ -63,10 +64,7 @@ export class IntegrationsController {
         }
 
         if (!xeroAccessToken) {
-            logger.error(new Error('Unable to handle event because there is no valid access token'));
-
-            res.send(401);
-            return;
+            throw new UnauthorizedError('Invalid Xero access token. Please reconnect and try again');
         }
 
         switch (event) {

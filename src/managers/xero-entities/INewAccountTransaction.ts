@@ -1,5 +1,4 @@
-import { Payhawk } from '../../services';
-import { ITrackingCategoryValue } from '../../services/xero';
+import { Payhawk, Xero } from '@services';
 
 export interface INewAccountTransaction {
     date: string;
@@ -15,5 +14,5 @@ export interface INewAccountTransaction {
     taxExempt?: boolean;
     files: Payhawk.IDownloadedFile[];
     url: string;
-    trackingCategories?: ITrackingCategoryValue[];
+    trackingCategories?: Xero.ITrackingCategoryValue[];
 }

@@ -18,6 +18,7 @@ export class Manager implements IManager {
         private readonly store: ISchemaStore,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly payhawkClient: Payhawk.IClient,
+        // @ts-ignore
         private readonly fxRateService: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly logger: ILogger,
@@ -98,16 +99,15 @@ export class Manager implements IManager {
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
 
-        // TODO: add it after it is tested on live
-        // try {
-        //     this.logger.info(`Sync tracking categories started`);
-        //     result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
-        //     this.logger.info(`Completed`);
-        // } catch (err) {
-        //     isSuccessful = false;
-        //     this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
-        //     result.data!.errors!.customFields = 'Sync tracking categories failed';
-        // }
+        try {
+            this.logger.info(`Sync tracking categories started`);
+            result.data!.customFieldsCount = await this.synchronizeTrackingCategories();
+            this.logger.info(`Completed`);
+        } catch (err) {
+            isSuccessful = false;
+            this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
+            result.data!.errors!.customFields = 'Sync tracking categories failed';
+        }
 
         if (isSuccessful && !account.initial_sync_completed) {
             await this.store.accounts.update(this.accountId, true);
@@ -159,18 +159,22 @@ export class Manager implements IManager {
         // push
         const payhawkAccounts = await this.payhawkClient.getBankAccounts();
         const uniqueCurrencies = new Set(payhawkAccounts.map(x => x.currency));
+        const payhawkBankAccountIds: Set<string> = new Set();
         for (const currency of uniqueCurrencies) {
-            await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
+            payhawkBankAccountIds.add(bankAccount.accountID);
         }
 
         // then pull
         const bankAccounts = await this.xeroEntities.bankAccounts.get();
-        const bankAccountModels = bankAccounts.map(b => ({
-            name: b.name,
-            externalId: b.accountID,
-            number: b.bankAccountNumber,
-            currency: b.currencyCode.toString(),
-        }));
+        const bankAccountModels = bankAccounts
+            .filter(b => !payhawkBankAccountIds.has(b.accountID))
+            .map(b => ({
+                name: b.name,
+                externalId: b.accountID,
+                number: b.bankAccountNumber,
+                currency: b.currencyCode.toString(),
+            }));
 
         await this.payhawkClient.synchronizeBankAccounts(bankAccountModels);
 
@@ -521,34 +525,17 @@ export class Manager implements IManager {
             return;
         }
 
-        let fxRate: number | undefined;
-        let bankAccountId: string | undefined;
+        const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
+        const bill = await this.xeroEntities.getBillByUrl(billUrl);
+
+        let paymentData: XeroEntities.IPaymentData | undefined;
 
         if (expense.isPaid) {
-            if (expense.paymentData.source) {
-                const potentialBankAccountId = expense.paymentData.source;
-                const bankAccount = await this.xeroEntities.bankAccounts.getById(potentialBankAccountId);
-
-                if (bankAccount) {
-                    const bankAccountCurrency = bankAccount.currencyCode.toString();
-
-                    if (expenseCurrency === bankAccountCurrency.toString()) {
-                        bankAccountId = potentialBankAccountId;
-                    } else {
-                        const organisationBaseCurrency = organisation.baseCurrency.toString();
-                        if (organisationBaseCurrency === bankAccountCurrency) {
-                            fxRate = await this.fxRateService.getByDate(
-                                organisationBaseCurrency.toString(),
-                                expenseCurrency,
-                                new Date(date),
-                            );
-
-                            bankAccountId = potentialBankAccountId;
-                        }
-                    }
-                }
-            } else {
-                this.logger.info('Expense is marked as paid, but no bank account was specified, no payment will be exported');
+            if (expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance &&
+                expense.paymentData.source &&
+                expense.balancePayments.length > 0
+            ) {
+                paymentData = await this.processBalancePayments(expense, bill);
             }
         }
 
@@ -559,27 +546,115 @@ export class Manager implements IManager {
         const logger = this.logger.child({ expenseId: expense.id });
 
         const newBill: XeroEntities.INewBill = {
-            bankAccountId,
+            paymentData,
             date,
             dueDate: expense.paymentData.dueDate || date,
-            paymentDate: expense.isPaid ? (expense.paymentData.date || date) : undefined,
             isPaid: expense.isPaid,
             contactId,
             description,
+            reference: expense.document?.number,
             currency: expenseCurrency,
-            fxRate,
             totalAmount,
+            fees: paymentData?.fees,
             accountCode: expense.reconciliation.accountCode,
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
-            url: this.buildExpenseUrl(expense.id, new Date(date)),
+            url: billUrl,
             trackingCategories: this.extractTrackingCategories(expense, logger),
         };
 
         const billId = await this.xeroEntities.createOrUpdateBill(newBill);
-        const billUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
+        const billExternalUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
 
-        await this.updateExpenseLinks(expense.id, [billUrl]);
+        await this.updateExpenseLinks(expense.id, [billExternalUrl]);
+    }
+
+    private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined) {
+        let paymentData: XeroEntities.IPaymentData | undefined;
+
+        const failedPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Rejected);
+        const settledPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Settled);
+        if (settledPayments.length > 1) {
+            throw Error('Expense has multiple settled payments');
+        }
+
+        const settledPayment = settledPayments[0];
+        const billPayment = bill && bill.payments ? bill.payments[0] : undefined;
+
+        const hasOnlyFailedPayments = failedPayments.length > 0 && expense.balancePayments.length === failedPayments.length;
+        const fullPayment = billPayment ? await this.xeroEntities.getBillPayment(billPayment.paymentID) : undefined;
+        if (bill && fullPayment && hasOnlyFailedPayments) {
+            await this.revertFailedPayment(expense, bill, fullPayment);
+        }
+
+        if (settledPayment) {
+            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
+            if (bankAccount) {
+                if (settledPayment.amount !== expense.reconciliation.expenseTotalAmount) {
+                    throw new ExportError('Payment total amount does not match expense total amount');
+                }
+
+                paymentData = {
+                    bankAccountId: bankAccount.accountID,
+                    currency: settledPayment.currency,
+                    amount: settledPayment.amount,
+                    fees: settledPayment.fees,
+                    date: settledPayment.date,
+                };
+            }
+        }
+
+        return paymentData;
+    }
+
+    private async revertFailedPayment(expense: Payhawk.IExpense, bill: Xero.IInvoice, billPayment: Xero.IPayment) {
+        const paymentId = billPayment.paymentID;
+        const bankStatementId = await this.store.bankFeeds.getStatementByEntityId({
+            account_id: this.accountId,
+            payhawk_entity_id: expense.id,
+            payhawk_entity_type: EntityType.Expense,
+            xero_entity_id: paymentId,
+        });
+
+        if (bankStatementId) {
+            // create a rejected statement line item
+            await this.xeroEntities.bankFeeds.revertBankStatement(
+                bankStatementId,
+                `rejected:${paymentId}`,
+                billPayment.date,
+                bill.contact.name!,
+                `Rejected payment on ${billPayment.date}: ${bill.reference}`,
+            );
+
+            // create 2 transactions to match each statement line item related to the payment reversal
+            // we assign these transactions to Payhawk General
+            const [generalExpenseAccount, feesExpenseAccount] = await this.xeroEntities.ensureDefaultExpenseAccountsExist();
+
+            const newAccountTransaction: XeroEntities.INewAccountTransaction = {
+                date: billPayment.date,
+                bankAccountId: billPayment.account.accountID,
+                contactId: bill.contact.contactID!,
+                description: billPayment.reference,
+                reference: billPayment.reference,
+                amount: billPayment.amount,
+                fxFees: 0,
+                posFees: 0,
+                accountCode: generalExpenseAccount.code,
+                taxType: feesExpenseAccount.taxType,
+                files: [],
+                url: this.buildTransactionUrl(paymentId, new Date(billPayment.date)),
+                trackingCategories: [],
+            };
+
+            await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
+            await this.xeroEntities.createOrUpdateAccountTransaction({
+                ...newAccountTransaction,
+                amount: -newAccountTransaction.amount,
+                url: `${newAccountTransaction.url}&rejected=true`,
+            });
+        }
+
+        await this.xeroEntities.deleteBillPayment(paymentId);
     }
 
     private validateExportDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
@@ -827,6 +902,11 @@ export class Manager implements IManager {
     }
 
     private async exportBankStatementForBill(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
+        if (!expense.isPaid || expense.paymentData.sourceType !== Payhawk.PaymentSourceType.Balance) {
+            this.logger.info(`Expense is not paid with balance payment and statement will not be exported`);
+            return;
+        }
+
         const expenseCurrency = expense.reconciliation.expenseCurrency;
         const expenseAmount = expense.reconciliation.expenseTotalAmount;
 
@@ -867,11 +947,11 @@ export class Manager implements IManager {
             return;
         }
 
-        const billId = bill.invoiceID;
+        const payment = bill.payments[0];
 
         const statementId = await this.store.bankFeeds.getStatementByEntityId({
             account_id: this.accountId,
-            xero_entity_id: billId,
+            xero_entity_id: payment.paymentID,
             payhawk_entity_id: expense.id,
             payhawk_entity_type: EntityType.Expense,
         });
@@ -881,36 +961,13 @@ export class Manager implements IManager {
             return;
         }
 
-        const payment = bill.payments[0];
-        const paymentId = payment.paymentID;
-        const paymentCurrencyRate = payment.currencyRate;
-
-        let currency = expenseCurrency;
-        let amount = payment.amount;
-        if (paymentCurrencyRate !== 1) {
-            // payment is in different currency,
-            // we need to calculate amount...
-            // API does not contain total calculated total amount...
-            const fullPayment = await this.xeroEntities.getBillPayment(paymentId);
-            if (!fullPayment) {
-                logger.error(Error('Payment not found'));
-                return;
-            }
-
-            const bankAccountCurrency = await this.xeroEntities.bankAccounts.getCurrencyByBankAccountCode(fullPayment.account.code);
-            if (!bankAccountCurrency) {
-                throw Error('Couldn\'t find payment bank account');
-            }
-
-            currency = bankAccountCurrency;
-
-            amount = convertAmount(payment.amount, payment.currencyRate);
-        }
+        const currency = expenseCurrency;
+        const amount = payment.amount;
 
         const contactName = bill.contact.name!;
 
         const paymentDate = payment.date;
-        const description = `Payment: ${contactName}`;
+        const description = `Payment on ${paymentDate}: ${bill.reference}`;
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
 
@@ -929,7 +986,7 @@ export class Manager implements IManager {
 
         await this.tryCreateBankStatement(
             feedConnectionId,
-            billId,
+            payment.paymentID,
             bankAccount,
             paymentDate,
             amount,

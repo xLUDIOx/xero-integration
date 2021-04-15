@@ -29,6 +29,7 @@ export interface IClient {
     getTransactionAttachments(billId: string): Promise<IAttachment[]>;
     uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
 
+    getBillById(billId: string): Promise<IInvoice | undefined>;
     getBillByUrl(url: string): Promise<IInvoice | undefined>;
     createBill(data: ICreateBillData): Promise<string>;
     updateBill(data: IUpdateBillData): Promise<void>;
@@ -43,6 +44,7 @@ export interface IAccountingItemData {
     date: string;
     contactId: string;
     description: string;
+    reference: string;
     amount: number;
     accountCode: string;
     taxType?: string;
@@ -60,6 +62,8 @@ export interface ICreateBillData extends IAccountingItemData {
     fxRate?: number;
     isPaid?: boolean;
     dueDate?: string;
+    bankFees?: number;
+    feesAccountCode: string;
 }
 
 export interface IUpdateBillData extends ICreateBillData {
@@ -72,7 +76,6 @@ export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount
 
 export interface ICreateTransactionData extends IAccountingItemData {
     bankAccountId: string;
-    reference: string;
     fxFees: number;
     posFees: number;
     feesAccountCode: string;

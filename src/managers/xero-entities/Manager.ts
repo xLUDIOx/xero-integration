@@ -174,13 +174,18 @@ export class Manager implements IManager {
 
         const logger = this.logger.child({ billId: bill ? bill.invoiceID : undefined });
 
-        const [generalExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
+        const [generalExpenseAccount, feesExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
 
         let billId: string;
         let filesToUpload = newBill.files;
         let existingFileNames: string[] = [];
 
-        const billData = this.getBillData(newBill);
+        const billData = this.getBillData(
+            newBill,
+            generalExpenseAccount,
+            feesExpenseAccount,
+        );
+
         if (!bill) {
             logger.info('Bill will be created');
 
@@ -206,14 +211,13 @@ export class Manager implements IManager {
                 ...billData,
             };
 
-            if (bill.status === Xero.InvoiceStatus.PAID) {
-                this.logger.warn('Bill is already paid. It cannot be updated.');
+            if (bill.status === Xero.InvoiceStatus.VOIDED || bill.status === Xero.InvoiceStatus.DELETED) {
+                this.logger.warn('Bill is deleted.');
                 return bill.invoiceID;
             }
 
-            const isAwaitingPayment = bill.status === Xero.InvoiceStatus.AUTHORISED;
-            if (isAwaitingPayment && !updateData.isPaid) {
-                this.logger.warn(`Bill is already authorised and is expecting a payment. Bill cannot be updated at this point`);
+            if (bill.status === Xero.InvoiceStatus.PAID) {
+                this.logger.warn('Bill is already paid. It cannot be updated.');
                 return bill.invoiceID;
             }
 
@@ -251,15 +255,17 @@ export class Manager implements IManager {
             }
         }
 
-        if (newBill.isPaid && newBill.paymentDate && newBill.bankAccountId && newBill.totalAmount > 0) {
+        if (newBill.isPaid && newBill.paymentData !== undefined) {
             logger.info('Expense is paid and a new payment will be created for this bill');
 
+            const { date, bankAccountId, amount, fees, currency } = newBill.paymentData;
+
             const paymentData: Xero.IBillPaymentData = {
-                date: newBill.paymentDate,
-                amount: billData.amount,
+                date,
+                amount: amount + fees,
                 fxRate: billData.fxRate,
-                currency: billData.currency,
-                bankAccountId: newBill.bankAccountId,
+                currency,
+                bankAccountId,
                 billId,
             };
 
@@ -285,11 +291,10 @@ export class Manager implements IManager {
         logger = logger.child({ billId: bill.invoiceID, billStatus: bill.status });
 
         if (bill.status === Xero.InvoiceStatus.PAID) {
-            const payment = await this.getAndValidateBillPayment(bill, logger);
-
-            logger.info('Deleting bill payment');
-            await this.xeroClient.accounting.deletePayment(payment.paymentID);
-            logger.info('Bill payment deleted');
+            const paymentId = bill.payments && bill.payments.length > 0 ? bill.payments[0].paymentID : undefined;
+            if (paymentId) {
+                await this.deleteBillPayment(paymentId);
+            }
         }
 
         logger.info('Deleting invoice');
@@ -297,24 +302,14 @@ export class Manager implements IManager {
         logger.info('Invoice deleted');
     }
 
-    private async getAndValidateBillPayment(bill: Xero.IInvoice, logger: ILogger): Promise<Xero.IPayment> {
-        const paymentId = bill.payments && bill.payments.length > 0 ? bill.payments[0].paymentID : undefined;
-        logger = logger.child({ billPaymentId: paymentId });
+    async deleteBillPayment(paymentId: string) {
+        const logger = this.logger.child({ paymentId });
 
-        if (!paymentId) {
-            throw logger.error(Error('Bill is marked as paid but no payments found'));
-        }
+        logger.info('Deleting bill payment');
 
-        const payment = await this.xeroClient.getBillPayment(paymentId);
-        if (!payment) {
-            throw logger.error(Error('Bill is marked as paid but the Xero API returned no payment for this payment id'));
-        }
+        await this.xeroClient.accounting.deletePayment(paymentId);
 
-        if (payment.isReconciled) {
-            throw new ExportError('Export expense into Xero failed. Bill payment is already reconciled and cannot be modified or deleted');
-        }
-
-        return payment;
+        logger.info('Bill payment deleted');
     }
 
     async ensureDefaultExpenseAccountsExist(): Promise<IAccountCode[]> {
@@ -330,6 +325,7 @@ export class Manager implements IManager {
             generalExpenseAccount = await this.xeroClient.accounting.createExpenseAccount({
                 name: DEFAULT_ACCOUNT_NAME,
                 code: DEFAULT_ACCOUNT_CODE,
+                description: 'Payhawk General is used as a fallback account for all bills coming from Payhawk. It will store expenses which are not yet reviewed but have payments or expenses which were not mapped to the correct Xero account code. All bill payments which were reversed or bounced from the receiving bank will be recorded to this account.',
                 addToWatchlist: true,
             });
         }
@@ -353,6 +349,7 @@ export class Manager implements IManager {
             feesExpenseAccount = await this.xeroClient.accounting.createExpenseAccount({
                 name: FEES_ACCOUNT_NAME,
                 code: FEES_ACCOUNT_CODE,
+                description: 'Stores all POS, FX and bank transfer fees for payments coming through Payhawk.',
                 taxType: feesTaxType,
                 addToWatchlist: true,
             });
@@ -423,24 +420,33 @@ export class Manager implements IManager {
         isPaid,
         contactId,
         description,
+        reference,
         currency,
         fxRate,
         totalAmount,
+        fees,
         accountCode,
         taxType,
         url,
         trackingCategories,
-    }: INewBill): Xero.ICreateBillData {
+    }: INewBill,
+
+        defaultAccount: IAccountCode,
+        taxExemptAccount: IAccountCode,
+    ): Xero.ICreateBillData {
         return {
             date,
             dueDate: dueDate || date,
             isPaid,
             contactId,
             description: description || DEFAULT_DESCRIPTION,
-            currency: currency || DEFAULT_CURRENCY,
+            reference: reference || DEFAULT_REFERENCE,
+            currency,
             fxRate,
-            amount: totalAmount || 0,
-            accountCode: accountCode || DEFAULT_ACCOUNT_CODE,
+            amount: totalAmount,
+            bankFees: fees || 0,
+            accountCode: accountCode || defaultAccount.code,
+            feesAccountCode: taxExemptAccount.code,
             taxType,
             url,
             trackingCategories,
@@ -456,10 +462,10 @@ export const getBillExternalUrl = (organisationShortCode: string, invoiceId: str
     return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=${encodeURIComponent(invoiceId)}`;
 };
 
+export const DEFAULT_REFERENCE = '(no invoice number)';
+
 const DEFAULT_DESCRIPTION = '(no note)';
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
-
-const DEFAULT_CURRENCY = 'GBP';
 
 const MAX_ATTACHMENTS_PER_DOCUMENT = 10;
 

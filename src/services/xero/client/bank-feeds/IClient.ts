@@ -5,4 +5,5 @@ export interface IClient {
     closeBankFeedConnection(connectionId: string): Promise<void>;
 
     createBankStatement(statement: INewBankStatement): Promise<IBankStatement>;
+    getStatementById(statementId: string): Promise<IBankStatement | undefined>;
 }

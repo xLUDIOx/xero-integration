@@ -12,7 +12,7 @@ import { filterUndefinedFields } from '@utils';
  * @param {T} obj
  * @returns T
  */
-export function typeIsEqualSkipUndefined<T>(obj: T) {
+export function typeIsEqualSkipUndefined<T>(obj: T): T {
     return TypeMoq.It.is<T>(obj2 => {
         const filteredObj1 = filterUndefinedFields(obj);
         const filteredObj2 = filterUndefinedFields(obj2);
@@ -34,7 +34,7 @@ export function typeIsEqualSkipUndefined<T>(obj: T) {
  * @param {T} actual
  * @param {T} expected
  */
-export function expectToDeepEqualSkipUndefined<T>(actual: T, expected: T) {
+export function expectToDeepEqualSkipUndefined<T>(actual: T, expected: T): boolean {
     assert.deepStrictEqual(filterUndefinedFields(actual), filterUndefinedFields(expected));
     return true;
 }

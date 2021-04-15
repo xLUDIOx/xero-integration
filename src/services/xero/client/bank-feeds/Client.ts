@@ -71,6 +71,20 @@ export class Client implements IClient {
         return createItems[0];
     }
 
+    async getStatementById(statementId: string): Promise<IBankStatement | undefined> {
+        const url = buildUrl(
+            this.baseUrl(),
+            `/Statements/${encodeURIComponent(statementId)}`,
+        );
+
+        const item = await this.httpClient.request<IBankStatement | undefined>({
+            url,
+            method: 'GET',
+        });
+
+        return item;
+    }
+
     async closeBankFeedConnection(connectionId: string): Promise<void> {
         const url = buildUrl(
             this.baseUrl(),

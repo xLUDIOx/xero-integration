@@ -41,6 +41,7 @@ describe('Synchronize Account Codes', () => {
             accountId: '1',
             name: 'General',
             code: '100',
+            description: '',
             taxType: TaxType.TaxOnPurchases,
             status: AccountStatus.Active,
             addToWatchlist: true,

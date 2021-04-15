@@ -93,6 +93,7 @@ describe('integrations/Manager', () => {
                     accountId: '1',
                     name: 'Account 1',
                     code: '400',
+                    description: '',
                     status: AccountStatus.Active,
                     taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
@@ -101,6 +102,7 @@ describe('integrations/Manager', () => {
                     accountId: '2',
                     name: 'Account 2',
                     code: '370',
+                    description: '',
                     status: AccountStatus.Active,
                     taxType: TaxType.TaxOnPurchases,
                     addToWatchlist: false,
@@ -130,6 +132,61 @@ describe('integrations/Manager', () => {
                 .verifiable(TypeMoq.Times.once());
 
             await manager.synchronizeChartOfAccounts();
+        });
+    });
+
+    describe('synchronize bank accounts', () => {
+        test('pushes payhawk bank accounts into xero and pulls all other accounts from xero', async () => {
+            const payhawkAccounts: Payhawk.IBalance[] = [{
+                currency: 'EUR',
+                id: '1',
+            }, {
+                currency: 'GBP',
+                id: '2',
+            }];
+
+            payhawkClientMock
+                .setup(c => c.getBankAccounts())
+                .returns(async () => payhawkAccounts)
+                .verifiable(TypeMoq.Times.once());
+
+            const payhawkBankAccounts = payhawkAccounts.map(({ id, currency }) => ({
+                accountID: id,
+                currencyCode: currency as any,
+                name: `PHWK-${currency}`,
+                bankAccountNumber: `PHWK-${currency}`,
+            }));
+
+            payhawkAccounts.forEach(c => bankAccountsManagerMock
+                .setup(m => m.getOrCreateByCurrency(c.currency))
+                .returns(async () => payhawkBankAccounts.find(b => b.currencyCode.toString() === c.currency) as Xero.IBankAccount));
+
+            const businessBankAccount: Partial<Xero.IBankAccount> = {
+                accountID: 'acc_id',
+                name: 'Business Bank Account',
+                bankAccountNumber: 'acc_num',
+                currencyCode: 'GBP' as any,
+            };
+
+            const xeroBankAccounts: Partial<Xero.IBankAccount>[] = [
+                ...payhawkBankAccounts,
+                businessBankAccount,
+            ];
+
+            bankAccountsManagerMock
+                .setup(m => m.get())
+                .returns(async () => xeroBankAccounts as Xero.IBankAccount[]);
+
+            payhawkClientMock
+                .setup(c => c.synchronizeBankAccounts([{
+                    externalId: businessBankAccount.accountID!,
+                    name: businessBankAccount.name!,
+                    number: businessBankAccount.bankAccountNumber!,
+                    currency: businessBankAccount.currencyCode!.toString(),
+                }]))
+                .verifiable(TypeMoq.Times.once());
+
+            await manager.synchronizeBankAccounts();
         });
     });
 
@@ -212,6 +269,7 @@ describe('integrations/Manager', () => {
                             },
                         },
                     ],
+                    balancePayments: [],
                     externalLinks: [],
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
@@ -326,6 +384,7 @@ describe('integrations/Manager', () => {
                             },
                         },
                     ],
+                    balancePayments: [],
                     externalLinks: [],
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
@@ -422,6 +481,7 @@ describe('integrations/Manager', () => {
                     paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [],
+                    balancePayments: [],
                     externalLinks: [],
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
@@ -494,6 +554,7 @@ describe('integrations/Manager', () => {
                     paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [],
+                    balancePayments: [],
                     externalLinks: [],
                 };
 
@@ -562,6 +623,7 @@ describe('integrations/Manager', () => {
                     },
                     title: 'My Cash Expense',
                     transactions: [],
+                    balancePayments: [],
                     externalLinks: [],
                 };
 
@@ -625,6 +687,7 @@ describe('integrations/Manager', () => {
         test('creates an account transaction for each transfer', async () => {
             await testTransfersExport(new Date(), 'account');
         });
+
         test('creates an account transaction for each transfer - backward compat', async () => {
             await testTransfersExport(new Date(2020, 0, 28, 23, 59, 59), 'accountId');
         });

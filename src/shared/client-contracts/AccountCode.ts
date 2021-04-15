@@ -4,6 +4,7 @@ import { TaxType } from './TaxRate';
 export interface INewAccountCode {
     name: string;
     code: string;
+    description?: string;
     taxType?: TaxType;
     addToWatchlist?: boolean;
 }

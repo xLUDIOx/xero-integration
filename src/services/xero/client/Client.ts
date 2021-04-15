@@ -2,7 +2,7 @@ import { createReadStream } from 'fs';
 
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
-import { ExcludeStrict, Intersection, Optional, RequiredNonNullBy } from '@shared';
+import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, RequiredNonNullBy } from '@shared';
 import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
@@ -201,23 +201,27 @@ export class Client implements IClient {
     }
 
     async createTransaction({ date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories }: ICreateTransactionData): Promise<string> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, trackingCategories, feesAccountCode, taxType, url);
+        const transactionModel = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, trackingCategories, feesAccountCode, taxType, url);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
                 this.tenantId,
-                { bankTransactions: [transaction] },
+                { bankTransactions: [transactionModel] },
             ),
             XeroEntityResponseType.BankTransactions
         );
+
         const bankTransaction = bankTransactions[0];
         if (!bankTransaction || !bankTransaction.bankTransactionID) {
             throw Error('Failed to create bank transaction');
         }
 
-        checkTrackingCategoriesAfterUpdate(
-            this.logger.child({ bankTransactionId: bankTransaction.bankTransactionID, url }),
-            transaction.lineItems, bankTransaction.lineItems
+        const logger = this.logger.child({ bankTransactionId: bankTransaction.bankTransactionID, url });
+
+        ensureTrackingCategoriesAreApplied(
+            transactionModel.lineItems,
+            bankTransaction.lineItems,
+            logger,
         );
 
         return bankTransaction.bankTransactionID;
@@ -249,9 +253,10 @@ export class Client implements IClient {
             return;
         }
 
-        checkTrackingCategoriesAfterUpdate(
+        ensureTrackingCategoriesAreApplied(
+            transaction.lineItems,
+            bankTransaction.lineItems,
             logger,
-            transaction.lineItems, bankTransaction.lineItems
         );
     }
 
@@ -289,12 +294,28 @@ export class Client implements IClient {
         return invoice;
     }
 
+    async getBillById(billId: string): Promise<IInvoice | undefined> {
+        const invoices = await this.xeroClient.makeClientRequest<IInvoice[] | undefined>(
+            x => x.accountingApi.getInvoice(this.tenantId, billId),
+            XeroEntityResponseType.Invoices
+        );
+
+        const invoice = invoices ? invoices[0] : undefined;
+        if (!invoice) {
+            return undefined;
+        }
+
+        if (!invoice.invoiceID) {
+            throw Error('Received an invoice without ID');
+        }
+
+        return invoice;
+    }
+
     async createBill(data: ICreateBillData): Promise<string> {
-        const { date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url, trackingCategories } = data;
+        await this.ensureCurrency(data.currency);
 
-        await this.ensureCurrency(currency);
-
-        const bill = getNewBillModel(date, contactId, description, currency, amount, accountCode, trackingCategories, taxType, url, dueDate, isPaid);
+        const bill = getNewBillModel(data);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.createInvoices(
@@ -308,10 +329,12 @@ export class Client implements IClient {
         if (!invoice || !invoice.invoiceID) {
             throw Error('Failed to create invoice');
         }
-        const logger = this.logger.child({ bankTransactionId: invoice.invoiceID, url });
-        checkTrackingCategoriesAfterUpdate(
+
+        const logger = this.logger.child({ bankTransactionId: invoice.invoiceID, url: data.url });
+        ensureTrackingCategoriesAreApplied(
+            bill.lineItems,
+            invoice.lineItems,
             logger,
-            bill.lineItems, invoice.lineItems
         );
 
         const billId = invoice.invoiceID;
@@ -319,24 +342,24 @@ export class Client implements IClient {
     }
 
     async updateBill(data: IUpdateBillData): Promise<void> {
-        const { billId, date, dueDate, isPaid, contactId, description, currency, amount, accountCode, taxType, url, trackingCategories } = data;
-        const billModel = getNewBillModel(date, contactId, description, currency, amount, accountCode, trackingCategories, taxType, url, dueDate, isPaid, billId);
+        const billModel = getNewBillModel(data, data.billId);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.updateInvoice(
                 this.tenantId,
-                billId,
+                data.billId,
                 { invoices: [billModel] },
             ),
             XeroEntityResponseType.Invoices
         );
 
-        let logger = this.logger.child({ url });
+        let logger = this.logger.child({ url: data.url });
         const errorMessage = 'No updated bill after update';
         if (!invoices.length) {
             logger.error(Error(errorMessage));
             return;
         }
+
         const invoice = invoices[0];
         logger = logger.child({ xeroInvoiceId: invoice.invoiceID });
         if (!invoice || !invoice.invoiceID) {
@@ -344,9 +367,10 @@ export class Client implements IClient {
             return;
         }
 
-        checkTrackingCategoriesAfterUpdate(
+        ensureTrackingCategoriesAreApplied(
+            billModel.lineItems,
+            invoice.lineItems,
             logger,
-            billModel.lineItems, invoice.lineItems
         );
     }
 
@@ -355,7 +379,7 @@ export class Client implements IClient {
             x => x.accountingApi.updateInvoice(
                 this.tenantId,
                 billId,
-                { invoices: [{ status: Invoice.StatusEnum.DELETED }] },
+                { invoices: [{ status: Invoice.StatusEnum.VOIDED }] },
             ),
             XeroEntityResponseType.Invoices
         );
@@ -421,26 +445,8 @@ export class Client implements IClient {
         return attachmentsResponse;
     }
 
-    async payBill({ date, bankAccountId, amount, fxRate, billId }: IBillPaymentData): Promise<void> {
-        const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
-            x => x.accountingApi.getInvoice(
-                this.tenantId,
-                billId,
-            ),
-            XeroEntityResponseType.Invoices,
-        );
-
-        const invoice = invoices[0];
-        if (!invoice) {
-            throw Error('Bill not found');
-        }
-
-        const paymentModel = getNewPaymentModel(date, amount, bankAccountId, fxRate, billId);
-
-        if (invoice.status === Invoice.StatusEnum.PAID) {
-            this.logger.warn('Bill is already paid. Payment cannot be updated.');
-            return;
-        }
+    async payBill(data: IBillPaymentData): Promise<void> {
+        const paymentModel = getNewPaymentModel(data);
 
         const payments = await this.xeroClient.makeClientRequest<Payment[]>(
             x => x.accountingApi.createPayment(
@@ -509,46 +515,42 @@ async function getFileContents(filePath: string): Promise<any[]> {
 }
 
 function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, fxFees: number, posFees: number, accountCode: string, trackingCategories: Optional<ITrackingCategoryValue[]>, feesAccountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel({ date, contactId, description, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories });
+    const commonData = getAccountingItemModel({ date, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories });
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
         bankAccount: {
             accountID: bankAccountId,
         },
-        reference,
         type: amount >= 0 ? BankTransaction.TypeEnum.SPEND : BankTransaction.TypeEnum.RECEIVE,
     };
 
     return transaction;
 }
 
-function getNewBillModel(date: string, contactId: string, description: string, currency: string, amount: number, accountCode: string, trackingCategories: Optional<ITrackingCategoryValue[]>, taxType: string | undefined, url: string, dueDate?: string, isPaid?: boolean, id?: string): Invoice {
-    const commonData = getAccountingItemModel({ date, contactId, description, amount, accountCode, taxType, url, trackingCategories });
+function getNewBillModel(data: ICreateBillData, id?: string): Invoice {
+    const commonData = getAccountingItemModel(data);
 
     const bill: Invoice = {
         ...commonData,
         invoiceID: id,
-        dueDate,
+        invoiceNumber: data.reference,
+        dueDate: data.dueDate,
         type: Invoice.TypeEnum.ACCPAY,
-        currencyCode: currency as any,
-
-        // Xero default status
-        status: Invoice.StatusEnum.DRAFT,
+        currencyCode: data.currency as any,
+        status: Invoice.StatusEnum.AUTHORISED,
     };
-
-    if (isPaid) {
-        bill.status = Invoice.StatusEnum.AUTHORISED;
-    }
 
     return bill;
 }
 
 export function getAccountingItemModel({
     description,
+    reference,
     accountCode,
     amount,
     taxType,
+    bankFees = 0,
     fxFees = 0,
     posFees = 0,
     feesAccountCode,
@@ -556,33 +558,38 @@ export function getAccountingItemModel({
     url,
     contactId,
     trackingCategories,
-}: IAccountingItemData & Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>>): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+}: IAccountingItemData &
+    Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>> &
+    Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>
+): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
     const lineItems: IBankTransactionLineItem[] = [{
         description,
         accountCode,
         quantity: 1,
         unitAmount: Math.abs(amount),
         taxType,
-        tracking: toXeroTrackingCategory(trackingCategories),
+        tracking: toTrackingCategory(trackingCategories),
     }];
 
-    if (feesAccountCode && fxFees + posFees > 0) {
-        const feesDescription = fxFees !== 0 && posFees !== 0 ?
-            'Exchange + POS fees' : fxFees !== 0 ?
-                'Exchange fees' :
-                'POS fees';
+    if (feesAccountCode && bankFees + fxFees + posFees > 0) {
+        const feesDescription = bankFees ?
+            'Bank transfer fees' :
+            fxFees !== 0 && posFees !== 0 ?
+                'Exchange + POS fees' : fxFees !== 0 ?
+                    'Exchange fees' :
+                    'POS fees';
 
         lineItems.push({
             description: feesDescription,
             accountCode: feesAccountCode,
             quantity: 1,
-            unitAmount: getFeesTotal(fxFees, posFees),
-            tracking: toXeroTrackingCategory(trackingCategories),
+            unitAmount: getFeesTotal(bankFees, fxFees, posFees),
         });
     }
 
     return {
         date,
+        reference,
         url,
         contact: {
             contactID: contactId,
@@ -592,34 +599,38 @@ export function getAccountingItemModel({
     };
 }
 
-function checkTrackingCategoriesAfterUpdate(logger: ILogger, lineItemsSend: LineItem[] = [], lineItemsReturned: LineItem[] = []) {
-    for (const lineItemSend of lineItemsSend) {
-        let lineItemReturned: Optional<LineItem>;
-        if (lineItemSend.lineItemID) {
-            lineItemReturned = lineItemsReturned.find(ln => ln.lineItemID === lineItemSend.lineItemID);
-        } else if (lineItemSend.description) {
-            lineItemReturned = lineItemsReturned.find(ln => ln.description?.trim() === lineItemSend.description?.trim());
+function ensureTrackingCategoriesAreApplied(sentLineItems: LineItem[] = [], returnedLineItems: LineItem[] = [], logger: ILogger) {
+    for (const sentLineItem of sentLineItems) {
+        if (sentLineItem.accountCode === FEES_ACCOUNT_CODE) {
+            continue;
         }
 
-        if (!lineItemReturned) {
-            logger.error(Error(`Couldn't find matching line item in response`), { lineItemsSend, lineItemsReturned });
+        let returnedLineItem: Optional<LineItem>;
+        if (sentLineItem.lineItemID) {
+            returnedLineItem = returnedLineItems.find(ln => ln.lineItemID === sentLineItem.lineItemID);
+        } else if (sentLineItem.description) {
+            returnedLineItem = returnedLineItems.find(ln => ln.description?.trim() === sentLineItem.description?.trim());
+        }
+
+        if (!returnedLineItem) {
+            logger.error(Error(`Couldn't find matching line item in response`), { lineItemsSend: sentLineItems, lineItemsReturned: returnedLineItems });
             break;
         }
 
-        if (lineItemSend.tracking && lineItemSend.tracking.length) {
-            if (lineItemSend.tracking.length !== lineItemReturned.tracking?.length ?? 0) {
-                logger.error(Error(`Tracking categories mismatch after update`), { trackingCategoriesSend: lineItemSend.tracking, trackingCategoriesReturned: lineItemReturned.tracking ?? [] });
+        if (sentLineItem.tracking && sentLineItem.tracking.length) {
+            if (sentLineItem.tracking.length !== returnedLineItem.tracking?.length ?? 0) {
+                logger.error(Error(`Tracking categories mismatch after update`), { trackingCategoriesSend: sentLineItem.tracking, trackingCategoriesReturned: returnedLineItem.tracking ?? [] });
                 break;
             }
         }
     }
 }
 
-function toXeroTrackingCategory(trackingCategories?: ITrackingCategoryValue[]) {
+function toTrackingCategory(trackingCategories?: ITrackingCategoryValue[]) {
     return trackingCategories?.map(m => ({ trackingCategoryID: m.categoryId, trackingOptionID: m.valueId }));
 }
 
-function getNewPaymentModel(date: string, amount: number, bankAccountId: string, fxRate?: number, billId?: string): Payment {
+function getNewPaymentModel({ date, billId, bankAccountId, amount, fxRate }: IBillPaymentData): Payment {
     const paymentModel: Payment = {
         date,
         invoice: {
@@ -652,9 +663,10 @@ export function normalizeName(name: string): string {
     return res.trim();
 }
 
-function getFeesTotal(fxFees: number, posFees: number) {
+function getFeesTotal(bankFees: number, fxFees: number, posFees: number) {
     const result = myriadthsToNumber(
         (
+            BigInt(numberToMyriadths(bankFees)) +
             BigInt(numberToMyriadths(fxFees)) +
             BigInt(numberToMyriadths(posFees))
         ).toString()

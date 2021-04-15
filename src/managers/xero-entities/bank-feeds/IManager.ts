@@ -5,4 +5,5 @@ export interface IManager {
     closeBankFeedConnection(connectionId: string): Promise<void>;
 
     createBankStatement(feedConnectionId: string, bankTransactionId: string, date: string, amount: number, contactName: string, description: string): Promise<string>
+    revertBankStatement(bankStatementId: string, bankTransactionId: string, date: string, contactName: string, description: string): Promise<string>;
 }

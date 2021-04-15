@@ -4,8 +4,10 @@ import { IPayment } from './IPayment';
 
 export interface IInvoice extends Required<Pick<Invoice, 'invoiceID' | 'reference' | 'contact' | 'date' | 'amountPaid'>> {
     status: InvoiceStatus;
-    payments: IPayment[] | undefined;
+    payments: IInvoicePayment[] | undefined;
 }
+
+export type IInvoicePayment = Omit<IPayment, 'account'>;
 
 export enum InvoiceStatus {
     DRAFT = 'DRAFT',

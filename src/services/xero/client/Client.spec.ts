@@ -10,7 +10,7 @@ import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
 import { Client, escapeParam, getAccountingItemModel } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceStatus, InvoiceStatusCode, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceType, LineAmountType } from './contracts';
 
 const CURRENCY = 'GBP';
 
@@ -323,10 +323,11 @@ describe('Xero client', () => {
                         {
                             invoices: [{
                                 invoiceID: undefined,
+                                invoiceNumber: invoice.reference,
                                 dueDate: invoice.dueDate,
                                 type: InvoiceType.AccountsPayable as any,
                                 currencyCode: invoice.currency as any,
-                                status: Invoice.StatusEnum.DRAFT,
+                                status: Invoice.StatusEnum.AUTHORISED,
                                 date: invoice.date,
                                 url: invoice.url,
                                 contact: {
@@ -342,6 +343,7 @@ describe('Xero client', () => {
                                         taxType: invoice.taxType,
                                     },
                                 ],
+                                reference: invoice.reference,
                             },
                             ],
                         })))
@@ -373,10 +375,11 @@ describe('Xero client', () => {
                     typeIsEqualSkipUndefined({
                         invoices: [{
                             invoiceID: undefined,
+                            invoiceNumber: invoice.reference,
                             dueDate: invoice.dueDate,
                             type: InvoiceType.AccountsPayable as any,
                             currencyCode: invoice.currency as any,
-                            status: Invoice.StatusEnum.DRAFT,
+                            status: Invoice.StatusEnum.AUTHORISED,
                             date: invoice.date,
                             url: invoice.url,
                             contact: {
@@ -392,6 +395,7 @@ describe('Xero client', () => {
                                     taxType: invoice.taxType,
                                 },
                             ],
+                            reference: invoice.reference,
                         },
                         ],
                     })))
@@ -444,23 +448,6 @@ describe('Xero client', () => {
                 bankAccountId: 'bank_id',
             };
 
-            const existingInvoice = {
-                invoiceID: paymentDetails.billId,
-                status: InvoiceStatus.DRAFT,
-            };
-
-            xeroClientMock
-                .setup(m => m.getInvoice(
-                    tenantId,
-                    paymentDetails.billId,
-                ))
-                .returns(async () => ({
-                    response: {
-                        headers: {},
-                    },
-                    body: { invoices: [existingInvoice] },
-                }) as any);
-
             xeroClientMock
                 .setup(m => m.createPayment(
                     tenantId,
@@ -492,40 +479,6 @@ describe('Xero client', () => {
 
             await client.payBill(paymentDetails);
         });
-
-        it('throws error if bill is already paid', async () => {
-            const paymentDetails: IBillPaymentData = {
-                date: new Date().toISOString(),
-                billId: '1',
-                amount: 100,
-                currency: CURRENCY,
-                bankAccountId: 'bank_id',
-            };
-
-            xeroClientMock
-                .setup(m => m.getInvoice(tenantId, paymentDetails.billId))
-                .returns(async () => ({
-                    response: {
-                        headers: {},
-                    },
-                    body: {
-                        invoices: [
-                            {
-                                statusAttributeString: ClientResponseStatus.Ok,
-                                invoiceID: paymentDetails.billId,
-                                status: InvoiceStatusCode.Paid,
-                            },
-                        ],
-                    },
-                }) as any)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createPayment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            await client.payBill(paymentDetails);
-        });
     });
 
     describe('escapeParam()', () => {
@@ -540,6 +493,7 @@ describe('Xero client', () => {
         it('should map fx fees', () => {
             const model = getAccountingItemModel({
                 description: 'desc',
+                reference: 'ref',
                 accountCode: '100',
                 amount: 100,
                 contactId: '1',
@@ -558,6 +512,7 @@ describe('Xero client', () => {
         it('should map pos fees', () => {
             const model = getAccountingItemModel({
                 description: 'desc',
+                reference: 'ref',
                 accountCode: '100',
                 amount: 100,
                 contactId: '1',
@@ -576,6 +531,7 @@ describe('Xero client', () => {
         it('should map fx + pos fees', () => {
             const model = getAccountingItemModel({
                 description: 'desc',
+                reference: 'ref',
                 accountCode: '100',
                 amount: 100,
                 contactId: '1',
@@ -595,6 +551,7 @@ describe('Xero client', () => {
         it('should map no fees', () => {
             const model = getAccountingItemModel({
                 description: 'desc',
+                reference: 'ref',
                 accountCode: '100',
                 amount: 100,
                 contactId: '1',
@@ -653,7 +610,9 @@ describe('Xero client', () => {
             contactId: 'contact-id',
             currency: CURRENCY,
             description: 'expense note',
+            reference: 'ref',
             amount: 12.05,
+            feesAccountCode: FEES_ACCOUNT_CODE,
             accountCode: '310',
             taxType: 'TAX001',
             url: 'expense url',

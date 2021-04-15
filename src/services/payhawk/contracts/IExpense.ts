@@ -15,6 +15,24 @@ export interface IExpense {
     paymentData: IPaymentData;
     transactions: ITransaction[];
     externalLinks: IExternalLink[];
+    balancePayments: IBalancePayment[];
+}
+
+export interface IBalancePayment {
+    id: string;
+    amount: number;
+    fees: number;
+    date: string;
+    status: BalancePaymentStatus;
+    currency: string;
+}
+
+export enum BalancePaymentStatus {
+    PendingConfirmation = 'pending_confirmation',
+    Rejected = 'rejected',
+    Approved = 'approved',
+    Authorized = 'authorized',
+    Settled = 'settled'
 }
 
 export interface IExternalLink {
@@ -31,6 +49,7 @@ export interface ISupplier {
 }
 
 export interface IDocument {
+    number?: string;
     date?: string;
     files: IFile[];
 }
@@ -57,23 +76,30 @@ export interface IExpenseCustomFieldData {
     label: string;
     externalId?: string;
     externalSource?: string;
-    selectedValues: {
+    selectedValues?: {
         [valueId: string]: IExpenseCustomFieldValueData;
-    } | null;
+    };
 }
 
 export interface IExpenseCustomFieldValueData {
     label: string;
-    externalId: string | null;
-    owner: string | null;
-    parentId: string | null;
-    childId: string | null;
+    externalId?: string;
+    owner?: string;
+    parentId?: string;
+    childId?: string;
 }
 
 export interface IPaymentData {
     dueDate?: string;
     date?: string;
     source?: string;
+    sourceType?: PaymentSourceType;
+}
+
+export enum PaymentSourceType {
+    Card = 'card',
+    Balance = 'balance',
+    Bank = 'bank_account'
 }
 
 export interface ITransaction {

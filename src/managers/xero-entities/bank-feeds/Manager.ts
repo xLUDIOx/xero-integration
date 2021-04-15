@@ -2,12 +2,12 @@ import { CurrencyCode } from 'xero-node';
 
 import { Xero } from '@services';
 import { BankFeedAccountType, CreditDebitIndicator } from '@shared';
-import { formatDate } from '@utils';
+import { formatDate, ILogger } from '@utils';
 
 import { IManager } from './IManager';
 
 export class Manager implements IManager {
-    constructor(private readonly xeroClient: Xero.IClient) { }
+    constructor(private readonly xeroClient: Xero.IClient, private readonly logger: ILogger) { }
 
     async getConnectionIdForBankAccount(bankAccount: Xero.IBankAccount): Promise<string> {
         const connection = await this.xeroClient.bankFeeds.getOrCreateBankFeedConnection({
@@ -19,6 +19,10 @@ export class Manager implements IManager {
         });
 
         return connection.id;
+    }
+
+    async closeBankFeedConnection(connectionId: string): Promise<void> {
+        await this.xeroClient.bankFeeds.closeBankFeedConnection(connectionId);
     }
 
     async createBankStatement(feedConnectionId: string, bankTransactionId: string, date: string, amount: number, contactName: string, description: string): Promise<string> {
@@ -48,8 +52,33 @@ export class Manager implements IManager {
         return result.id;
     }
 
-    async closeBankFeedConnection(connectionId: string): Promise<void> {
-        await this.xeroClient.bankFeeds.closeBankFeedConnection(connectionId);
+    async revertBankStatement(bankStatementId: string, bankTransactionId: string, date: string, contactName: string, description: string): Promise<string> {
+        const logger = this.logger.child({
+            revertBankStatement: {
+                bankStatementId,
+                bankTransactionId,
+                date,
+                contactName, description,
+            },
+        });
+
+        const statement = await this.xeroClient.bankFeeds.getStatementById(bankStatementId);
+        if (!statement) {
+            throw logger.error(Error('Cannot revert original bank statement, it was not found'));
+        }
+
+        const revertedAmount = Number(statement.startBalance.amount) - (statement.endBalance.amount);
+
+        const result = await this.createBankStatement(
+            statement.feedConnectionId,
+            bankTransactionId,
+            date,
+            revertedAmount,
+            contactName,
+            description,
+        );
+
+        return result;
     }
 }
 
