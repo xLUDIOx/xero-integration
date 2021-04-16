@@ -16,7 +16,7 @@ export class Manager implements IManager {
 
     constructor(private readonly xeroClient: Xero.IClient, private readonly logger: ILogger) {
         this.bankAccounts = createBankAccountsManager(this.xeroClient);
-        this.bankFeeds = createBankFeedsManager(this.xeroClient);
+        this.bankFeeds = createBankFeedsManager(this.xeroClient, this.logger);
     }
 
     async getOrganisation(): Promise<IOrganisation> {
