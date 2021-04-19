@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 
-import { FxRates, Payhawk } from '@services';
+import { Payhawk } from '@services';
 import { ITokenSet } from '@shared';
 import { createSchemaStore } from '@stores';
 import { ILogger } from '@utils';
@@ -32,7 +32,6 @@ export const createManager: IManagerFactory = ({ accessToken, tenantId, accountI
         createSchemaStore(logger),
         xeroEntitiesManager,
         Payhawk.createPayhawkClient(accountId, payhawkApiKey || ''),
-        FxRates.createService(),
         deleteFile,
         logger,
     );

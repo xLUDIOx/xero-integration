@@ -1,12 +1,8 @@
-import { Decimal } from 'decimal.js';
-
-import { FxRates, Payhawk, Xero } from '@services';
+import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum } from '@utils';
 
-import { ICustomField, ICustomFieldValue } from '../../services/payhawk';
-import { ITrackingCategoryValue } from '../../services/xero';
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
 
@@ -18,8 +14,6 @@ export class Manager implements IManager {
         private readonly store: ISchemaStore,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly payhawkClient: Payhawk.IClient,
-        // @ts-ignore
-        private readonly fxRateService: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly logger: ILogger,
     ) { }
@@ -118,10 +112,10 @@ export class Manager implements IManager {
 
     async synchronizeTrackingCategories(): Promise<number> {
         const xeroTrackingCategories = await this.xeroEntities.getTrackingCategories();
-        const customFields: ICustomField[] = xeroTrackingCategories.map<ICustomField>(category => ({
+        const customFields = xeroTrackingCategories.map<Payhawk.ICustomField>(category => ({
             externalId: category.trackingCategoryId,
             label: category.name,
-            values: category.options.map<ICustomFieldValue>(option => ({ label: option.name, externalId: option.trackingOptionId })),
+            values: category.options.map<Payhawk.ICustomFieldValue>(option => ({ label: option.name, externalId: option.trackingOptionId })),
         }));
 
         await this.payhawkClient.synchronizeExternalCustomFields(customFields);
@@ -188,11 +182,7 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
 
         try {
-            if (expense.transactions.length > 0) {
-                await this.exportExpenseAsTransaction(expense, files, organisation);
-            } else {
-                await this.exportExpenseAsBill(expense, files, organisation);
-            }
+            await this.exportExpenseAsBill(expense, files, organisation);
         } catch (err) {
             this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
@@ -204,13 +194,7 @@ export class Manager implements IManager {
         const logger = this.logger.child({ expenseId });
 
         try {
-            const expenseTransactions = await this.store.expenseTransactions.getByAccountId(this.accountId, expenseId);
-            if (expenseTransactions.length === 0) {
-                await this.deleteBillIfExists(expenseId, logger);
-            } else {
-                const transactionIds = expenseTransactions.map(x => x.transaction_id);
-                await this.deleteTransactions(expenseId, transactionIds, logger);
-            }
+            await this.deleteBillIfExists(expenseId, logger);
         } catch (err) {
             this.handleExpenseDeleteError(err);
         }
@@ -283,11 +267,7 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
 
         try {
-            if (expense.transactions.length === 0) {
-                await this.exportBankStatementForBill(expense, organisation, logger);
-            } else {
-                await this.exportBankStatementForTransactions(expense, organisation, logger);
-            }
+            await this.exportBankStatementForBill(expense, organisation, logger);
         } catch (err) {
             this.handleExportError(err, expense.category, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
@@ -408,57 +388,7 @@ export class Manager implements IManager {
         }
     }
 
-    private async exportExpenseAsTransaction(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
-        // common data for all transactions linked to the expense
-        const currency = expense.transactions[0].cardCurrency;
-        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
-        const bankAccountId = bankAccount.accountID;
-        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
-
-        const bankTransactionIds = [];
-
-        for (const t of expense.transactions) {
-            const bankTransactionId = await this.exportTransaction(expense, t, bankAccountId, contactId, files, organisation);
-            bankTransactionIds.push(bankTransactionId);
-        }
-
-        const transactionUrls = bankTransactionIds.map(id => XeroEntities.getTransactionExternalUrl(organisation.shortCode, id));
-        await this.updateExpenseLinks(expense.id, transactionUrls);
-    }
-
-    private async exportTransaction(expense: Payhawk.IExpense, transaction: Payhawk.ITransaction, bankAccountId: string, contactId: string, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation): Promise<string> {
-        const amount = transaction.cardAmount;
-        const { fx: fxFees, pos: posFees } = transaction.fees;
-        const description = formatDescription(formatCardDescription(transaction.cardHolderName, transaction.cardLastDigits, transaction.cardName), expense.note);
-        const date = getTransactionExportDate(transaction);
-
-        this.validateExportDate(organisation, date, this.logger);
-
-        const logger = this.logger.child({ expenseId: expense.id });
-        const newAccountTransaction: XeroEntities.INewAccountTransaction = {
-            date,
-            bankAccountId,
-            contactId,
-            description,
-            reference: transaction.description,
-            amount,
-            fxFees,
-            posFees,
-            accountCode: expense.reconciliation.accountCode,
-            taxType: expense.taxRate ? expense.taxRate.code : undefined,
-            files,
-            url: this.buildTransactionUrl(transaction.id, new Date(date)),
-            trackingCategories: this.extractTrackingCategories(expense, logger),
-        };
-
-        const bankTransactionId = await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
-
-        await this.store.expenseTransactions.createIfNotExists(this.accountId, expense.id, transaction.id);
-
-        return bankTransactionId;
-    }
-
-    private extractTrackingCategories(expense: Payhawk.IExpense, logger: ILogger): ITrackingCategoryValue[] | undefined {
+    private extractTrackingCategories(expense: Payhawk.IExpense, logger: ILogger): Xero.ITrackingCategoryValue[] | undefined {
         if (!expense.reconciliation.customFields2) {
             return undefined;
         }
@@ -484,7 +414,7 @@ export class Manager implements IManager {
         });
 
         return xeroCustomFieldsWithEntries
-            .map<ITrackingCategoryValue>(([_, value]) => ({
+            .map<Xero.ITrackingCategoryValue>(([_, value]) => ({
                 categoryId: value.externalId!,
                 valueId: value.selectedValues![Object.keys(value.selectedValues!)[0]].externalId!,
             }));
@@ -513,29 +443,62 @@ export class Manager implements IManager {
 
         this.validateExportDate(organisation, date, this.logger);
 
-        const expenseCurrency = expense.reconciliation.expenseCurrency;
+        const paymentData: XeroEntities.IPaymentData[] = [];
+
+        const hasTransactions = expense.transactions.length > 0;
+
+        let expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
-            this.logger.info('Expense will not be exported because it does not have currency');
-            return;
+            throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
 
-        const totalAmount = expense.reconciliation.expenseTotalAmount;
+        let totalAmount = expense.reconciliation.expenseTotalAmount;
         if (totalAmount === 0) {
-            this.logger.info('Expense amount is 0, nothing to export');
-            return;
+            throw new ExportError('Failed to export into Xero. Expense has no total amount.');
         }
+
+        let accountCode = expense.reconciliation.accountCode;
 
         const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
         const bill = await this.xeroEntities.getBillByUrl(billUrl);
 
-        let paymentData: XeroEntities.IPaymentData | undefined;
+        if (hasTransactions) {
+            const transactionCurrencies = Array.from(new Set(expense.transactions.map(tx => tx.cardCurrency)));
+            if (transactionCurrencies.length > 1) {
+                throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
+            }
 
-        if (expense.isPaid) {
+            expenseCurrency = transactionCurrencies[0];
+
+            totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
+
+            const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
+            if (!areAllTransactionsSettled) {
+                this.logger.info('Not all transactions are settled, expense payments will not be exported and bill will use default expense account');
+                accountCode = undefined; // use default account code for unsettled transactions
+            } else {
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+
+                for (const expenseTransaction of expense.transactions) {
+                    paymentData.push({
+                        bankAccountId: bankAccount.accountID,
+                        amount: expenseTransaction.cardAmount,
+                        currency: expenseTransaction.cardCurrency,
+                        date: expenseTransaction.settlementDate!,
+                        fxFees: expenseTransaction.fees.fx,
+                        posFees: expenseTransaction.fees.pos,
+                    });
+                }
+            }
+        } else if (expense.isPaid) {
             if (expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance &&
                 expense.paymentData.source &&
                 expense.balancePayments.length > 0
             ) {
-                paymentData = await this.processBalancePayments(expense, bill);
+                const balancePayment = await this.processBalancePayments(expense, bill);
+                if (balancePayment) {
+                    paymentData.push(balancePayment);
+                }
             }
         }
 
@@ -555,8 +518,7 @@ export class Manager implements IManager {
             reference: expense.document?.number,
             currency: expenseCurrency,
             totalAmount,
-            fees: paymentData?.fees,
-            accountCode: expense.reconciliation.accountCode,
+            accountCode,
             taxType: expense.taxRate ? expense.taxRate.code : undefined,
             files,
             url: billUrl,
@@ -598,7 +560,7 @@ export class Manager implements IManager {
                     bankAccountId: bankAccount.accountID,
                     currency: settledPayment.currency,
                     amount: settledPayment.amount,
-                    fees: settledPayment.fees,
+                    bankFees: settledPayment.fees,
                     date: settledPayment.date,
                 };
             }
@@ -685,24 +647,6 @@ export class Manager implements IManager {
         billLogger.info('Bill deleted');
     }
 
-    private async deleteTransactions(expenseId: string, transactionIds: string[], logger: ILogger): Promise<void> {
-        for (const transactionId of transactionIds) {
-            await this.deleteTransaction(expenseId, transactionId, logger);
-        }
-    }
-
-    private async deleteTransaction(expenseId: string, transactionId: string, logger: ILogger) {
-        const transactionUrl = this.buildTransactionUrl(transactionId);
-        const txLogger = logger.child({ transactionId, transactionUrl });
-
-        txLogger.info('Deleting bank transaction');
-
-        await this.xeroEntities.deleteAccountTransaction(transactionUrl);
-        await this.store.expenseTransactions.delete(this.accountId, expenseId, transactionId);
-
-        txLogger.info('Bank transaction deleted');
-    }
-
     private async updateExpenseLinks(expenseId: string, urls: string[]) {
         return this.payhawkClient.updateExpense(
             expenseId,
@@ -710,81 +654,6 @@ export class Manager implements IManager {
                 externalLinks: urls.map(url => ({ url, title: 'Xero' })),
             },
         );
-    }
-
-    private async exportBankStatementForTransactions(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
-        const settledTransactions = expense.transactions.filter(t => t.settlementDate !== undefined) as Required<Payhawk.ITransaction>[];
-        if (settledTransactions.length === 0) {
-            baseLogger.info('Expense has no settled transactions, bank statement will not be exported');
-            return;
-        }
-
-        const currency = settledTransactions[0].cardCurrency;
-
-        const logger = baseLogger.child({ currency });
-
-        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
-
-        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
-
-        if (!feedConnectionId) {
-            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
-            await this.store.bankFeeds.createConnection(
-                {
-                    account_id: this.accountId,
-                    bank_connection_id: feedConnectionId,
-                    currency: bankAccount.currencyCode.toString(),
-                },
-            );
-        }
-
-        for (const transaction of settledTransactions) {
-            const date = transaction.settlementDate;
-            this.validateExportDate(organisation, date, baseLogger);
-
-            const totalAmount = getTransactionTotalAmount(transaction);
-            const transactionUrl = this.buildTransactionUrl(transaction.id, new Date(date));
-
-            const txLogger = logger.child({ transactionId: transaction.id, transactionUrl });
-            const bankTransaction = await this.xeroEntities.getBankTransactionByUrl(transactionUrl);
-            if (!bankTransaction) {
-                txLogger.error(Error('Bank transaction not found by URL, bank statement will not be exported'));
-                continue;
-            }
-
-            const statementId = await this.store.bankFeeds.getStatementByEntityId({
-                account_id: this.accountId,
-                xero_entity_id: bankTransaction.bankTransactionID,
-                payhawk_entity_id: transaction.id,
-                payhawk_entity_type: EntityType.Transaction,
-            });
-
-            if (statementId) {
-                logger.info('Bank statement for this expense transaction is already exported');
-                return;
-            }
-
-            if (bankTransaction.isReconciled) {
-                logger.info(EXPENSE_RECONCILED_ERROR_MESSAGE);
-                throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
-            }
-
-            const contactName = bankTransaction.contact.name;
-            const description = bankTransaction.reference;
-
-            await this.tryCreateBankStatement(
-                feedConnectionId,
-                bankTransaction.bankTransactionID,
-                bankAccount,
-                date,
-                totalAmount,
-                transaction.id,
-                EntityType.Transaction,
-                contactName!,
-                description,
-                logger,
-            );
-        }
     }
 
     private async tryGetBankFeedConnection(bankAccount: Xero.IBankAccount): Promise<string> {
@@ -902,9 +771,24 @@ export class Manager implements IManager {
     }
 
     private async exportBankStatementForBill(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
-        if (!expense.isPaid || expense.paymentData.sourceType !== Payhawk.PaymentSourceType.Balance) {
-            this.logger.info(`Expense is not paid with balance payment and statement will not be exported`);
+        const hasTransactions = expense.transactions.length > 0;
+        const isPaidWithBalancePayment = expense.isPaid && expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance;
+        if (!hasTransactions && !isPaidWithBalancePayment) {
+            this.logger.info(`Expense has no transactions and is not paid with balance payment, bank statement will not be exported`);
             return;
+        }
+
+        if (hasTransactions) {
+            const transactionCurrencies = Array.from(new Set(expense.transactions.map(tx => tx.cardCurrency)));
+            if (transactionCurrencies.length > 1) {
+                throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
+            }
+
+            const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
+            if (!areAllTransactionsSettled) {
+                this.logger.info('Not all transactions are settled, bank statement lines for expense payments will not be exported');
+                return;
+            }
         }
 
         const expenseCurrency = expense.reconciliation.expenseCurrency;
@@ -942,60 +826,61 @@ export class Manager implements IManager {
             return;
         }
 
+        // should never hit this case, because if bill has status PAID then it MUST have payments associated with it
         if (!bill.payments || bill.payments.length === 0) {
             logger.error(Error('Bill does not have any payments associated with it, bank statement will not be exported'));
             return;
         }
 
-        const payment = bill.payments[0];
+        for (const payment of bill.payments) {
+            const statementId = await this.store.bankFeeds.getStatementByEntityId({
+                account_id: this.accountId,
+                xero_entity_id: payment.paymentID,
+                payhawk_entity_id: expense.id,
+                payhawk_entity_type: EntityType.Expense,
+            });
 
-        const statementId = await this.store.bankFeeds.getStatementByEntityId({
-            account_id: this.accountId,
-            xero_entity_id: payment.paymentID,
-            payhawk_entity_id: expense.id,
-            payhawk_entity_type: EntityType.Expense,
-        });
+            if (statementId) {
+                logger.info('Bank statement for this expense payment is already exported');
+                continue;
+            }
 
-        if (statementId) {
-            logger.info('Bank statement for this expense is already exported');
-            return;
-        }
+            const currency = expenseCurrency;
+            const amount = payment.amount;
 
-        const currency = expenseCurrency;
-        const amount = payment.amount;
+            const contactName = bill.contact.name!;
 
-        const contactName = bill.contact.name!;
+            const paymentDate = payment.date;
+            const description = `Payment to ${contactName}: ${bill.reference}`;
 
-        const paymentDate = payment.date;
-        const description = `Payment on ${paymentDate}: ${bill.reference}`;
+            let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
 
-        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+            const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
 
-        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
+            if (!feedConnectionId) {
+                feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
+                await this.store.bankFeeds.createConnection(
+                    {
+                        account_id: this.accountId,
+                        bank_connection_id: feedConnectionId,
+                        currency: bankAccount.currencyCode.toString(),
+                    },
+                );
+            }
 
-        if (!feedConnectionId) {
-            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
-            await this.store.bankFeeds.createConnection(
-                {
-                    account_id: this.accountId,
-                    bank_connection_id: feedConnectionId,
-                    currency: bankAccount.currencyCode.toString(),
-                },
+            await this.tryCreateBankStatement(
+                feedConnectionId,
+                payment.paymentID,
+                bankAccount,
+                paymentDate,
+                amount,
+                expense.id,
+                EntityType.Expense,
+                contactName!,
+                description,
+                logger,
             );
         }
-
-        await this.tryCreateBankStatement(
-            feedConnectionId,
-            payment.paymentID,
-            bankAccount,
-            paymentDate,
-            amount,
-            expense.id,
-            EntityType.Expense,
-            contactName!,
-            description,
-            logger,
-        );
     }
 
     private handleExportError(err: Error, category: string | undefined, genericErrorMessage: string) {
@@ -1085,20 +970,8 @@ export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
     );
 }
 
-export function convertAmount(amount: number, currencyRate: number): number {
-    return Number(Decimal.div(amount, currencyRate).toFixed(2));
-}
-
-function formatCardDescription(cardHolderName: string, cardLastDigits: string, cardName?: string): string {
-    return `${cardHolderName}${cardName ? `, ${cardName}` : ''}, *${cardLastDigits}`;
-}
-
 function getBillExportDate(expense: Payhawk.IExpense): string {
     return expense.document !== undefined && expense.document.date !== undefined ? expense.document.date : expense.createdAt;
-}
-
-function getTransactionExportDate(transaction: Payhawk.ITransaction): string {
-    return transaction.settlementDate || transaction.date;
 }
 
 const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';

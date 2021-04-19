@@ -62,7 +62,9 @@ export interface ICreateBillData extends IAccountingItemData {
     fxRate?: number;
     isPaid?: boolean;
     dueDate?: string;
-    bankFees?: number;
+    fxFees: number;
+    posFees: number;
+    bankFees: number;
     feesAccountCode: string;
 }
 

@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
 import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, RequiredNonNullBy } from '@shared';
-import { IDocumentSanitizer, ILogger, myriadthsToNumber, numberToMyriadths } from '@utils';
+import { IDocumentSanitizer, ILogger, sum } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -571,7 +571,9 @@ export function getAccountingItemModel({
         tracking: toTrackingCategory(trackingCategories),
     }];
 
-    if (feesAccountCode && bankFees + fxFees + posFees > 0) {
+    const feesTotal = sum(bankFees, posFees, fxFees);
+
+    if (feesAccountCode && feesTotal > 0) {
         const feesDescription = bankFees ?
             'Bank transfer fees' :
             fxFees !== 0 && posFees !== 0 ?
@@ -583,7 +585,7 @@ export function getAccountingItemModel({
             description: feesDescription,
             accountCode: feesAccountCode,
             quantity: 1,
-            unitAmount: getFeesTotal(bankFees, fxFees, posFees),
+            unitAmount: feesTotal,
         });
     }
 
@@ -661,18 +663,6 @@ export function normalizeName(name: string): string {
         .replace(/["]/g, '')
         .replace(/\s+/g, ' ');
     return res.trim();
-}
-
-function getFeesTotal(bankFees: number, fxFees: number, posFees: number) {
-    const result = myriadthsToNumber(
-        (
-            BigInt(numberToMyriadths(bankFees)) +
-            BigInt(numberToMyriadths(fxFees)) +
-            BigInt(numberToMyriadths(posFees))
-        ).toString()
-    );
-
-    return result;
 }
 
 const ALLOWED_CURRENCIES: string[] = [

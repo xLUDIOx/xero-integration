@@ -541,6 +541,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -620,13 +622,13 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
-                paymentData: {
+                paymentData: [{
                     amount: 12.05,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
                     currency: 'EUR',
-                    fees: 0,
-                },
+                    bankFees: 0,
+                }],
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -668,6 +670,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -697,16 +701,21 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
-            xeroClientMock
-                .setup(x => x.payBill({
-                    billId: id,
-                    amount: newBill.paymentData?.amount!,
-                    fxRate: newBill.fxRate,
-                    bankAccountId: newBill.paymentData?.bankAccountId!,
-                    date: newBill.paymentData?.date!,
-                    currency: newBill.paymentData?.currency!,
-                }))
-                .verifiable(TypeMoq.Times.once());
+            if (newBill.paymentData) {
+                for (const paymentInfo of newBill.paymentData) {
+                    const { amount, bankAccountId, date, currency } = paymentInfo;
+                    xeroClientMock
+                        .setup(x => x.payBill({
+                            billId: id,
+                            amount,
+                            fxRate: newBill.fxRate,
+                            bankAccountId,
+                            date,
+                            currency,
+                        }))
+                        .verifiable(TypeMoq.Times.once());
+                }
+            }
 
             await manager.createOrUpdateBill(newBill);
         });
@@ -755,6 +764,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -834,6 +845,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -870,13 +883,13 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
-                paymentData: {
+                paymentData: [{
                     amount: 12.05,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
                     currency: 'EUR',
-                    fees: 0,
-                },
+                    bankFees: 0,
+                }],
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
@@ -897,6 +910,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -924,16 +939,21 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(files.length));
 
-            xeroClientMock
-                .setup(x => x.payBill({
-                    billId: newBillId,
-                    amount: newBill.paymentData?.amount!,
-                    fxRate: newBill.fxRate,
-                    bankAccountId: newBill.paymentData?.bankAccountId!,
-                    date: newBill.paymentData?.date!,
-                    currency: newBill.paymentData?.currency!,
-                }))
-                .verifiable(TypeMoq.Times.once());
+            if (newBill.paymentData) {
+                for (const paymentInfo of newBill.paymentData) {
+                    const { amount, bankAccountId, date, currency } = paymentInfo;
+                    xeroClientMock
+                        .setup(x => x.payBill({
+                            billId: newBillId,
+                            amount,
+                            fxRate: newBill.fxRate,
+                            bankAccountId,
+                            date,
+                            currency,
+                        }))
+                        .verifiable(TypeMoq.Times.once());
+                }
+            }
 
             await manager.createOrUpdateBill(newBill);
         });
@@ -965,6 +985,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -1023,6 +1045,8 @@ describe('XeroEntities.Manager', () => {
                     fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: DEFAULT_ACCOUNT_CODE,
+                    fxFees: 0,
+                    posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
                     reference: DEFAULT_REFERENCE,
@@ -1083,6 +1107,8 @@ describe('XeroEntities.Manager', () => {
                             amount: newBill.totalAmount,
                             fxRate: newBill.fxRate,
                             accountCode: newBill.accountCode!,
+                            fxFees: 0,
+                            posFees: 0,
                             bankFees: 0,
                             feesAccountCode: FEES_ACCOUNT_CODE,
                             reference: DEFAULT_REFERENCE,
@@ -1150,6 +1176,8 @@ describe('XeroEntities.Manager', () => {
                             currency: newBill.currency,
                             amount: newBill.totalAmount,
                             fxRate: newBill.fxRate,
+                            fxFees: 0,
+                            posFees: 0,
                             bankFees: 0,
                             accountCode: DEFAULT_ACCOUNT_CODE,
                             feesAccountCode: FEES_ACCOUNT_CODE,

@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -255,21 +255,23 @@ export class Manager implements IManager {
             }
         }
 
-        if (newBill.isPaid && newBill.paymentData !== undefined) {
-            logger.info('Expense is paid and a new payment will be created for this bill');
+        if (newBill.isPaid && newBill.paymentData !== undefined && newBill.paymentData.length > 0) {
+            logger.info('Expense is paid and new payments will be created for this bill');
 
-            const { date, bankAccountId, amount, fees, currency } = newBill.paymentData;
+            for (const paymentInfo of newBill.paymentData) {
+                const { date, bankAccountId, amount, fxFees = 0, bankFees = 0, posFees = 0, currency } = paymentInfo;
 
-            const paymentData: Xero.IBillPaymentData = {
-                date,
-                amount: amount + fees,
-                fxRate: billData.fxRate,
-                currency,
-                bankAccountId,
-                billId,
-            };
+                const paymentData: Xero.IBillPaymentData = {
+                    date,
+                    amount: sum(amount, fxFees, bankFees, posFees),
+                    fxRate: billData.fxRate,
+                    currency,
+                    bankAccountId,
+                    billId,
+                };
 
-            await this.xeroClient.payBill(paymentData);
+                await this.xeroClient.payBill(paymentData);
+            }
         }
 
         return billId;
@@ -291,9 +293,17 @@ export class Manager implements IManager {
         logger = logger.child({ billId: bill.invoiceID, billStatus: bill.status });
 
         if (bill.status === Xero.InvoiceStatus.PAID) {
-            const paymentId = bill.payments && bill.payments.length > 0 ? bill.payments[0].paymentID : undefined;
-            if (paymentId) {
-                await this.deleteBillPayment(paymentId);
+            const billPayments = bill.payments || [];
+            if (billPayments.length > 0) {
+                const hasReconciledPayment = billPayments.some(p => p.isReconciled);
+                if (hasReconciledPayment) {
+                    throw new ExportError('Failed to delete expense from Xero. Payments have been reconciled');
+                }
+
+                for (const billPayment of billPayments) {
+                    const paymentId = billPayment.paymentID;
+                    await this.deleteBillPayment(paymentId);
+                }
             }
         }
 
@@ -424,16 +434,20 @@ export class Manager implements IManager {
         currency,
         fxRate,
         totalAmount,
-        fees,
         accountCode,
         taxType,
         url,
         trackingCategories,
+        paymentData = [],
     }: INewBill,
 
         defaultAccount: IAccountCode,
         taxExemptAccount: IAccountCode,
     ): Xero.ICreateBillData {
+        const fxFees = sum(...paymentData.map(d => d.fxFees || 0));
+        const posFees = sum(...paymentData.map(d => d.posFees || 0));
+        const bankFees = sum(...paymentData.map(d => d.bankFees || 0));
+
         return {
             date,
             dueDate: dueDate || date,
@@ -444,7 +458,9 @@ export class Manager implements IManager {
             currency,
             fxRate,
             amount: totalAmount,
-            bankFees: fees || 0,
+            fxFees,
+            posFees,
+            bankFees,
             accountCode: accountCode || defaultAccount.code,
             feesAccountCode: taxExemptAccount.code,
             taxType,

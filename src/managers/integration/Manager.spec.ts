@@ -1,13 +1,13 @@
 import * as TypeMoq from 'typemoq';
 
-import { FxRates, Payhawk, Xero } from '@services';
+import { Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
 import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { typeIsEqualSkipUndefined } from '@test-utils';
 import { ILogger } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
-import { convertAmount, getTransactionTotalAmount, Manager } from './Manager';
+import { getTransactionTotalAmount, Manager } from './Manager';
 
 describe('integrations/Manager', () => {
     const accountId = 'account_id';
@@ -17,7 +17,6 @@ describe('integrations/Manager', () => {
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
     let bankAccountsManagerMock: TypeMoq.IMock<XeroEntities.BankAccounts.IManager>;
     let bankFeedsManagerMock: TypeMoq.IMock<XeroEntities.BankFeeds.IManager>;
-    let fxRatesServiceMock: TypeMoq.IMock<FxRates.IService>;
     let loggerMock: TypeMoq.IMock<ILogger>;
     let deleteFilesMock: TypeMoq.IMock<(f: string) => Promise<void>>;
     let expenseTransactionsStoreMock: TypeMoq.IMock<ExpenseTransactions.IStore>;
@@ -31,7 +30,6 @@ describe('integrations/Manager', () => {
         bankFeedsManagerMock = TypeMoq.Mock.ofType<XeroEntities.BankFeeds.IManager>();
         bankAccountsManagerMock = TypeMoq.Mock.ofType<XeroEntities.BankAccounts.IManager>();
         xeroEntitiesMock = TypeMoq.Mock.ofType<XeroEntities.IManager>();
-        fxRatesServiceMock = TypeMoq.Mock.ofType<FxRates.IService>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
         deleteFilesMock = TypeMoq.Mock.ofType<(f: string) => Promise<void>>();
         expenseTransactionsStoreMock = TypeMoq.Mock.ofType<ExpenseTransactions.IStore>();
@@ -61,7 +59,6 @@ describe('integrations/Manager', () => {
             } as ISchemaStore,
             xeroEntitiesMock.object,
             payhawkClientMock.object,
-            fxRatesServiceMock.object,
             deleteFilesMock.object,
             loggerMock.object,
         );
@@ -220,8 +217,8 @@ describe('integrations/Manager', () => {
             },
         ];
 
-        describe('as an account transaction', () => {
-            test('creates an account transaction when expense has transactions', async () => {
+        describe('card', () => {
+            test('creates bill with payments when expense has settled transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
                 const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
@@ -238,13 +235,13 @@ describe('integrations/Manager', () => {
                         {
                             id: 'tx1',
                             cardAmount: 5,
-                            cardCurrency: 'EUR',
+                            cardCurrency: 'USD',
                             cardName: 'Card 1',
                             cardHolderName: 'John Smith',
                             cardLastDigits: '9999',
                             description: txDescription,
                             paidAmount: 5.64,
-                            paidCurrency: 'USD',
+                            paidCurrency: 'EUR',
                             date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
                             fees: {
@@ -255,12 +252,12 @@ describe('integrations/Manager', () => {
                         {
                             id: 'tx2',
                             cardAmount: 5,
-                            cardCurrency: 'EUR',
+                            cardCurrency: 'USD',
                             cardHolderName: 'John Smith',
                             cardLastDigits: '9999',
                             description: txDescription,
                             paidAmount: 5.64,
-                            paidCurrency: 'USD',
+                            paidCurrency: 'EUR',
                             date: new Date(2019, 2, 3).toISOString(),
                             settlementDate: new Date(2019, 2, 3).toISOString(),
                             fees: {
@@ -273,16 +270,6 @@ describe('integrations/Manager', () => {
                     externalLinks: [],
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
-
-                expenseTransactionsStoreMock.reset();
-
-                expenseTransactionsStoreMock
-                    .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
-                    .returns(async () => [{
-                        account_id: accountId,
-                        expense_id: expenseId,
-                        transaction_id: expense.transactions[0].id,
-                    }]);
 
                 const bankAccountId = 'bank-account-id';
                 const contactId = 'contact-id';
@@ -302,33 +289,32 @@ describe('integrations/Manager', () => {
                     .setup(x => x.getContactIdForSupplier(supplier))
                     .returns(async () => contactId);
 
-                expense.transactions.forEach(t => {
-                    xeroEntitiesMock
-                        .setup(x => x.createOrUpdateAccountTransaction(typeIsEqualSkipUndefined({
-                            date: t.settlementDate || t.date,
-                            accountCode: reconciliation.accountCode,
-                            taxType: 'TAX001',
-                            bankAccountId,
-                            contactId,
-                            description: `${t.cardHolderName}${t.cardName ? `, ${t.cardName}` : ''}, *${t.cardLastDigits} | ${expense.note}`,
-                            reference: t.description,
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
+                        date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
+                        paymentDate: undefined,
+                        isPaid: expense.isPaid,
+                        accountCode: reconciliation.accountCode,
+                        taxType: 'TAX001',
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
+                        contactId,
+                        description: `${expense.ownerName} | ${expense.note}`,
+                        paymentData: expense.transactions.map<XeroEntities.IPaymentData>(t => ({
                             amount: t.cardAmount,
+                            bankAccountId,
+                            currency: t.cardCurrency,
+                            date: t.settlementDate!,
                             fxFees: t.fees.fx,
                             posFees: t.fees.pos,
-                            files,
-                            url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(t.id)}&accountId=${encodeURIComponent(accountId)}`,
-                        })))
-                        .returns(() => Promise.resolve('1'))
-                        .verifiable(TypeMoq.Times.once());
-
-                    expenseTransactionsStoreMock
-                        .setup(s => s.createIfNotExists(accountId, expenseId, t.id))
-                        .verifiable(TypeMoq.Times.once());
-                });
-
-                xeroEntitiesMock
-                    .setup(x => x.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
-                    .verifiable(TypeMoq.Times.exactly(expense.transactions.length));
+                        })),
+                        totalAmount: 10,
+                        files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                    })))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
@@ -345,14 +331,14 @@ describe('integrations/Manager', () => {
                         {
                             externalLinks: [{
                                 title: 'Xero',
-                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=1`,
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
                             }],
                         }));
 
                 await manager.exportExpense(expenseId);
             });
 
-            test('updates account transaction when expense reaches final state - settlement', async () => {
+            test('creates bill with no payments and default acc code when expense has auth transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
                 const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
@@ -367,17 +353,31 @@ describe('integrations/Manager', () => {
                     title: txDescription,
                     transactions: [
                         {
-                            id: 'tx_id',
+                            id: 'tx1',
                             cardAmount: 5,
-                            cardCurrency: 'EUR',
+                            cardCurrency: 'USD',
                             cardName: 'Card 1',
                             cardHolderName: 'John Smith',
                             cardLastDigits: '9999',
                             description: txDescription,
                             paidAmount: 5.64,
-                            paidCurrency: 'USD',
+                            paidCurrency: 'EUR',
                             date: new Date(2019, 2, 3).toISOString(),
-                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
+                        },
+                        {
+                            id: 'tx2',
+                            cardAmount: 5,
+                            cardCurrency: 'USD',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'EUR',
+                            date: new Date(2019, 2, 3).toISOString(),
                             fees: {
                                 fx: 1,
                                 pos: 2,
@@ -388,18 +388,6 @@ describe('integrations/Manager', () => {
                     externalLinks: [],
                     taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
                 };
-
-                const transaction = expense.transactions[0];
-
-                expenseTransactionsStoreMock.reset();
-
-                expenseTransactionsStoreMock
-                    .setup(s => s.getByAccountId(accountId, TypeMoq.It.isAnyString()))
-                    .returns(async () => [{
-                        account_id: accountId,
-                        expense_id: expenseId,
-                        transaction_id: transaction.id,
-                    }]);
 
                 const bankAccountId = 'bank-account-id';
                 const contactId = 'contact-id';
@@ -420,30 +408,24 @@ describe('integrations/Manager', () => {
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
-                    .setup(x => x.createOrUpdateAccountTransaction(typeIsEqualSkipUndefined({
-                        date: transaction.settlementDate || transaction.date,
-                        accountCode: reconciliation.accountCode,
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
+                        date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
+                        paymentDate: undefined,
+                        isPaid: expense.isPaid,
+                        accountCode: undefined,
                         taxType: 'TAX001',
-                        bankAccountId,
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
                         contactId,
-                        description: `${transaction.cardHolderName}${transaction.cardName ? `, ${transaction.cardName}` : ''}, *${transaction.cardLastDigits} | ${expense.note}`,
-                        reference: transaction.description,
-                        amount: transaction.cardAmount,
-                        fxFees: transaction.fees.fx,
-                        posFees: transaction.fees.pos,
+                        description: `${expense.ownerName} | ${expense.note}`,
+                        paymentData: [],
+                        totalAmount: 10,
                         files,
-                        url: `${portalUrl}/expenses?transactionId=${encodeURIComponent(transaction.id)}&accountId=${encodeURIComponent(accountId)}`,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
-
-                expenseTransactionsStoreMock
-                    .setup(s => s.createIfNotExists(accountId, expenseId, transaction.id))
-                    .verifiable(TypeMoq.Times.once());
-
-                xeroEntitiesMock
-                    .setup(x => x.createOrUpdateAccountTransaction(TypeMoq.It.isAny()))
-                    .verifiable(TypeMoq.Times.exactly(expense.transactions.length));
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
@@ -460,7 +442,7 @@ describe('integrations/Manager', () => {
                         {
                             externalLinks: [{
                                 title: 'Xero',
-                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=1`,
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
                             }],
                         }));
 
@@ -512,6 +494,7 @@ describe('integrations/Manager', () => {
                         fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
+                        paymentData: [],
                         totalAmount: 11.28,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
@@ -581,6 +564,7 @@ describe('integrations/Manager', () => {
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
+                        paymentData: [],
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     })))
@@ -652,6 +636,7 @@ describe('integrations/Manager', () => {
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency!,
+                        paymentData: [],
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
@@ -885,16 +870,6 @@ describe('integrations/Manager', () => {
         it('should calculate correctly', () => {
             const result = getTransactionTotalAmount({ cardAmount: 336.1400, fees: { fx: 3.03, pos: 0 } } as any);
             expect(result).toEqual(339.17);
-        });
-    });
-
-    describe('convertAmount', () => {
-        it('should calculate correctly', () => {
-            const eurAmount = 50;
-            const bgnToEur = 0.511292;
-
-            const bgnAmount = convertAmount(eurAmount, bgnToEur);
-            expect(bgnAmount).toEqual(97.79);
         });
     });
 });

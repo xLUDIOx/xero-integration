@@ -17,6 +17,7 @@
         "import"
     ],
     "rules": {
+        "object-shorthand":"error",
         "comma-dangle": [
             "error",
             "always-multiline"

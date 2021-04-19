@@ -10,13 +10,12 @@ export interface INewBill {
     currency: string;
     fxRate?: number;
     totalAmount: number;
-    fees?: number;
     accountCode?: string;
     taxType?: string;
     files: Payhawk.IDownloadedFile[];
     url: string;
 
-    paymentData?: IPaymentData;
+    paymentData?: IPaymentData[];
 
     trackingCategories?: Xero.ITrackingCategoryValue[];
 }
@@ -25,6 +24,8 @@ export interface IPaymentData {
     bankAccountId: string;
     date: string;
     amount: number;
-    fees: number;
+    fxFees?: number;
+    posFees?: number;
+    bankFees?: number;
     currency: string;
 }
