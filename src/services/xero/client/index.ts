@@ -18,17 +18,16 @@ export * as AuthClient from './auth';
 export * as AccountingClient from './accounting';
 export * as BankFeedsClient from './bank-feeds';
 
-const entitiesLock = createLock();
-
 export const createClient = (accountId: string, accessToken: ITokenSet, tenantId: string, logger: ILogger): IClient => {
     const config = getXeroAccountConfig(accountId);
+    const lock = createLock(accountId);
     const env = getEnv();
 
     const originalClient = new XeroClient(config);
     originalClient.setTokenSet(accessToken);
-    const xeroHttpClient = createXeroHttpClient(originalClient, entitiesLock, logger);
+    const xeroHttpClient = createXeroHttpClient(originalClient, lock, logger);
 
-    const httpClient = createHttpClient(accessToken.access_token, tenantId, entitiesLock, logger);
+    const httpClient = createHttpClient(accessToken.access_token, tenantId, lock, logger);
 
     const authClient = createAuthClient(httpClient, config, logger, env);
     const accountingClient = createAccountingClient(httpClient, logger, env);

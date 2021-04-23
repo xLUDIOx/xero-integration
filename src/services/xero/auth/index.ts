@@ -10,12 +10,11 @@ import { IAuth } from './IAuth';
 export { Auth } from './Auth';
 export { IAuth } from './IAuth';
 
-const authLock = createLock();
-
 export const createAuth = ({ accountId, returnUrl }: IAuthParams, logger: ILogger): IAuth => {
     const config = getXeroAccountConfig(accountId, returnUrl);
     const env = getEnv();
-    return new Auth(AuthClient.create(createHttpClient(undefined, undefined, authLock, logger), config, logger, env));
+    const lock = createLock(accountId);
+    return new Auth(AuthClient.create(createHttpClient(undefined, undefined, lock, logger), config, logger, env));
 };
 
 export interface IAuthParams {
