@@ -15,6 +15,7 @@ export interface IExpense {
     paymentData: IPaymentData;
     transactions: ITransaction[];
     externalLinks: IExternalLink[];
+    recipient: IRecipient;
     balancePayments: IBalancePayment[];
 }
 
@@ -46,6 +47,12 @@ export interface ISupplier {
     address: string;
     vat?: string;
     uic?: string;
+}
+
+export interface IRecipient {
+    name: string;
+    vat?: string;
+    email?: string;
 }
 
 export interface IDocument {

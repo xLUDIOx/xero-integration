@@ -47,11 +47,19 @@ export class Client implements IClient {
     ) {
     }
 
-    async findContact(name: string, vat?: string): Promise<Contact | undefined> {
+    async findContact(name: string, vat?: string, email?: string): Promise<Contact | undefined> {
         let contacts: Contact[] | undefined;
 
         if (vat) {
             const where = `${ContactKeys.taxNumber}=="${escapeParam(vat.trim())}"`;
+            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
+                x => x.accountingApi.getContacts(this.tenantId, undefined, where),
+                XeroEntityResponseType.Contacts
+            );
+        }
+
+        if ((!contacts || contacts.length === 0) && email) {
+            const where = `${ContactKeys.emailAddress}=="${escapeParam(email.toLowerCase().trim())}"`;
             contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.getContacts(this.tenantId, undefined, where),
                 XeroEntityResponseType.Contacts
@@ -69,13 +77,17 @@ export class Client implements IClient {
         return contacts[0];
     }
 
-    async getOrCreateContact(name: string, vat?: string): Promise<Contact> {
+    async getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact> {
         const payload: Contact = {
             name: escapeParam(name),
         };
 
         if (vat) {
             payload.taxNumber = vat.trim();
+        }
+
+        if (email) {
+            payload.emailAddress = email.toLowerCase().trim();
         }
 
         let contacts: Contact[] | undefined;

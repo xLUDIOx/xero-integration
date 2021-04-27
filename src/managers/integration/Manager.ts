@@ -177,6 +177,7 @@ export class Manager implements IManager {
 
     async exportExpense(expenseId: string): Promise<void> {
         const expense = await this.payhawkClient.getExpense(expenseId);
+
         const files = await this.payhawkClient.downloadFiles(expense);
 
         const organisation = await this.getOrganisation();
@@ -210,7 +211,7 @@ export class Manager implements IManager {
             return;
         }
 
-        const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
+        const contactId = await this.xeroEntities.getContactForRecipient({ name: NEW_DEPOSIT_CONTACT_NAME });
 
         const bankAccountIdMap = new Map<string, string>();
 
@@ -245,7 +246,7 @@ export class Manager implements IManager {
             const organisation = await this.getOrganisation();
             this.validateExportDate(organisation, transfer.date, logger);
 
-            const contactId = await this.xeroEntities.getContactIdForSupplier({ name: NEW_DEPOSIT_CONTACT_NAME });
+            const contactId = await this.xeroEntities.getContactForRecipient({ name: NEW_DEPOSIT_CONTACT_NAME });
             const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
             const bankAccountId = bankAccount.accountID;
 
@@ -502,7 +503,12 @@ export class Manager implements IManager {
             }
         }
 
-        const contactId = await this.xeroEntities.getContactIdForSupplier(expense.supplier);
+        let contactId: string;
+        if (expense.recipient) {
+            contactId = await this.xeroEntities.getContactForRecipient(expense.recipient);
+        } else {
+            contactId = await this.xeroEntities.getContactForRecipient({ name: expense.supplier.name, vat: expense.supplier.vat });
+        }
 
         const description = formatDescription(expense.ownerName, expense.note);
 

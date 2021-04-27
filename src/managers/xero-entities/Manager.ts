@@ -45,11 +45,11 @@ export class Manager implements IManager {
         return this.xeroClient.accounting.getTrackingCategories();
     }
 
-    async getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string> {
-        const contactName = supplier.name || DEFAULT_SUPPLIER_NAME;
-        let contact = await this.xeroClient.findContact(contactName, supplier.vat);
+    async getContactForRecipient(recipient: Pick<Payhawk.IRecipient, 'name' | 'vat' | 'email'>): Promise<string> {
+        const contactName = recipient.name || DEFAULT_SUPPLIER_NAME;
+        let contact = await this.xeroClient.findContact(contactName, recipient.vat, recipient.email);
         if (!contact) {
-            contact = await this.xeroClient.getOrCreateContact(contactName, supplier.name ? supplier.vat : undefined);
+            contact = await this.xeroClient.getOrCreateContact(contactName, recipient.name ? recipient.vat : undefined, recipient.email);
         }
 
         return contact.contactID!;

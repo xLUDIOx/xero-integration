@@ -12,7 +12,7 @@ export interface IManager {
     bankFeeds: IBankFeedsManager;
 
     getOrganisation(): Promise<IOrganisation>;
-    getContactIdForSupplier(supplier: Pick<Payhawk.ISupplier, 'name' | 'vat'>): Promise<string>;
+    getContactForRecipient(recipient: Pick<Payhawk.IRecipient, 'name' | 'vat' | 'email'>): Promise<string>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getTaxRates(): Promise<ITaxRate[]>;
     getTrackingCategories(): Promise<ITrackingCategory[]>;

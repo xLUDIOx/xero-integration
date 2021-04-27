@@ -141,85 +141,94 @@ describe('XeroEntities.Manager', () => {
         });
     });
 
-    describe('getContactIdForSupplier', () => {
+    describe('getContactForRecipient', () => {
+        test('gets contact id based on supplier name, VAT and email', async () => {
+            const contactId = 'contact-id';
+            const recipient: Payhawk.IRecipient = {
+                name: 'Supplier Inc',
+                vat: 'UK12331123',
+                email: 'email@test.com',
+            };
+
+            xeroClientMock
+                .setup(x => x.findContact(recipient.name, recipient.vat, recipient.email))
+                .returns(async () => ({ contactID: contactId }));
+
+            const result = await manager.getContactForRecipient(recipient);
+
+            expect(result).toEqual(contactId);
+        });
+
         test('gets contact id based on supplier name and VAT', async () => {
             const contactId = 'contact-id';
-            const supplier: Payhawk.ISupplier = {
+            const recipient: Payhawk.IRecipient = {
                 name: 'Supplier Inc',
-                address: 'London',
-                countryCode: 'UK',
                 vat: 'UK12331123',
             };
 
             xeroClientMock
-                .setup(x => x.findContact(supplier.name, supplier.vat))
+                .setup(x => x.findContact(recipient.name, recipient.vat, undefined))
                 .returns(async () => ({ contactID: contactId }));
 
-            const result = await manager.getContactIdForSupplier(supplier);
+            const result = await manager.getContactForRecipient(recipient);
 
             expect(result).toEqual(contactId);
         });
 
         test('creates new contact if not found', async () => {
             const contactId = 'contact-id';
-            const supplier: Payhawk.ISupplier = {
+            const recipient: Payhawk.IRecipient = {
                 name: 'Supplier Inc',
-                address: 'London',
-                countryCode: 'UK',
                 vat: 'UK12331123',
             };
 
             xeroClientMock
-                .setup(x => x.findContact(supplier.name, supplier.vat))
+                .setup(x => x.findContact(recipient.name, recipient.vat, undefined))
                 .returns(async () => undefined);
 
             xeroClientMock
-                .setup(x => x.getOrCreateContact(supplier.name, supplier.vat))
+                .setup(x => x.getOrCreateContact(recipient.name, recipient.vat, undefined))
                 .returns(async () => ({ contactID: contactId }))
                 .verifiable(TypeMoq.Times.once());
 
-            const result = await manager.getContactIdForSupplier(supplier);
+            const result = await manager.getContactForRecipient(recipient);
 
             expect(result).toEqual(contactId);
         });
 
         test('gets default contact id if there is no supplier name', async () => {
             const contactId = 'contact-id';
-            const supplier: Payhawk.ISupplier = {
+            const recipient: Payhawk.IRecipient = {
                 name: '',
-                address: 'London',
-                countryCode: 'UK',
                 vat: 'UK12331123',
             };
 
             xeroClientMock
-                .setup(x => x.findContact(DEFAULT_SUPPLIER_NAME, supplier.vat))
+                .setup(x => x.findContact(DEFAULT_SUPPLIER_NAME, recipient.vat, undefined))
                 .returns(async () => ({ contactID: contactId }));
 
-            const result = await manager.getContactIdForSupplier(supplier);
+            const result = await manager.getContactForRecipient(recipient);
 
             expect(result).toEqual(contactId);
         });
 
         test('creates default contact if not found', async () => {
             const contactId = 'contact-id';
-            const supplier: Payhawk.ISupplier = {
+            const recipient: Payhawk.IRecipient = {
                 name: '',
-                address: 'London',
-                countryCode: 'UK',
                 vat: 'UK12331123',
             };
 
             xeroClientMock
-                .setup(x => x.findContact(DEFAULT_SUPPLIER_NAME, supplier.vat))
+                .setup(x => x.findContact(DEFAULT_SUPPLIER_NAME, recipient.vat, undefined))
                 .returns(async () => undefined);
 
             xeroClientMock
-                .setup(x => x.getOrCreateContact(DEFAULT_SUPPLIER_NAME, undefined))
+                .setup(x => x.getOrCreateContact(DEFAULT_SUPPLIER_NAME, undefined, undefined))
                 .returns(async () => ({ contactID: contactId }))
                 .verifiable(TypeMoq.Times.once());
 
-            const result = await manager.getContactIdForSupplier(supplier);
+            const result = await manager.getContactForRecipient(recipient);
 
             expect(result).toEqual(contactId);
         });

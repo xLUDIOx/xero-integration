@@ -71,9 +71,10 @@ export const CurrencyKeys: KeyNameMap<Pick<Required<Currency>, 'code'>> = {
     code: 'code',
 };
 
-export const ContactKeys: KeyNameMap<Pick<Required<Contact>, 'name' | 'taxNumber'>> = {
+export const ContactKeys: KeyNameMap<Pick<Required<Contact>, 'name' | 'taxNumber' | 'emailAddress'>> = {
     name: 'name',
     taxNumber: 'taxNumber',
+    emailAddress: 'emailAddress',
 };
 
 export const AccountingItemKeys: KeyNameMap<Pick<Required<BankTransaction & Invoice>, 'url' | 'status'>> = {

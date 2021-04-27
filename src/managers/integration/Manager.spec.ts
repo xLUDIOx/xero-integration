@@ -229,6 +229,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    recipient: supplier,
                     paymentData: {},
                     title: txDescription,
                     transactions: [
@@ -286,7 +287,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
 
                 xeroEntitiesMock
-                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .setup(x => x.getContactForRecipient(supplier))
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
@@ -349,6 +350,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    recipient: supplier,
                     paymentData: {},
                     title: txDescription,
                     transactions: [
@@ -404,7 +406,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
 
                 xeroEntitiesMock
-                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .setup(x => x.getContactForRecipient(supplier))
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
@@ -460,6 +462,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    recipient: supplier,
                     paymentData: {},
                     title: 'My Cash Expense',
                     transactions: [],
@@ -478,7 +481,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => files);
 
                 xeroEntitiesMock
-                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .setup(x => x.getContactForRecipient(supplier))
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
@@ -533,6 +536,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    recipient: supplier,
                     document: { files: [] },
                     paymentData: {},
                     title: 'My Cash Expense',
@@ -551,7 +555,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => files);
 
                 xeroEntitiesMock
-                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .setup(x => x.getContactForRecipient(supplier))
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
@@ -602,6 +606,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation,
                     supplier,
+                    recipient: supplier,
                     paymentData: {
                         dueDate: new Date(2019, 2, 12).toISOString(),
                     },
@@ -621,7 +626,7 @@ describe('integrations/Manager', () => {
                     .returns(async () => files);
 
                 xeroEntitiesMock
-                    .setup(x => x.getContactIdForSupplier(supplier))
+                    .setup(x => x.getContactForRecipient(supplier))
                     .returns(async () => contactId);
 
                 xeroEntitiesMock
@@ -715,12 +720,12 @@ describe('integrations/Manager', () => {
             });
 
             xeroEntitiesMock
-                .setup(e => e.getContactIdForSupplier({ name: 'New Deposit' }))
+                .setup(e => e.getContactForRecipient({ name: 'New Deposit' }))
                 .returns(async () => contactId)
                 .verifiable(TypeMoq.Times.once());
 
             xeroEntitiesMock
-                .setup(e => e.getContactIdForSupplier(TypeMoq.It.isAny()))
+                .setup(e => e.getContactForRecipient(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
             transfers.forEach(t => {

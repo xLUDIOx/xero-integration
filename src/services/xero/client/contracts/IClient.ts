@@ -14,8 +14,8 @@ export interface IClient {
     accounting: IAccountingClient;
     bankFeeds: IBankFeedsClient;
 
-    findContact(name: string, vat?: string): Promise<Contact | undefined>;
-    getOrCreateContact(name: string, vat?: string): Promise<Contact>;
+    findContact(name: string, vat?: string, email?: string): Promise<Contact | undefined>;
+    getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact>;
 
     getBankAccounts(): Promise<IBankAccount[]>;
     getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined>;
