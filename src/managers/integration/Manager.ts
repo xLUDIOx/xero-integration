@@ -448,7 +448,7 @@ export class Manager implements IManager {
 
         const hasTransactions = expense.transactions.length > 0;
 
-        const expenseCurrency = getExpenseUserCurrency(expense);
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
@@ -469,6 +469,7 @@ export class Manager implements IManager {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
 
+            const expenseUserCurrency = transactionCurrencies[0];
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
             const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
@@ -476,7 +477,7 @@ export class Manager implements IManager {
                 this.logger.info('Not all transactions are settled, expense payments will not be exported and bill will use default expense account');
                 accountCode = undefined; // use default account code for unsettled transactions
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseUserCurrency);
 
                 for (const expenseTransaction of expense.transactions) {
                     paymentData.push({
@@ -795,7 +796,7 @@ export class Manager implements IManager {
             }
         }
 
-        const expenseCurrency = getExpenseUserCurrency(expense);
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
         const expenseAmount = expense.reconciliation.expenseTotalAmount;
 
         const date = getBillExportDate(expense);
@@ -849,7 +850,7 @@ export class Manager implements IManager {
                 continue;
             }
 
-            const currency = expenseCurrency;
+            const currency = isPaidWithBalancePayment ? expense.balancePayments[0].currency : expense.transactions[0].cardCurrency;
             const amount = payment.amount;
 
             const contactName = bill.contact.name!;
@@ -976,16 +977,6 @@ export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
 
 function getBillExportDate(expense: Payhawk.IExpense): string {
     return expense.document !== undefined && expense.document.date !== undefined ? expense.document.date : expense.createdAt;
-}
-
-function getExpenseUserCurrency(expense: Payhawk.IExpense): string | undefined {
-    if (expense.balancePayments.length > 0) {
-        return expense.balancePayments[0].currency;
-    } else if (expense.transactions.length > 0) {
-        return expense.transactions[0].cardCurrency;
-    } else {
-        return expense.reconciliation.expenseCurrency;
-    }
 }
 
 const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
