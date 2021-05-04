@@ -448,7 +448,7 @@ export class Manager implements IManager {
 
         const hasTransactions = expense.transactions.length > 0;
 
-        let expenseCurrency = expense.reconciliation.expenseCurrency;
+        const expenseCurrency = getExpenseUserCurrency(expense);
         if (!expenseCurrency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
@@ -468,8 +468,6 @@ export class Manager implements IManager {
             if (transactionCurrencies.length > 1) {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
-
-            expenseCurrency = transactionCurrencies[0];
 
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
@@ -797,7 +795,7 @@ export class Manager implements IManager {
             }
         }
 
-        const expenseCurrency = expense.reconciliation.expenseCurrency;
+        const expenseCurrency = getExpenseUserCurrency(expense);
         const expenseAmount = expense.reconciliation.expenseTotalAmount;
 
         const date = getBillExportDate(expense);
@@ -978,6 +976,16 @@ export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
 
 function getBillExportDate(expense: Payhawk.IExpense): string {
     return expense.document !== undefined && expense.document.date !== undefined ? expense.document.date : expense.createdAt;
+}
+
+function getExpenseUserCurrency(expense: Payhawk.IExpense): string | undefined {
+    if (expense.balancePayments.length > 0) {
+        return expense.balancePayments[0].currency;
+    } else if (expense.transactions.length > 0) {
+        return expense.transactions[0].cardCurrency;
+    } else {
+        return expense.reconciliation.expenseCurrency;
+    }
 }
 
 const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
