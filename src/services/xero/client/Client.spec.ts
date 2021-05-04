@@ -273,25 +273,7 @@ describe('Xero client', () => {
                         },
                         ],
                     })))
-                .throws(({
-                    response: {
-                        body: {
-                            Elements: [
-                                {
-                                    ValidationErrors: [
-                                        {
-                                            Message: 'Xero Error 1',
-                                        },
-                                        {
-                                            Message: 'Xero Error 2',
-                                        },
-                                    ],
-                                },
-                            ],
-                        },
-                    },
-                    body: {},
-                }) as any)
+                .throws(new Error('Xero Error 1'))
                 .verifiable(TypeMoq.Times.once());
 
             let error: Error | undefined;
@@ -305,8 +287,7 @@ describe('Xero client', () => {
                 fail('Request did not error');
             }
 
-            expect(error.message).toContain('Xero Error 1');
-            expect(error.message).toContain('Xero Error 2');
+            expect(error.message).toEqual('Error: Xero Error 1');
         });
     });
 
@@ -399,26 +380,7 @@ describe('Xero client', () => {
                         },
                         ],
                     })))
-                .throws(({
-                    body: {},
-                    response: {
-                        body: {
-                            Elements: [
-                                {
-                                    StatusAttributeString: ClientResponseStatus.Error,
-                                    ValidationErrors: [
-                                        {
-                                            Message: 'Xero Error 1',
-                                        },
-                                        {
-                                            Message: 'Xero Error 2',
-                                        },
-                                    ],
-                                },
-                            ],
-                        },
-                    },
-                }) as any)
+                .throws(new Error('Xero Error 1'))
                 .verifiable(TypeMoq.Times.once());
 
             let error: Error | undefined;
@@ -432,8 +394,7 @@ describe('Xero client', () => {
                 fail('Request did not error');
             }
 
-            expect(error.message).toContain('Xero Error 1');
-            expect(error.message).toContain('Xero Error 2');
+            expect(error.message).toEqual('Error: Xero Error 1');
         });
     });
 

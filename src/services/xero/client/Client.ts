@@ -74,7 +74,7 @@ export class Client implements IClient {
             );
         }
 
-        return contacts[0];
+        return contacts && contacts.length > 0 ? contacts[0] : undefined;
     }
 
     async getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact> {
@@ -125,7 +125,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Accounts,
         );
 
-        return result;
+        return result ?? [];
     }
 
     async getBankAccountById(bankAccountId: string): Promise<IBankAccount | undefined> {
@@ -168,7 +168,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Accounts,
         );
 
-        const bankAccount = bankAccounts[0];
+        const bankAccount = bankAccounts && bankAccounts.length > 0 ? bankAccounts[0] : undefined;
         if (!bankAccount) {
             throw Error(`Could not create ${currencyCode} bank account`);
         }
@@ -186,7 +186,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Accounts,
         );
 
-        const account = accounts.find(a => a.code === code || a.name.toLowerCase() === name?.toLowerCase());
+        const account = accounts ? accounts.find(a => a.code === code || a.name.toLowerCase() === name?.toLowerCase()) : undefined;
         return account;
     }
 
@@ -223,7 +223,7 @@ export class Client implements IClient {
             XeroEntityResponseType.BankTransactions
         );
 
-        const bankTransaction = bankTransactions[0];
+        const bankTransaction = bankTransactions && bankTransactions.length > 0 ? bankTransactions[0] : undefined;
         if (!bankTransaction || !bankTransaction.bankTransactionID) {
             throw Error('Failed to create bank transaction');
         }
@@ -253,7 +253,7 @@ export class Client implements IClient {
 
         let logger = this.logger.child({ url });
         const errorMessage = 'No updated transaction after update';
-        if (!bankTransactions.length) {
+        if (!bankTransactions || !bankTransactions.length) {
             logger.error(Error(errorMessage));
             return;
         }
@@ -337,7 +337,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Invoices
         );
 
-        const invoice = invoices[0];
+        const invoice = invoices && invoices.length > 0 ? invoices[0] : undefined;
         if (!invoice || !invoice.invoiceID) {
             throw Error('Failed to create invoice');
         }
@@ -367,7 +367,7 @@ export class Client implements IClient {
 
         let logger = this.logger.child({ url: data.url });
         const errorMessage = 'No updated bill after update';
-        if (!invoices.length) {
+        if (!invoices || !invoices.length) {
             logger.error(Error(errorMessage));
             return;
         }
@@ -424,7 +424,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Attachments,
         );
 
-        return attachments;
+        return attachments ?? [];
     }
 
     async uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string) {
@@ -454,7 +454,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Attachments,
         );
 
-        return attachmentsResponse;
+        return attachmentsResponse ?? [];
     }
 
     async payBill(data: IBillPaymentData): Promise<void> {
@@ -468,7 +468,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Payments,
         );
 
-        const payment = payments[0];
+        const payment = payments && payments.length > 0 ? payments[0] : undefined;
         if (!payment) {
             throw Error('Failed to create payment');
         }
@@ -483,7 +483,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Payments,
         );
 
-        const payment = payments[0];
+        const payment = payments && payments.length > 0 ? payments[0] : undefined;
         return payment as IPayment;
     }
 
@@ -496,7 +496,7 @@ export class Client implements IClient {
             XeroEntityResponseType.Currencies,
         );
 
-        if (!currencies.length) {
+        if (!currencies || !currencies.length) {
             const createdCurrencies = await this.xeroClient.makeClientRequest<Currency[]>(
                 x => x.accountingApi.createCurrency(
                     this.tenantId,
