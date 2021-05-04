@@ -448,7 +448,7 @@ export class Manager implements IManager {
 
         const hasTransactions = expense.transactions.length > 0;
 
-        const expenseCurrency = expense.reconciliation.expenseCurrency;
+        let expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
@@ -469,7 +469,7 @@ export class Manager implements IManager {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
 
-            const expenseUserCurrency = transactionCurrencies[0];
+            expenseCurrency = transactionCurrencies[0];
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
             const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
@@ -477,7 +477,7 @@ export class Manager implements IManager {
                 this.logger.info('Not all transactions are settled, expense payments will not be exported and bill will use default expense account');
                 accountCode = undefined; // use default account code for unsettled transactions
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseUserCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
 
                 for (const expenseTransaction of expense.transactions) {
                     paymentData.push({
