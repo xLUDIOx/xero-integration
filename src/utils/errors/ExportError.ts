@@ -1,5 +1,5 @@
 export class ExportError extends Error {
-    constructor(message: string) {
+    constructor(readonly message: string, readonly innerError?: Error) {
         super(message);
     }
 }

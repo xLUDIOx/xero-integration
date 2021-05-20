@@ -31,9 +31,7 @@ export class IntegrationsController {
             logger.info('New API key received');
 
             await connectionManager.setPayhawkApiKey(payloadData.apiKey);
-            res.send(204);
-
-            return;
+            return res.send(204);
         }
 
         const xeroAccessToken = await connectionManager.getAccessToken();
@@ -59,8 +57,7 @@ export class IntegrationsController {
 
             logger.info('Disconnect processed');
 
-            res.send(204);
-            return;
+            return res.send(204);
         }
 
         if (!xeroAccessToken) {
@@ -76,76 +73,72 @@ export class IntegrationsController {
                     logger,
                 );
 
-                res.send(200, result);
-                return;
+                return res.send(200, result);
             }
             case PayhawkEvent.ExpenseExport: {
-                try {
-                    await this.exportExpense(
+                return await this.wrapInErrorHandler(
+                    () => this.exportExpense(
                         payloadData,
                         connectionManager,
                         accountId,
                         xeroAccessToken,
                         logger,
-                    );
-                } catch (err) {
-                    if (err instanceof ExportError) {
-                        res.send(400, err.message);
-                        return;
-                    } else {
-                        throw err;
-                    }
-                }
-                break;
+                    ),
+                    res,
+                    logger,
+                );
             }
             case PayhawkEvent.ExpenseDelete: {
-                await this.deleteExpense(
-                    payloadData,
-                    connectionManager,
-                    accountId,
-                    xeroAccessToken,
-                    logger,
-                );
-                break;
-            }
-            case PayhawkEvent.TransferExport: {
-                await this.exportSingleTransfer(
-                    payloadData,
-                    connectionManager,
-                    accountId,
-                    xeroAccessToken,
-                    logger,
-                );
-                break;
-            }
-            case PayhawkEvent.TransfersExport: {
-                await this.exportTransfers(
-                    payloadData,
-                    connectionManager,
-                    accountId,
-                    xeroAccessToken,
-                    logger,
-                );
-                break;
-            }
-            case PayhawkEvent.BankStatementExport: {
-                try {
-                    await this.exportBankStatement(
+                return await this.wrapInErrorHandler(
+                    () => this.deleteExpense(
                         payloadData,
                         connectionManager,
                         accountId,
                         xeroAccessToken,
                         logger,
-                    );
-                } catch (err) {
-                    if (err instanceof ExportError) {
-                        res.send(400, err.message);
-                        return;
-                    } else {
-                        throw err;
-                    }
-                }
-                break;
+                    ),
+                    res,
+                    logger,
+                );
+            }
+            case PayhawkEvent.TransferExport: {
+                return await this.wrapInErrorHandler(
+                    () => this.exportSingleTransfer(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    ),
+                    res,
+                    logger,
+                );
+            }
+            case PayhawkEvent.TransfersExport: {
+                return await this.wrapInErrorHandler(
+                    () => this.exportTransfers(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    ),
+                    res,
+                    logger,
+                );
+            }
+            case PayhawkEvent.BankStatementExport: {
+                return await this.wrapInErrorHandler(
+                    () => this.exportBankStatement(
+                        payloadData,
+                        connectionManager,
+                        accountId,
+                        xeroAccessToken,
+                        logger,
+                    ),
+                    res,
+                    logger,
+                );
             }
             case PayhawkEvent.ChartOfAccountSynchronize: {
                 await this.syncChartOfAccounts(connectionManager, xeroAccessToken, accountId, logger);
@@ -164,8 +157,7 @@ export class IntegrationsController {
                 break;
             }
             default:
-                res.send(400, 'Unknown event');
-                return;
+                return res.send(400, 'Unknown event');
         }
 
         res.send(204);
@@ -334,5 +326,24 @@ export class IntegrationsController {
         );
 
         return integrationManager;
+    }
+
+    private async wrapInErrorHandler(asyncAction: () => Promise<void>, res: Response, logger: ILogger) {
+        try {
+            await asyncAction();
+            return res.send(204);
+        } catch (err) {
+            if (err instanceof ExportError) {
+                logger.child({
+                    errorMessage: err.message,
+                    innerError: {
+                        message: err.innerError?.message,
+                    },
+                }).warn`Export failed`;
+                return res.send(400, err.message);
+            } else {
+                throw err;
+            }
+        }
     }
 }

@@ -230,7 +230,7 @@ export class Manager implements IManager {
 
                 await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
             } catch (err) {
-                transferLogger.error(err);
+                this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
             }
         }
     }
@@ -909,10 +909,7 @@ export class Manager implements IManager {
             throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         }
 
-        // unhandled, we need to log it
-        this.logger.error(err);
-
-        throw new ExportError(genericErrorMessage);
+        throw new ExportError(genericErrorMessage, err);
     }
 
     private handleExportErrorCommon(err: Error) {
@@ -932,9 +929,7 @@ export class Manager implements IManager {
     private handleExpenseDeleteError(err: Error) {
         this.handleExportErrorCommon(err);
 
-        this.logger.error(err);
-
-        throw new ExportError('Failed to delete expense from Xero');
+        throw new ExportError('Failed to delete expense from Xero', err);
     }
 
     private buildExpenseUrl(expenseId: string, date?: Date): string {
