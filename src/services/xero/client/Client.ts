@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
 import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, RequiredNonNullBy } from '@shared';
-import { IDocumentSanitizer, ILogger, sum } from '@utils';
+import { IDocumentSanitizer, ILogger, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -633,7 +633,7 @@ function ensureTrackingCategoriesAreApplied(sentLineItems: LineItem[] = [], retu
 
         if (sentLineItem.tracking && sentLineItem.tracking.length) {
             if (sentLineItem.tracking.length !== returnedLineItem.tracking?.length ?? 0) {
-                logger.error(Error(`Tracking categories mismatch after update`), { trackingCategoriesSend: sentLineItem.tracking, trackingCategoriesReturned: returnedLineItem.tracking ?? [] });
+                logger.info({ trackingCategoriesSend: sentLineItem.tracking, trackingCategoriesReturned: returnedLineItem.tracking ?? [] }, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE);
                 break;
             }
         }

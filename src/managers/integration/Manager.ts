@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -907,6 +907,8 @@ export class Manager implements IManager {
             throw new ExportError(`The default account code 'Payhawk General' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         } else if (errorMessage === DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
             throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
+        } else if (errorMessage === TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE) {
+            throw new ExportError('A tracking category was not found in Xero. Please sync your tracking categories and update your expense.');
         }
 
         throw new ExportError(genericErrorMessage, err);
