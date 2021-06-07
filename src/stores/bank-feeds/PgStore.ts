@@ -1,6 +1,6 @@
 import { BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, IBankFeedConnectionRecord, IBankFeedStatementRecord, IDbClient, SCHEMA } from '@shared';
 
-import { IStatementFilter, IStore } from './IStore';
+import { IStatementExistsFilter, IStatementFilter, IStore } from './IStore';
 
 export class PgStore implements IStore {
     private readonly connectionsTableName: string = SCHEMA.TABLE_NAMES.BANK_FEED_CONNECTIONS;
@@ -110,6 +110,26 @@ export class PgStore implements IStore {
 
         const statementId = result.rows.length === 0 ? undefined : result.rows[0].bank_statement_id;
         return statementId;
+    }
+
+    async existsStatement({ account_id, payhawk_entity_id, payhawk_entity_type }: IStatementExistsFilter): Promise<boolean> {
+        const result = await this.dbClient.query<{ exists: boolean }>({
+            text: `
+            SELECT EXISTS (
+                SELECT 1
+                FROM ${this.statementsTableName}
+                WHERE "${BankFeedStatementRecordKeys.account_id}"=$1 AND
+                    "${BankFeedStatementRecordKeys.payhawk_entity_id}"=$2 AND
+                    "${BankFeedStatementRecordKeys.payhawk_entity_type}"=$3
+            )`,
+            values: [
+                account_id,
+                payhawk_entity_id,
+                payhawk_entity_type,
+            ],
+        });
+
+        return result.rows[0].exists;
     }
 
     async deleteStatementByEntityId({ bank_statement_id, account_id, xero_entity_id, payhawk_entity_id, payhawk_entity_type }: Required<IStatementFilter>): Promise<void> {

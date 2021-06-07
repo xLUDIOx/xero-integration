@@ -103,7 +103,8 @@ export class XeroHttpClient implements IXeroHttpClient {
                         const validationErrors = errorBody.Elements.flatMap(e => e.ValidationErrors ?? []);
                         if (validationErrors.length > 0) {
                             logger.child({ errors: validationErrors }).info('Validation errors occurred.');
-                            throw new ExportError(validationErrors[0].message ?? (validationErrors[0] as { Message: string }).Message); // contract is wrong, it's with capital M
+                            const validationError = validationErrors[0].message ?? (validationErrors[0] as { Message: string }).Message;
+                            throw new ExportError(`Export into Xero failed. ${validationError}`); // contract is wrong, it's with capital M
                         }
                     }
 

@@ -177,6 +177,10 @@ export class Manager implements IManager {
 
     async exportExpense(expenseId: string): Promise<void> {
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (expense.isLocked) {
+            this.logger.info('Expense is locked, will not be exported');
+            return;
+        }
 
         const files = await this.payhawkClient.downloadFiles(expense);
 
@@ -265,6 +269,11 @@ export class Manager implements IManager {
         const logger = this.logger.child({ accountId: this.accountId, expenseId });
 
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (expense.isLocked) {
+            logger.info('Expense is locked, bank statement will not be exported');
+            return;
+        }
+
         const organisation = await this.getOrganisation();
 
         try {
@@ -473,8 +482,8 @@ export class Manager implements IManager {
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
             const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
-            if (!areAllTransactionsSettled) {
-                this.logger.info('Not all transactions are settled, expense payments will not be exported and bill will use default expense account');
+            if (!areAllTransactionsSettled || !expense.isReadyForReconciliation) {
+                this.logger.info('Not all transactions are settled or expense is not ready to be reconciled, expense payments will not be exported and bill will use default expense account');
                 accountCode = undefined; // use default account code for unsettled transactions
             } else {
                 const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
@@ -796,29 +805,14 @@ export class Manager implements IManager {
             }
         }
 
-        const expenseCurrency = expense.reconciliation.expenseCurrency;
-        const expenseAmount = expense.reconciliation.expenseTotalAmount;
-
         const date = getBillExportDate(expense);
-        this.validateExportDate(organisation, date, baseLogger);
-
         const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
 
         const logger = baseLogger.child({
-            currency: expenseCurrency,
-            totalAmount: expenseAmount,
             billUrl,
         });
 
-        if (!expenseCurrency) {
-            logger.info('Expense has no currency, bank statement for bill will not be exported');
-            return;
-        }
-
-        if (expenseAmount === 0) {
-            logger.info('Expense amount is 0, bank statement for bill will not be exported');
-            return;
-        }
+        this.validateExportDate(organisation, date, logger);
 
         const bill = await this.xeroEntities.getBillByUrl(billUrl);
         if (!bill) {
@@ -826,65 +820,103 @@ export class Manager implements IManager {
             return;
         }
 
-        if (bill.status !== Xero.InvoiceStatus.PAID) {
-            logger.info('Bill must have status PAID, bank statement will not be exported');
+        // backwards compatibility for no statement duplication
+        const statementExists = await this.store.bankFeeds.existsStatement({
+            account_id: this.accountId,
+            payhawk_entity_id: expense.id,
+            payhawk_entity_type: EntityType.Expense,
+        });
+
+        if (statementExists) {
+            logger.info('Bank statement for this expense is already exported');
             return;
         }
 
-        // should never hit this case, because if bill has status PAID then it MUST have payments associated with it
-        if (!bill.payments || bill.payments.length === 0) {
-            logger.error(Error('Bill does not have any payments associated with it, bank statement will not be exported'));
-            return;
+        const currency = hasTransactions ? expense.transactions[0].cardCurrency : expense.balancePayments[0].currency;
+        const contactName = bill.contact.name!;
+
+        const description = `Payment to ${contactName}: ${bill.reference}`;
+
+        let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
+
+        const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
+
+        if (!feedConnectionId) {
+            feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
+            await this.store.bankFeeds.createConnection(
+                {
+                    account_id: this.accountId,
+                    bank_connection_id: feedConnectionId,
+                    currency: bankAccount.currencyCode.toString(),
+                },
+            );
         }
 
-        for (const payment of bill.payments) {
-            const statementId = await this.store.bankFeeds.getStatementByEntityId({
-                account_id: this.accountId,
-                xero_entity_id: payment.paymentID,
-                payhawk_entity_id: expense.id,
-                payhawk_entity_type: EntityType.Expense,
-            });
+        if (hasTransactions) {
+            for (const transaction of expense.transactions) {
+                const statementTransactionId = `transaction-${transaction.id}`;
+                const statementId = await this.store.bankFeeds.getStatementByEntityId({
+                    account_id: this.accountId,
+                    xero_entity_id: statementTransactionId,
+                    payhawk_entity_id: transaction.id,
+                    payhawk_entity_type: EntityType.Transaction,
+                });
 
-            if (statementId) {
-                logger.info('Bank statement for this expense payment is already exported');
-                continue;
-            }
+                if (statementId) {
+                    logger.info('Bank statement for this expense transaction is already exported');
+                    continue;
+                }
 
-            const currency = isPaidWithBalancePayment ? expense.balancePayments[0].currency : expense.transactions[0].cardCurrency;
-            const amount = payment.amount;
+                const amount = transaction.cardAmount;
+                const paymentDate = transaction.date;
 
-            const contactName = bill.contact.name!;
-
-            const paymentDate = payment.date;
-            const description = `Payment to ${contactName}: ${bill.reference}`;
-
-            let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
-
-            const bankAccount = await this.tryGetBankFeedAccount(currency, feedConnectionId, logger);
-
-            if (!feedConnectionId) {
-                feedConnectionId = await this.tryGetBankFeedConnection(bankAccount);
-                await this.store.bankFeeds.createConnection(
-                    {
-                        account_id: this.accountId,
-                        bank_connection_id: feedConnectionId,
-                        currency: bankAccount.currencyCode.toString(),
-                    },
+                await this.tryCreateBankStatement(
+                    feedConnectionId,
+                    statementTransactionId,
+                    bankAccount,
+                    paymentDate,
+                    amount,
+                    transaction.id,
+                    EntityType.Transaction,
+                    contactName,
+                    description,
+                    logger,
                 );
             }
+        } else if (isPaidWithBalancePayment) {
+            for (const balancePayment of expense.balancePayments) {
+                const statementTransactionId = `balance-payment-${balancePayment.id}`;
+                const statementId = await this.store.bankFeeds.getStatementByEntityId({
+                    account_id: this.accountId,
+                    xero_entity_id: statementTransactionId,
+                    payhawk_entity_id: balancePayment.id,
+                    payhawk_entity_type: EntityType.BalancePayment,
+                });
 
-            await this.tryCreateBankStatement(
-                feedConnectionId,
-                payment.paymentID,
-                bankAccount,
-                paymentDate,
-                amount,
-                expense.id,
-                EntityType.Expense,
-                contactName!,
-                description,
-                logger,
-            );
+                if (statementId) {
+                    logger.info('Bank statement for this expense balance payment is already exported');
+                    continue;
+                }
+
+                const amount = balancePayment.amount;
+                const paymentDate = balancePayment.date;
+
+                await this.tryCreateBankStatement(
+                    feedConnectionId,
+                    statementTransactionId,
+                    bankAccount,
+                    paymentDate,
+                    amount,
+                    balancePayment.id,
+                    EntityType.BalancePayment,
+                    contactName,
+                    description,
+                    logger,
+                );
+            }
+        } else {
+            logger.info('Expense is not paid with card or via bank transfer, bank statement will not be exported');
+            return;
         }
     }
 

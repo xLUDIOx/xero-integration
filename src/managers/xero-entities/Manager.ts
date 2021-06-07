@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -216,9 +216,10 @@ export class Manager implements IManager {
                 return bill.invoiceID;
             }
 
-            if (bill.status === Xero.InvoiceStatus.PAID) {
-                this.logger.warn('Bill is already paid. It cannot be updated.');
-                return bill.invoiceID;
+            if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
+                for (const payment of bill.payments) {
+                    await this.deleteBillPayment(payment.paymentID);
+                }
             }
 
             try {
@@ -377,7 +378,7 @@ export class Manager implements IManager {
     }
 
     private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData, defaultAccountCode: string, logger: ILogger): Promise<TData> {
-        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
+        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
             logger.info(`Bank transaction create failed, falling back to default account code ${defaultAccountCode}`);
             data.accountCode = defaultAccountCode;
         } else {

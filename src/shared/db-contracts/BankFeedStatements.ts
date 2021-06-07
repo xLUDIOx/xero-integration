@@ -10,6 +10,7 @@ export interface IBankFeedStatementRecord {
 
 export enum EntityType {
     Expense = 'expense',
+    BalancePayment = 'balance-payment',
     Transaction = 'transaction',
     Transfer = 'transfer'
 }

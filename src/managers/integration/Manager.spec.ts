@@ -232,6 +232,7 @@ describe('integrations/Manager', () => {
                     recipient: supplier,
                     paymentData: {},
                     title: txDescription,
+                    isReadyForReconciliation: true,
                     transactions: [
                         {
                             id: 'tx1',

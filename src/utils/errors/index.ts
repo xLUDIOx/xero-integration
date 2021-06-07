@@ -2,6 +2,7 @@ export * from './ExportError';
 export * from './ForbiddenError';
 export * from './TenantConflictError';
 
+export const TAX_TYPE_IS_MANDATORY_MESSAGE = 'The TaxType field is mandatory';
 export const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account must be valid/;
 export const ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' has been archived/;
 export const ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX = /.+ bank account is archived and cannot be used/;

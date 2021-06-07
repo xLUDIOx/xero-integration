@@ -584,48 +584,6 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateBill(newBill);
         });
 
-        test('does not update bill and does not upload any files if is it paid', async () => {
-            const newBill: INewBill = {
-                date: new Date(2012, 10, 10).toISOString(),
-                dueDate: new Date(2012, 10, 10).toISOString(),
-                currency: 'EUR',
-                contactId: 'contact-id',
-                description: 'expense note',
-                totalAmount: 12.05,
-                accountCode: '310',
-                taxType: 'TAX001',
-                files,
-                url: 'expense url',
-            };
-
-            const id = 'bId';
-
-            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID } as Xero.IInvoice;
-
-            xeroClientMock
-                .setup(x => x.getBillByUrl(newBill.url))
-                .returns(async () => existingBill)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createBill(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.updateBill(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            await manager.createOrUpdateBill(newBill);
-        });
-
         test('updates bill and pays it', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
@@ -666,6 +624,114 @@ describe('XeroEntities.Manager', () => {
                     TypeMoq.It.isAny(),
                 ))
                 .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.updateBill(typeIsEqualSkipUndefined({
+                    billId: id,
+                    date: newBill.date,
+                    dueDate: newBill.dueDate,
+                    isPaid: newBill.isPaid,
+                    contactId: newBill.contactId,
+                    description: newBill.description!,
+                    currency: newBill.currency,
+                    fxRate: newBill.fxRate,
+                    amount: newBill.totalAmount,
+                    accountCode: newBill.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
+                    bankFees: 0,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
+                    reference: DEFAULT_REFERENCE,
+                    taxType: newBill.taxType,
+                    url: newBill.url,
+                })))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.updateBill(
+                    TypeMoq.It.isAny(),
+                ))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(id))
+                .returns(async () => files.map(f => {
+                    const att = {
+                        fileName: f.name,
+                    };
+
+                    return att as Xero.IAttachment;
+                }))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            if (newBill.paymentData) {
+                for (const paymentInfo of newBill.paymentData) {
+                    const { amount, bankAccountId, date, currency } = paymentInfo;
+                    xeroClientMock
+                        .setup(x => x.payBill({
+                            billId: id,
+                            amount,
+                            fxRate: newBill.fxRate,
+                            bankAccountId,
+                            date,
+                            currency,
+                        }))
+                        .verifiable(TypeMoq.Times.once());
+                }
+            }
+
+            await manager.createOrUpdateBill(newBill);
+        });
+
+        test('updates bill and pays it, deletes payment if it is paid', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 12).toISOString(),
+                isPaid: true,
+                paymentData: [{
+                    amount: 12.05,
+                    bankAccountId: 'bank_id',
+                    date: new Date(2012, 10, 11).toISOString(),
+                    currency: 'EUR',
+                    bankFees: 0,
+                }],
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+            };
+
+            const id = 'bId';
+            const paymentId = 'payment-id';
+
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(newBill.url))
+                .returns(async () => existingBill)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
+                ))
+                .verifiable(TypeMoq.Times.never());
+
+            accountingClientMock
+                .setup(x => x.deletePayment(paymentId))
+                .verifiable(TypeMoq.Times.once());
 
             xeroClientMock
                 .setup(x => x.updateBill(typeIsEqualSkipUndefined({

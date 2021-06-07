@@ -7,6 +7,8 @@ export interface IExpense {
     note: string;
     ownerName: string;
     isPaid?: boolean;
+    isReadyForReconciliation?: boolean;
+    isLocked?: boolean;
     taxRate?: ITaxRate;
     category?: string;
     document?: IDocument;
