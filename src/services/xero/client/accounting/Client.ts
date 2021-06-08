@@ -1,6 +1,6 @@
 import { IEnvironment } from '@environment';
 import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
-import { ILogger, ObjectSerializer } from '@utils';
+import { ExportError, ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
 import { buildUrl } from '../../shared';
@@ -13,6 +13,7 @@ export class Client implements IClient {
         private readonly env: IEnvironment,
     ) {
     }
+
     async getTrackingCategories(): Promise<ITrackingCategory[]> {
         const url = buildUrl(
             this.baseUrl(),
@@ -150,7 +151,7 @@ export class Client implements IClient {
         const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
 
         if (expenseAccounts.length === 0) {
-            throw logger.error(Error('Failed to create expense account'));
+            throw new ExportError(`Could not create ${name} expense account`);
         }
 
         return expenseAccounts[0];

@@ -53,4 +53,5 @@ export enum BankStatementErrorType {
     InvalidEndDate = 'invalid-end-date',
     InvalidFeedConnection = 'invalid-feed-connection',
     InternalError = 'internal-error',
+    DuplicateStatement = 'duplicate-statement',
 }

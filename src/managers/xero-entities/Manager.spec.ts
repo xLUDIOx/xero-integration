@@ -9,6 +9,7 @@ import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
+import { INewCreditNote } from './INewCreditNote';
 import { DEFAULT_REFERENCE, Manager } from './Manager';
 
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
@@ -547,7 +548,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -634,7 +634,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -672,14 +671,14 @@ describe('XeroEntities.Manager', () => {
                 for (const paymentInfo of newBill.paymentData) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
-                        .setup(x => x.payBill({
-                            billId: id,
+                        .setup(x => x.createPayment(typeIsEqualSkipUndefined({
+                            itemId: id,
+                            itemType: Xero.PaymentItemType.Invoice,
                             amount,
-                            fxRate: newBill.fxRate,
                             bankAccountId,
                             date,
                             currency,
-                        }))
+                        })))
                         .verifiable(TypeMoq.Times.once());
                 }
             }
@@ -742,7 +741,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -780,14 +778,14 @@ describe('XeroEntities.Manager', () => {
                 for (const paymentInfo of newBill.paymentData) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
-                        .setup(x => x.payBill({
-                            billId: id,
+                        .setup(x => x.createPayment(typeIsEqualSkipUndefined({
+                            itemId: id,
+                            itemType: Xero.PaymentItemType.Invoice,
                             amount,
-                            fxRate: newBill.fxRate,
                             bankAccountId,
                             date,
                             currency,
-                        }))
+                        })))
                         .verifiable(TypeMoq.Times.once());
                 }
             }
@@ -836,7 +834,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -899,7 +896,6 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 10).toISOString(),
                 currency: 'EUR',
-                fxRate: 1,
                 contactId: 'contact-id',
                 description: 'expense note',
                 totalAmount: 12.05,
@@ -917,7 +913,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -982,7 +977,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -1018,14 +1012,14 @@ describe('XeroEntities.Manager', () => {
                 for (const paymentInfo of newBill.paymentData) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
-                        .setup(x => x.payBill({
-                            billId: newBillId,
+                        .setup(x => x.createPayment(typeIsEqualSkipUndefined({
+                            itemId: newBillId,
+                            itemType: Xero.PaymentItemType.Invoice,
                             amount,
-                            fxRate: newBill.fxRate,
                             bankAccountId,
                             date,
                             currency,
-                        }))
+                        })))
                         .verifiable(TypeMoq.Times.once());
                 }
             }
@@ -1040,7 +1034,6 @@ describe('XeroEntities.Manager', () => {
                 dueDate: new Date(2012, 10, 10).toISOString(),
                 isPaid: true,
                 currency: 'EUR',
-                fxRate: 1,
                 contactId: 'contact-id',
                 description: 'expense note',
                 totalAmount: 12.05,
@@ -1057,7 +1050,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: newBill.description!,
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: newBill.accountCode!,
                     fxFees: 0,
@@ -1090,7 +1082,7 @@ describe('XeroEntities.Manager', () => {
                 .verifiable(TypeMoq.Times.exactly(files.length));
 
             xeroClientMock
-                .setup(x => x.payBill(TypeMoq.It.isAny()))
+                .setup(x => x.createPayment(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.never());
 
             await manager.createOrUpdateBill(newBill);
@@ -1102,7 +1094,6 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 1, 1).toISOString(),
                 dueDate: new Date(2012, 1, 11).toISOString(),
                 currency: 'EUR',
-                fxRate: 1,
                 contactId: 'contact-id',
                 totalAmount: 12.05,
                 files,
@@ -1117,7 +1108,6 @@ describe('XeroEntities.Manager', () => {
                     contactId: newBill.contactId,
                     description: '(no note)',
                     currency: newBill.currency,
-                    fxRate: newBill.fxRate,
                     amount: newBill.totalAmount,
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     fxFees: 0,
@@ -1163,7 +1153,6 @@ describe('XeroEntities.Manager', () => {
                         date: new Date(2012, 1, 1).toISOString(),
                         dueDate: new Date(2012, 1, 1).toISOString(),
                         currency: 'EUR',
-                        fxRate: 1,
                         contactId: 'contact-id',
                         totalAmount: 12.05,
                         files,
@@ -1180,7 +1169,6 @@ describe('XeroEntities.Manager', () => {
                             description: '(no note)',
                             currency: newBill.currency,
                             amount: newBill.totalAmount,
-                            fxRate: newBill.fxRate,
                             accountCode: newBill.accountCode!,
                             fxFees: 0,
                             posFees: 0,
@@ -1250,7 +1238,6 @@ describe('XeroEntities.Manager', () => {
                             description: '(no note)',
                             currency: newBill.currency,
                             amount: newBill.totalAmount,
-                            fxRate: newBill.fxRate,
                             fxFees: 0,
                             posFees: 0,
                             bankFees: 0,
@@ -1280,6 +1267,79 @@ describe('XeroEntities.Manager', () => {
                     await manager.createOrUpdateBill(newBill);
                 });
             });
+        });
+    });
+
+    describe('credit notes', () => {
+        test('creates a credit note and pays it', async () => {
+            const newCreditNoteId = 'new-credit-note-id';
+            const newCreditNote: INewCreditNote = {
+                date: new Date(2012, 10, 10).toISOString(),
+                paymentData: [{
+                    amount: -10,
+                    bankAccountId: 'bank_id',
+                    date: new Date(2012, 10, 11).toISOString(),
+                    currency: 'EUR',
+                    fxFees: 1,
+                    posFees: 2,
+                }],
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: -10,
+                accountCode: '310',
+                files,
+                creditNoteNumber: 'INV-1',
+            };
+
+            xeroClientMock
+                .setup(x => x.getCreditNoteByNumber(newCreditNote.creditNoteNumber))
+                .returns(async () => undefined);
+
+            xeroClientMock
+                .setup(x => x.createCreditNote(typeIsEqualSkipUndefined({
+                    date: newCreditNote.date,
+                    contactId: newCreditNote.contactId,
+                    description: newCreditNote.description!,
+                    currency: newCreditNote.currency,
+                    amount: -7,
+                    accountCode: newCreditNote.accountCode!,
+                    fxFees: 0,
+                    posFees: 0,
+                    bankFees: 0,
+                    feesAccountCode: FEES_ACCOUNT_CODE,
+                    reference: newCreditNote.creditNoteNumber,
+                    creditNoteNumber: newCreditNote.creditNoteNumber,
+                    trackingCategories: newCreditNote.trackingCategories,
+                })))
+                .returns(async () => newCreditNoteId)
+                .verifiable(TypeMoq.Times.once());
+
+            for (const file of files) {
+                const fileName = file.name;
+                xeroClientMock
+                    .setup(x => x.uploadCreditNoteAttachment(newCreditNoteId, fileName, file.path, file.contentType))
+                    .returns(() => Promise.resolve())
+                    .verifiable(TypeMoq.Times.once());
+            }
+
+            if (newCreditNote.paymentData) {
+                for (const paymentInfo of newCreditNote.paymentData) {
+                    const { amount, posFees, fxFees, bankAccountId, date, currency } = paymentInfo;
+                    xeroClientMock
+                        .setup(x => x.createPayment(typeIsEqualSkipUndefined({
+                            itemId: newCreditNoteId,
+                            itemType: Xero.PaymentItemType.CreditNote,
+                            amount: Math.abs(amount + posFees! + fxFees!),
+                            bankAccountId,
+                            date,
+                            currency,
+                        })))
+                        .verifiable(TypeMoq.Times.once());
+                }
+            }
+
+            await manager.createOrUpdateCreditNote(newCreditNote);
         });
     });
 });

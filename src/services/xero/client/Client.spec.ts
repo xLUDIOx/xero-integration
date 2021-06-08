@@ -10,7 +10,7 @@ import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
 import { Client, escapeParam, getAccountingItemModel } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IBillPaymentData, ICreateBillData, ICreateTransactionData, InvoiceType, LineAmountType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, ICreateBillData, ICreateTransactionData, InvoiceType, IPaymentData, LineAmountType, PaymentItemType } from './contracts';
 
 const CURRENCY = 'GBP';
 
@@ -400,9 +400,10 @@ describe('Xero client', () => {
 
     describe('payments', () => {
         it('should create a payment if bill is not yet paid', async () => {
-            const paymentDetails: IBillPaymentData = {
+            const paymentDetails: IPaymentData = {
                 date: new Date().toISOString(),
-                billId: '1',
+                itemId: '1',
+                itemType: PaymentItemType.Invoice,
                 amount: 100,
                 currency: CURRENCY,
                 fxRate: 1,
@@ -415,7 +416,7 @@ describe('Xero client', () => {
                     {
                         date: paymentDetails.date,
                         invoice: {
-                            invoiceID: paymentDetails.billId,
+                            invoiceID: paymentDetails.itemId,
                         },
                         account: {
                             accountID: paymentDetails.bankAccountId,
@@ -438,7 +439,7 @@ describe('Xero client', () => {
                 }) as any)
                 .verifiable(TypeMoq.Times.once());
 
-            await client.payBill(paymentDetails);
+            await client.createPayment(paymentDetails);
         });
     });
 

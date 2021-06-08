@@ -8,6 +8,7 @@ import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
+import { INewCreditNote as INewCreditNoteEntity } from './INewCreditNote';
 import { IOrganisation } from './IOrganisation';
 
 export class Manager implements IManager {
@@ -88,6 +89,7 @@ export class Manager implements IManager {
                     err,
                     createData,
                     generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
                     logger,
                 );
 
@@ -114,6 +116,7 @@ export class Manager implements IManager {
                     err,
                     updateData,
                     generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
                     logger,
                 );
 
@@ -196,6 +199,7 @@ export class Manager implements IManager {
                     err,
                     billData,
                     generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
                     logger,
                 );
 
@@ -212,13 +216,13 @@ export class Manager implements IManager {
             };
 
             if (bill.status === Xero.InvoiceStatus.VOIDED || bill.status === Xero.InvoiceStatus.DELETED) {
-                this.logger.warn('Bill is deleted.');
+                this.logger.warn('Bill is deleted and cannot be updated');
                 return bill.invoiceID;
             }
 
             if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
                 for (const payment of bill.payments) {
-                    await this.deleteBillPayment(payment.paymentID);
+                    await this.deletePayment(payment.paymentID);
                 }
             }
 
@@ -229,6 +233,7 @@ export class Manager implements IManager {
                     err,
                     updateData,
                     generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
                     logger,
                 );
 
@@ -262,16 +267,17 @@ export class Manager implements IManager {
             for (const paymentInfo of newBill.paymentData) {
                 const { date, bankAccountId, amount, fxFees = 0, bankFees = 0, posFees = 0, currency } = paymentInfo;
 
-                const paymentData: Xero.IBillPaymentData = {
+                const paymentData: Xero.IPaymentData = {
                     date,
                     amount: sum(amount, fxFees, bankFees, posFees),
                     fxRate: billData.fxRate,
                     currency,
                     bankAccountId,
-                    billId,
+                    itemId: billId,
+                    itemType: Xero.PaymentItemType.Invoice,
                 };
 
-                await this.xeroClient.payBill(paymentData);
+                await this.xeroClient.createPayment(paymentData);
             }
         }
 
@@ -279,7 +285,7 @@ export class Manager implements IManager {
     }
 
     async getBillPayment(paymentId: string): Promise<Xero.IPayment | undefined> {
-        return this.xeroClient.getBillPayment(paymentId);
+        return this.xeroClient.getPayment(paymentId);
     }
 
     async deleteBill(billUrl: string) {
@@ -303,7 +309,7 @@ export class Manager implements IManager {
 
                 for (const billPayment of billPayments) {
                     const paymentId = billPayment.paymentID;
-                    await this.deleteBillPayment(paymentId);
+                    await this.deletePayment(paymentId);
                 }
             }
         }
@@ -313,7 +319,7 @@ export class Manager implements IManager {
         logger.info('Invoice deleted');
     }
 
-    async deleteBillPayment(paymentId: string) {
+    async deletePayment(paymentId: string) {
         const logger = this.logger.child({ paymentId });
 
         logger.info('Deleting bill payment');
@@ -321,6 +327,151 @@ export class Manager implements IManager {
         await this.xeroClient.accounting.deletePayment(paymentId);
 
         logger.info('Bill payment deleted');
+    }
+
+    async getCreditNoteByNumber(creditNoteNumber: string): Promise<Xero.ICreditNote | undefined> {
+        return await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
+    }
+
+    async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
+        const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.creditNoteNumber);
+
+        const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
+
+        const [generalExpenseAccount, feesExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
+
+        let creditNoteId: string;
+        let filesToUpload = newCreditNote.files;
+        let existingFileNames: string[] = [];
+
+        const creditNoteData = this.getCreditNoteData(
+            newCreditNote,
+            generalExpenseAccount,
+            feesExpenseAccount,
+        );
+
+        if (!creditNote) {
+            logger.info('Credit note will be created');
+
+            try {
+                creditNoteId = await this.xeroClient.createCreditNote(creditNoteData);
+            } catch (err) {
+                const createDataFallback = await this.tryFallbackItemData(
+                    err,
+                    creditNoteData,
+                    generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
+                    logger,
+                );
+
+                creditNoteId = await this.xeroClient.createCreditNote(createDataFallback);
+            }
+        } else {
+            logger.info('Credit note will be updated');
+
+            creditNoteId = creditNote.creditNoteID;
+
+            const updateData: Xero.ICreditNoteData = {
+                ...creditNoteData,
+            };
+
+            if (creditNote.status === Xero.CreditNoteStatus.VOIDED || creditNote.status === Xero.CreditNoteStatus.DELETED) {
+                this.logger.warn('Credit note is deleted and cannot be updated');
+                return creditNote.creditNoteID;
+            }
+
+            if (creditNote.status === Xero.CreditNoteStatus.PAID && creditNote.payments && creditNote.payments.length > 0) {
+                for (const payment of creditNote.payments) {
+                    await this.deletePayment(payment.paymentID);
+                }
+            }
+
+            try {
+                await this.xeroClient.updateCreditNote(updateData);
+            } catch (err) {
+                const updateDataFallback = await this.tryFallbackItemData(
+                    err,
+                    updateData,
+                    generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
+                    logger,
+                );
+
+                await this.xeroClient.updateCreditNote(updateDataFallback);
+            }
+
+            if (filesToUpload.length > 0) {
+                const existingFiles = await this.xeroClient.getCreditNoteAttachments(creditNoteId);
+                existingFileNames = existingFiles.map(f => f.fileName);
+
+                filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+            }
+        }
+
+        if (filesToUpload.length > 0) {
+            const totalAttachments = filesToUpload.length + existingFileNames.length;
+            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+                throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+            }
+
+            // Files should be uploaded in the right order so Promise.all is no good
+            for (const f of filesToUpload) {
+                const fileName = f.fileName;
+                await this.xeroClient.uploadCreditNoteAttachment(creditNoteId, fileName, f.path, f.contentType);
+            }
+        }
+
+        if (newCreditNote.paymentData !== undefined && newCreditNote.paymentData.length > 0) {
+            logger.info('Expense is paid and new payments will be created for this credit note');
+
+            for (const paymentInfo of newCreditNote.paymentData) {
+                const { date, bankAccountId, amount, fxFees = 0, bankFees = 0, posFees = 0, currency } = paymentInfo;
+
+                const paymentData: Xero.IPaymentData = {
+                    date,
+                    amount: Math.abs(sum(amount, fxFees, bankFees, posFees)),
+                    currency,
+                    bankAccountId,
+                    itemId: creditNoteId,
+                    itemType: Xero.PaymentItemType.CreditNote,
+                };
+
+                await this.xeroClient.createPayment(paymentData);
+            }
+        }
+
+        return creditNoteId;
+    }
+
+    async deleteCreditNote(creditNoteNumber: string) {
+        let logger = this.logger.child({ creditNoteNumber });
+
+        const creditNote = await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
+        if (!creditNote) {
+            logger.info('Credit note not found, nothing to delete');
+            return;
+        }
+
+        logger = logger.child({ creditNoteNumber, creditNoteStatus: creditNote.status });
+
+        if (creditNote.status === Xero.CreditNoteStatus.PAID) {
+            const creditNotePayments = creditNote.payments || [];
+            if (creditNotePayments.length > 0) {
+                const hasReconciledPayment = creditNotePayments.some(p => p.isReconciled);
+                if (hasReconciledPayment) {
+                    throw new ExportError('Failed to delete expense from Xero. Payments have been reconciled');
+                }
+
+                for (const creditNotePayment of creditNotePayments) {
+                    const paymentId = creditNotePayment.paymentID;
+                    await this.deletePayment(paymentId);
+                }
+            }
+        }
+
+        logger.info('Deleting credit note');
+        await this.xeroClient.deleteBill(creditNoteNumber);
+        logger.info('Credit note deleted');
     }
 
     async ensureDefaultExpenseAccountsExist(): Promise<IAccountCode[]> {
@@ -377,10 +528,12 @@ export class Manager implements IManager {
         return [generalExpenseAccount, feesExpenseAccount];
     }
 
-    private async tryFallbackItemData<TData extends Xero.IAccountingItemData>(error: Error, data: TData, defaultAccountCode: string, logger: ILogger): Promise<TData> {
-        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
+    private async tryFallbackItemData<TData extends Pick<Xero.IAccountingItemData, 'accountCode' | 'taxType'>>(error: Error, data: TData, defaultAccountCode: string, taxExemptCode: string, logger: ILogger): Promise<TData> {
+        if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             logger.info(`Bank transaction create failed, falling back to default account code ${defaultAccountCode}`);
             data.accountCode = defaultAccountCode;
+        } else if (error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
+            data.taxType = taxExemptCode;
         } else {
             throw error;
         }
@@ -433,7 +586,6 @@ export class Manager implements IManager {
         description,
         reference,
         currency,
-        fxRate,
         totalAmount,
         accountCode,
         taxType,
@@ -457,7 +609,6 @@ export class Manager implements IManager {
             description: description || DEFAULT_DESCRIPTION,
             reference: reference || DEFAULT_REFERENCE,
             currency,
-            fxRate,
             amount: totalAmount,
             fxFees,
             posFees,
@@ -469,7 +620,50 @@ export class Manager implements IManager {
             trackingCategories,
         };
     }
+
+    private getCreditNoteData({
+        date,
+        contactId,
+        description = DEFAULT_DESCRIPTION,
+        totalAmount,
+        currency,
+        paymentData = [],
+        creditNoteNumber,
+        accountCode,
+        taxType,
+        trackingCategories,
+    }: INewCreditNoteEntity,
+
+        defaultAccount: IAccountCode,
+        taxExemptAccount: IAccountCode,
+    ): Xero.ICreditNoteData {
+        const fxFees = sum(...paymentData.map(d => d.fxFees || 0));
+        const posFees = sum(...paymentData.map(d => d.posFees || 0));
+        const bankFees = sum(...paymentData.map(d => d.bankFees || 0));
+        const deductedAmount = sum(totalAmount, fxFees, posFees, bankFees);
+
+        return {
+            date,
+            contactId,
+            creditNoteNumber,
+            currency,
+            accountCode: accountCode || defaultAccount.code,
+            taxType,
+            description,
+            reference: creditNoteNumber,
+            amount: deductedAmount,
+            bankFees: 0,
+            fxFees: 0,
+            posFees: 0,
+            feesAccountCode: taxExemptAccount.code,
+            trackingCategories,
+        };
+    }
 }
+
+export const getExpenseNumber = (expenseId: string) => `expense-${expenseId}`;
+export const getTransferNumber = (transferId: string) => `transfer-${transferId}`;
+export const getTransactionNumber = (transactionId: string) => `transaction-${transactionId}`;
 
 export const getTransactionExternalUrl = (organisationShortCode: string, transactionId: string): string => {
     return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/Bank/ViewTransaction.aspx?bankTransactionID=${encodeURIComponent(transactionId)}`;
@@ -477,6 +671,10 @@ export const getTransactionExternalUrl = (organisationShortCode: string, transac
 
 export const getBillExternalUrl = (organisationShortCode: string, invoiceId: string): string => {
     return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=${encodeURIComponent(invoiceId)}`;
+};
+
+export const getCreditNoteExternalUrl = (organisationShortCode: string, creditNoteId: string): string => {
+    return `https://go.xero.com/organisationlogin/default.aspx?shortcode=${encodeURIComponent(organisationShortCode)}&redirecturl=/AccountsPayable/ViewCreditNote.aspx?creditNoteId=${encodeURIComponent(creditNoteId)}`;
 };
 
 export const DEFAULT_REFERENCE = '(no invoice number)';

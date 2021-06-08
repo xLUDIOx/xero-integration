@@ -2,21 +2,16 @@ import { Payhawk, Xero } from '@services';
 
 import { IPaymentData } from './IPaymentData';
 
-export interface INewBill {
-    date: string;
-    dueDate: string;
-    isPaid?: boolean;
+export interface INewCreditNote {
+    creditNoteNumber: string;
     contactId: string;
-    description?: string;
-    reference?: string;
     currency: string;
+    date: string,
     totalAmount: number;
+    description?: string;
     accountCode?: string;
     taxType?: string;
     files: Payhawk.IDownloadedFile[];
-    url: string;
-
-    paymentData?: IPaymentData[];
-
+    paymentData: IPaymentData[];
     trackingCategories?: Xero.ITrackingCategoryValue[];
 }

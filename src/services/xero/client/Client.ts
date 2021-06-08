@@ -1,8 +1,8 @@
 import { createReadStream } from 'fs';
 
-import { Account, AccountType, Attachment, BankTransaction, Contact, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
+import { Account, AccountType, Attachment, BankTransaction, Contact, CreditNote, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
-import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, RequiredNonNullBy } from '@shared';
+import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, PartialBy, RequiredNonNullBy } from '@shared';
 import { IDocumentSanitizer, ILogger, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
@@ -21,16 +21,19 @@ import {
     IAttachment,
     IBankAccount,
     IBankTransaction,
-    IBillPaymentData,
     IClient,
     ICreateBillData,
     ICreateTransactionData,
+    ICreditNote,
+    ICreditNoteData,
     IInvoice,
     InvoiceStatusCode,
     IPayment,
+    IPaymentData,
     ITrackingCategoryValue,
     IUpdateBillData,
     IUpdateTransactionData,
+    PaymentItemType,
 } from './contracts';
 
 export class Client implements IClient {
@@ -42,7 +45,6 @@ export class Client implements IClient {
         private readonly xeroClient: IXeroHttpClient,
         private readonly tenantId: string,
         private readonly documentSanitizer: IDocumentSanitizer,
-        // @ts-ignore
         private readonly logger: ILogger,
     ) {
     }
@@ -397,6 +399,128 @@ export class Client implements IClient {
         );
     }
 
+    async getCreditNoteByNumber(creditNoteNumber: string): Promise<ICreditNote | undefined> {
+        const creditNotes = await this.xeroClient.makeClientRequest<ICreditNote[] | undefined>(
+            x => x.accountingApi.getCreditNote(this.tenantId, creditNoteNumber),
+            XeroEntityResponseType.CreditNotes,
+        );
+
+        const creditNote = creditNotes ? creditNotes[0] : undefined;
+        if (!creditNote) {
+            return undefined;
+        }
+
+        if (!creditNote.creditNoteID) {
+            throw Error('Received a credit note without ID');
+        }
+
+        return creditNote;
+    }
+
+    async createCreditNote(data: ICreditNoteData): Promise<string> {
+        await this.ensureCurrency(data.currency);
+
+        const creditNoteModel = getNewCreditNoteModel(data);
+
+        const creditNotes = await this.xeroClient.makeClientRequest<ICreditNote[]>(
+            x => x.accountingApi.createCreditNotes(
+                this.tenantId,
+                { creditNotes: [creditNoteModel] },
+            ),
+            XeroEntityResponseType.CreditNotes
+        );
+
+        const creditNote = creditNotes ? creditNotes[0] : undefined;
+        if (!creditNote || !creditNote.creditNoteID) {
+            throw Error('Failed to create credit note');
+        }
+
+        const logger = this.logger.child({ creditNoteNumber: creditNote.creditNoteNumber });
+
+        ensureTrackingCategoriesAreApplied(
+            creditNote.lineItems,
+            creditNote.lineItems,
+            logger,
+        );
+
+        const billId = creditNote.creditNoteID;
+        return billId;
+    }
+
+    async updateCreditNote(data: ICreditNoteData): Promise<void> {
+        const creditNoteModel = getNewCreditNoteModel(data);
+
+        const creditNotes = await this.xeroClient.makeClientRequest<CreditNote[]>(
+            x => x.accountingApi.updateCreditNote(
+                this.tenantId,
+                data.creditNoteNumber,
+                { creditNotes: [creditNoteModel] },
+            ),
+            XeroEntityResponseType.CreditNotes
+        );
+
+        let logger = this.logger.child({ creditNoteNumber: data.creditNoteNumber });
+        const errorMessage = 'No updated credit note after update';
+        if (!creditNotes || !creditNotes.length) {
+            logger.error(Error(errorMessage));
+            return;
+        }
+
+        const creditNote = creditNotes[0];
+        logger = logger.child({ creditNoteNumber: creditNote.creditNoteNumber });
+        if (!creditNote || !creditNote.creditNoteID) {
+            logger.error(Error(errorMessage));
+            return;
+        }
+
+        ensureTrackingCategoriesAreApplied(
+            creditNoteModel.lineItems,
+            creditNote.lineItems,
+            logger,
+        );
+    }
+
+    async deleteCreditNote(creditNoteId: string): Promise<void> {
+        await this.xeroClient.makeClientRequest<Invoice[]>(
+            x => x.accountingApi.updateCreditNote(
+                this.tenantId,
+                creditNoteId,
+                { creditNotes: [{ status: CreditNote.StatusEnum.VOIDED }] },
+            ),
+            XeroEntityResponseType.CreditNotes
+        );
+    }
+
+    async uploadCreditNoteAttachment(creditNoteId: string, fileName: string, filePath: string, contentType: string) {
+        await this.documentSanitizer.sanitize(filePath);
+
+        const body = await getFileContents(filePath);
+
+        await this.xeroClient.makeRawRequest<Attachment[]>(
+            {
+                path: `/CreditNotes/${encodeURIComponent(creditNoteId)}/Attachments/${encodeURIComponent(fileName)}`,
+                method: 'PUT',
+                body,
+                contentType,
+            },
+            this.tenantId,
+            XeroEntityResponseType.Attachments,
+        );
+    }
+
+    async getCreditNoteAttachments(creditNoteId: string): Promise<IAttachment[]> {
+        const attachments = await this.xeroClient.makeRawRequest<IAttachment[]>(
+            {
+                method: 'GET',
+                path: `/CreditNotes/${encodeURIComponent(creditNoteId)}/Attachments`,
+            },
+            this.tenantId,
+            XeroEntityResponseType.Attachments,
+        );
+
+        return attachments ?? [];
+    }
+
     async uploadTransactionAttachment(transactionId: string, fileName: string, filePath: string, contentType: string) {
         await this.documentSanitizer.sanitize(filePath);
 
@@ -457,7 +581,7 @@ export class Client implements IClient {
         return attachmentsResponse ?? [];
     }
 
-    async payBill(data: IBillPaymentData): Promise<void> {
+    async createPayment(data: IPaymentData): Promise<void> {
         const paymentModel = getNewPaymentModel(data);
 
         const payments = await this.xeroClient.makeClientRequest<Payment[]>(
@@ -474,7 +598,7 @@ export class Client implements IClient {
         }
     }
 
-    async getBillPayment(paymentId: string): Promise<IPayment | undefined> {
+    async getPayment(paymentId: string): Promise<IPayment | undefined> {
         const payments = await this.xeroClient.makeClientRequest<Payment[]>(
             x => x.accountingApi.getPayment(
                 this.tenantId,
@@ -556,6 +680,21 @@ function getNewBillModel(data: ICreateBillData, id?: string): Invoice {
     return bill;
 }
 
+function getNewCreditNoteModel(data: ICreditNoteData): CreditNote {
+    const commonData = getAccountingItemModel(data);
+
+    const bill: CreditNote = {
+        ...commonData,
+        creditNoteNumber: data.creditNoteNumber,
+        type: CreditNote.TypeEnum.ACCPAYCREDIT,
+        currencyCode: data.currency as any,
+        status: Invoice.StatusEnum.AUTHORISED,
+        reference: data.reference,
+    };
+
+    return bill;
+}
+
 export function getAccountingItemModel({
     description,
     reference,
@@ -570,7 +709,7 @@ export function getAccountingItemModel({
     url,
     contactId,
     trackingCategories,
-}: IAccountingItemData &
+}: PartialBy<IAccountingItemData, 'url' | 'reference'> &
     Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>> &
     Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>
 ): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
@@ -644,18 +783,25 @@ function toTrackingCategory(trackingCategories?: ITrackingCategoryValue[]) {
     return trackingCategories?.map(m => ({ trackingCategoryID: m.categoryId, trackingOptionID: m.valueId }));
 }
 
-function getNewPaymentModel({ date, billId, bankAccountId, amount, fxRate }: IBillPaymentData): Payment {
+function getNewPaymentModel({ date, itemId, itemType, bankAccountId, amount, fxRate }: IPaymentData): Payment {
     const paymentModel: Payment = {
         date,
-        invoice: {
-            invoiceID: billId,
-        },
         account: {
             accountID: bankAccountId,
         },
         amount,
         currencyRate: fxRate,
     };
+
+    if (itemType === PaymentItemType.CreditNote) {
+        paymentModel.creditNote = {
+            creditNoteID: itemId,
+        };
+    } else if (itemType === PaymentItemType.Invoice) {
+        paymentModel.invoice = {
+            invoiceID: itemId,
+        };
+    }
 
     return paymentModel;
 }

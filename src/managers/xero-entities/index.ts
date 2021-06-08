@@ -3,12 +3,14 @@ import { ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
-import { getBillExternalUrl, getTransactionExternalUrl, Manager } from './Manager';
+import { getBillExternalUrl, getCreditNoteExternalUrl, getExpenseNumber, getTransactionExternalUrl, getTransactionNumber, Manager } from './Manager';
 
-export { IManager, getBillExternalUrl, getTransactionExternalUrl };
+export { IManager, getBillExternalUrl, getTransactionExternalUrl, getCreditNoteExternalUrl, getTransactionNumber, getExpenseNumber };
 export * from './IAccountCode';
 export * from './INewAccountTransaction';
 export * from './INewBill';
+export * from './INewCreditNote';
+export * from './IPaymentData';
 export * from './IOrganisation';
 
 export * as BankAccounts from './bank-accounts';

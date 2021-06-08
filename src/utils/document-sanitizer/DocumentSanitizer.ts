@@ -1,7 +1,7 @@
 import { exec } from 'child_process';
 import fs = require('fs');
 
-import Jimp = require('jimp');
+import * as sharp from 'sharp';
 
 import { IDocumentSanitizer } from './IDocumentSanitizer';
 
@@ -13,9 +13,19 @@ export class DocumentSanitizer implements IDocumentSanitizer {
     }
 
     private async shrinkImage(input: string, ratio: number) {
-        const image = await Jimp.read(input);
-        await image.scale(ratio);
-        await image.writeAsync(input);
+        const image = await sharp(input).metadata();
+        if (!image.width) {
+            return;
+        }
+
+        const scaledWidth = image.width * ratio;
+        const resizedImageBuffer = await sharp(input).resize({
+            width: scaledWidth,
+        }).toBuffer();
+
+        fs.writeFileSync(`${input}.tmp`, resizedImageBuffer);
+        fs.copyFileSync(`${input}.tmp`, input);
+        fs.unlinkSync(`${input}.tmp`);
     }
 
     private async shrinkPdf(input: string) {

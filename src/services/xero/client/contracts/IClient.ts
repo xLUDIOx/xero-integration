@@ -6,6 +6,7 @@ import { IClient as IBankFeedsClient } from '../bank-feeds';
 import { IAttachment } from './IAttachment';
 import { IBankAccount } from './IBankAccount';
 import { IBankTransaction } from './IBankTransaction';
+import { ICreditNote } from './ICreditNote';
 import { IInvoice } from './IInvoice';
 import { IPayment } from './IPayment';
 
@@ -34,10 +35,18 @@ export interface IClient {
     createBill(data: ICreateBillData): Promise<string>;
     updateBill(data: IUpdateBillData): Promise<void>;
     deleteBill(billId: string): Promise<void>;
-    payBill(data: IBillPaymentData): Promise<void>;
-    getBillPayment(paymentId: string): Promise<IPayment | undefined>;
     uploadBillAttachment(billId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
     getBillAttachments(billId: string): Promise<IAttachment[]>;
+
+    getCreditNoteByNumber(creditNoteNumber: string): Promise<ICreditNote | undefined>;
+    createCreditNote(data: ICreditNoteData): Promise<string>;
+    updateCreditNote(data: ICreditNoteData): Promise<void>;
+    deleteCreditNote(creditNoteId: string): Promise<void>;
+    uploadCreditNoteAttachment(creditNoteId: string, fileName: string, filePath: string, contentType: string): Promise<void>;
+    getCreditNoteAttachments(creditNoteId: string): Promise<IAttachment[]>;
+
+    getPayment(paymentId: string): Promise<IPayment | undefined>;
+    createPayment(data: IPaymentData): Promise<void>;
 }
 
 export interface IAccountingItemData {
@@ -68,12 +77,31 @@ export interface ICreateBillData extends IAccountingItemData {
     feesAccountCode: string;
 }
 
+export interface ICreditNoteData extends Omit<IAccountingItemData, 'url'> {
+    creditNoteNumber: string;
+    currency: string;
+    fxRate?: number;
+    fxFees: number;
+    posFees: number;
+    bankFees: number;
+    feesAccountCode: string;
+}
+
 export interface IUpdateBillData extends ICreateBillData {
     billId: string;
 }
 
-export interface IBillPaymentData extends Pick<IUpdateBillData, 'date' | 'amount' | 'billId' | 'currency' | 'fxRate'> {
+export interface IPaymentData extends Pick<IAccountingItemData, 'date' | 'amount'> {
+    currency: string;
+    fxRate?: number;
     bankAccountId: string;
+    itemId: string;
+    itemType: PaymentItemType;
+}
+
+export enum PaymentItemType {
+    Invoice,
+    CreditNote
 }
 
 export interface ICreateTransactionData extends IAccountingItemData {

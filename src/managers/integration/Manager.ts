@@ -178,7 +178,7 @@ export class Manager implements IManager {
     async exportExpense(expenseId: string): Promise<void> {
         const expense = await this.payhawkClient.getExpense(expenseId);
         if (expense.isLocked) {
-            this.logger.info('Expense is locked, will not be exported');
+            this.logger.info('Expense will not be exported because it is locked');
             return;
         }
 
@@ -187,7 +187,7 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
 
         try {
-            await this.exportExpenseAsBill(expense, files, organisation);
+            await this._exportExpense(expense, files, organisation);
         } catch (err) {
             this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
@@ -277,7 +277,7 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
 
         try {
-            await this.exportBankStatementForBill(expense, organisation, logger);
+            await this._exportBankStatementForExpense(expense, organisation, logger);
         } catch (err) {
             this.handleExportError(err, expense.category, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
@@ -448,29 +448,34 @@ export class Manager implements IManager {
         await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
     }
 
-    private async exportExpenseAsBill(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
-        const date = getBillExportDate(expense);
+    private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
+        const date = getExportDate(expense);
 
         this.validateExportDate(organisation, date, this.logger);
-
-        const paymentData: XeroEntities.IPaymentData[] = [];
-
-        const hasTransactions = expense.transactions.length > 0;
 
         let expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
 
-        let totalAmount = expense.reconciliation.expenseTotalAmount;
-        if (totalAmount === 0) {
-            throw new ExportError('Failed to export into Xero. Expense has no total amount.');
-        }
+        const hasTransactions = expense.transactions.length > 0;
+        const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
 
+        let totalAmount = expense.reconciliation.expenseTotalAmount;
         let accountCode = expense.reconciliation.accountCode;
 
-        const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
-        const bill = await this.xeroEntities.getBillByUrl(billUrl);
+        let contactId: string;
+        if (expense.recipient) {
+            contactId = await this.xeroEntities.getContactForRecipient(expense.recipient);
+        } else {
+            contactId = await this.xeroEntities.getContactForRecipient({ name: expense.supplier.name, vat: expense.supplier.vat });
+        }
+
+        let itemUrl: string;
+        const paymentData: XeroEntities.IPaymentData[] = [];
+        const description = formatDescription(expense.ownerName, expense.note);
+
+        const logger = this.logger.child({ expenseId: expense.id });
 
         if (hasTransactions) {
             const transactionCurrencies = Array.from(new Set(expense.transactions.map(tx => tx.cardCurrency)));
@@ -481,7 +486,7 @@ export class Manager implements IManager {
             expenseCurrency = transactionCurrencies[0];
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
-            const areAllTransactionsSettled = !expense.transactions.some(tx => tx.settlementDate === undefined);
+            const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
             if (!areAllTransactionsSettled || !expense.isReadyForReconciliation) {
                 this.logger.info('Not all transactions are settled or expense is not ready to be reconciled, expense payments will not be exported and bill will use default expense account');
                 accountCode = undefined; // use default account code for unsettled transactions
@@ -489,60 +494,78 @@ export class Manager implements IManager {
                 const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
 
                 for (const expenseTransaction of expense.transactions) {
+                    if (!expenseTransaction.settlementDate) {
+                        throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
+                    }
+
                     paymentData.push({
                         bankAccountId: bankAccount.accountID,
                         amount: expenseTransaction.cardAmount,
                         currency: expenseTransaction.cardCurrency,
-                        date: expenseTransaction.settlementDate!,
+                        date: expenseTransaction.settlementDate,
                         fxFees: expenseTransaction.fees.fx,
                         posFees: expenseTransaction.fees.pos,
                     });
                 }
             }
-        } else if (expense.isPaid) {
-            if (expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance &&
-                expense.paymentData.source &&
-                expense.balancePayments.length > 0
-            ) {
-                const balancePayment = await this.processBalancePayments(expense, bill);
-                if (balancePayment) {
-                    paymentData.push(balancePayment);
+        }
+
+        const trackingCategories = this.extractTrackingCategories(expense, logger);
+
+        if (isCredit) {
+            const newCreditNote: XeroEntities.INewCreditNote = {
+                paymentData,
+                totalAmount,
+                currency: expenseCurrency,
+                contactId,
+                description,
+                date,
+                accountCode,
+                taxType: expense.taxRate?.code,
+                creditNoteNumber: expense.document?.number || XeroEntities.getExpenseNumber(expense.id),
+                files,
+                trackingCategories,
+            };
+
+            const creditNoteId = await this.xeroEntities.createOrUpdateCreditNote(newCreditNote);
+            itemUrl = XeroEntities.getCreditNoteExternalUrl(organisation.shortCode, creditNoteId);
+        } else {
+            const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
+            if (expense.isPaid) {
+                if (expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance &&
+                    expense.paymentData.source &&
+                    expense.balancePayments.length > 0
+                ) {
+                    const bill = await this.xeroEntities.getBillByUrl(billUrl);
+                    const balancePayment = await this.processBalancePayments(expense, bill);
+                    if (balancePayment) {
+                        paymentData.push(balancePayment);
+                    }
                 }
             }
+
+            const newBill: XeroEntities.INewBill = {
+                paymentData,
+                date,
+                dueDate: expense.paymentData.dueDate || date,
+                isPaid: expense.isPaid,
+                contactId,
+                description,
+                reference: expense.document?.number,
+                currency: expenseCurrency,
+                totalAmount,
+                accountCode,
+                taxType: expense.taxRate ? expense.taxRate.code : undefined,
+                files,
+                url: billUrl,
+                trackingCategories,
+            };
+
+            const billId = await this.xeroEntities.createOrUpdateBill(newBill);
+            itemUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
         }
 
-        let contactId: string;
-        if (expense.recipient) {
-            contactId = await this.xeroEntities.getContactForRecipient(expense.recipient);
-        } else {
-            contactId = await this.xeroEntities.getContactForRecipient({ name: expense.supplier.name, vat: expense.supplier.vat });
-        }
-
-        const description = formatDescription(expense.ownerName, expense.note);
-
-        const logger = this.logger.child({ expenseId: expense.id });
-
-        const newBill: XeroEntities.INewBill = {
-            paymentData,
-            date,
-            dueDate: expense.paymentData.dueDate || date,
-            isPaid: expense.isPaid,
-            contactId,
-            description,
-            reference: expense.document?.number,
-            currency: expenseCurrency,
-            totalAmount,
-            accountCode,
-            taxType: expense.taxRate ? expense.taxRate.code : undefined,
-            files,
-            url: billUrl,
-            trackingCategories: this.extractTrackingCategories(expense, logger),
-        };
-
-        const billId = await this.xeroEntities.createOrUpdateBill(newBill);
-        const billExternalUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
-
-        await this.updateExpenseLinks(expense.id, [billExternalUrl]);
+        await this.updateExpenseLinks(expense.id, [itemUrl]);
     }
 
     private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined) {
@@ -608,7 +631,7 @@ export class Manager implements IManager {
 
             const newAccountTransaction: XeroEntities.INewAccountTransaction = {
                 date: billPayment.date,
-                bankAccountId: billPayment.account.accountID,
+                bankAccountId: billPayment.account!.accountID,
                 contactId: bill.contact.contactID!,
                 description: billPayment.reference,
                 reference: billPayment.reference,
@@ -630,7 +653,7 @@ export class Manager implements IManager {
             });
         }
 
-        await this.xeroEntities.deleteBillPayment(paymentId);
+        await this.xeroEntities.deletePayment(paymentId);
     }
 
     private validateExportDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
@@ -764,6 +787,9 @@ export class Manager implements IManager {
                         description,
                     );
                     break;
+                case BankStatementErrorType.DuplicateStatement:
+                    logger.info('The statement has already been exported');
+                    return;
                 case BankStatementErrorType.InvalidStartDate:
                     throw new ExportError('Failed to export bank statement into Xero. The expense date must be no earlier than 1 year from today\'s date.');
                 case BankStatementErrorType.InvalidEndDate:
@@ -784,8 +810,9 @@ export class Manager implements IManager {
         });
     }
 
-    private async exportBankStatementForBill(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
+    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
         const hasTransactions = expense.transactions.length > 0;
+        const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
         const isPaidWithBalancePayment = expense.isPaid && expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance;
         if (!hasTransactions && !isPaidWithBalancePayment) {
             this.logger.info(`Expense has no transactions and is not paid with balance payment, bank statement will not be exported`);
@@ -805,20 +832,54 @@ export class Manager implements IManager {
             }
         }
 
-        const date = getBillExportDate(expense);
-        const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
-
-        const logger = baseLogger.child({
-            billUrl,
-        });
-
-        this.validateExportDate(organisation, date, logger);
-
-        const bill = await this.xeroEntities.getBillByUrl(billUrl);
-        if (!bill) {
-            logger.error(Error('Bill not found, bank statement will not be exported'));
-            return;
+        const currency = hasTransactions ? expense.transactions[0].cardCurrency : isPaidWithBalancePayment ? expense.balancePayments[0].currency : expense.reconciliation.expenseCurrency;
+        if (!currency) {
+            throw new ExportError('Failed to export bank statement. Expense has no currency');
         }
+
+        let logger;
+        let contactName: string | undefined;
+        let reference;
+
+        const date = getExportDate(expense);
+        if (isCredit) {
+            if (!expense.document?.number) {
+                throw new ExportError('Failed to export bank statement. Expense has no document number');
+            }
+
+            logger = baseLogger.child({
+                creditNoteNumber: expense.document.number,
+            });
+
+            const creditNoteNumber = expense.document.number;
+            const creditNote = await this.xeroEntities.getCreditNoteByNumber(creditNoteNumber);
+            if (!creditNote) {
+                logger.info(Error('Credit note not found, bank statement will not be exported'));
+                return;
+            }
+
+            contactName = creditNote.contact?.name;
+            reference = creditNote.reference || creditNoteNumber;
+        } else {
+            const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
+
+            logger = baseLogger.child({
+                billUrl,
+            });
+
+            this.validateExportDate(organisation, date, logger);
+
+            const bill = await this.xeroEntities.getBillByUrl(billUrl);
+            if (!bill) {
+                logger.info(Error('Bill not found, bank statement will not be exported'));
+                return;
+            }
+
+            contactName = bill.contact.name;
+            reference = bill.reference;
+        }
+
+        contactName = contactName || expense.supplier.name;
 
         // backwards compatibility for no statement duplication
         const statementExists = await this.store.bankFeeds.existsStatement({
@@ -831,11 +892,6 @@ export class Manager implements IManager {
             logger.info('Bank statement for this expense is already exported');
             return;
         }
-
-        const currency = hasTransactions ? expense.transactions[0].cardCurrency : expense.balancePayments[0].currency;
-        const contactName = bill.contact.name!;
-
-        const description = `Payment to ${contactName}: ${bill.reference}`;
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
 
@@ -867,8 +923,9 @@ export class Manager implements IManager {
                     continue;
                 }
 
-                const amount = transaction.cardAmount;
+                const amount = sum(transaction.cardAmount, transaction.fees.fx, transaction.fees.pos);
                 const paymentDate = transaction.date;
+                const description = `${amount > 0 ? 'Payment to' : 'Refund from'} ${contactName}: ${reference}`;
 
                 await this.tryCreateBankStatement(
                     feedConnectionId,
@@ -898,8 +955,9 @@ export class Manager implements IManager {
                     continue;
                 }
 
-                const amount = balancePayment.amount;
+                const amount = sum(balancePayment.amount, balancePayment.fees);
                 const paymentDate = balancePayment.date;
+                const description = `Payment to ${contactName}: ${reference}`;
 
                 await this.tryCreateBankStatement(
                     feedConnectionId,
@@ -1004,7 +1062,7 @@ export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
     );
 }
 
-function getBillExportDate(expense: Payhawk.IExpense): string {
+function getExportDate(expense: Payhawk.IExpense): string {
     return expense.document !== undefined && expense.document.date !== undefined ? expense.document.date : expense.createdAt;
 }
 

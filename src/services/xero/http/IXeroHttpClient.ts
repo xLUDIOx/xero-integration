@@ -62,6 +62,7 @@ export enum XeroEntityResponseType {
     BankTransactions = 'BankTransactions',
     Contacts = 'Contacts',
     Currencies = 'Currencies',
+    CreditNotes = 'CreditNotes',
     FeedConnections = 'FeedConnections',
     Invoices = 'Invoices',
     Organisations = 'Organisations',
