@@ -52,6 +52,8 @@
         "package.json",
         "package-lock.json",
         "test.sh",
-        "wait-for.sh"
+        "wait-for.sh",
+        "Dockerfile",
+        "Dev.Dockerfile"
     ]
 }

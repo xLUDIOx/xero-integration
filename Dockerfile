@@ -32,4 +32,3 @@ COPY --from=build-env /app/build /app/build
 
 COPY --from=build-env /app/assets ./assets
 COPY --from=build-env /app/public ./public
-COPY --from=build-env /app/wait-for.sh /app
