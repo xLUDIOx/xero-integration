@@ -941,37 +941,45 @@ export class Manager implements IManager {
                 );
             }
         } else if (isPaidWithBalancePayment) {
-            for (const balancePayment of expense.balancePayments) {
-                const statementTransactionId = `balance-payment-${balancePayment.id}`;
-                const statementId = await this.store.bankFeeds.getStatementByEntityId({
-                    account_id: this.accountId,
-                    xero_entity_id: statementTransactionId,
-                    payhawk_entity_id: balancePayment.id,
-                    payhawk_entity_type: EntityType.BalancePayment,
-                });
-
-                if (statementId) {
-                    logger.info('Bank statement for this expense balance payment is already exported');
-                    continue;
-                }
-
-                const amount = sum(balancePayment.amount, balancePayment.fees);
-                const paymentDate = balancePayment.date;
-                const description = `Payment to ${contactName}: ${reference}`;
-
-                await this.tryCreateBankStatement(
-                    feedConnectionId,
-                    statementTransactionId,
-                    bankAccount,
-                    paymentDate,
-                    amount,
-                    balancePayment.id,
-                    EntityType.BalancePayment,
-                    contactName,
-                    description,
-                    logger,
-                );
+            const settledPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Settled);
+            if (settledPayments.length > 1) {
+                throw Error('Expense has multiple settled payments');
             }
+
+            const balancePayment = settledPayments[0];
+            if (!balancePayment) {
+                throw new ExportError('Failed to export bank statement into Xero. Expense has no settled payment');
+            }
+
+            const statementTransactionId = `balance-payment-${balancePayment.id}`;
+            const statementId = await this.store.bankFeeds.getStatementByEntityId({
+                account_id: this.accountId,
+                xero_entity_id: statementTransactionId,
+                payhawk_entity_id: balancePayment.id,
+                payhawk_entity_type: EntityType.BalancePayment,
+            });
+
+            if (statementId) {
+                logger.info('Bank statement for this expense balance payment is already exported');
+                return;
+            }
+
+            const amount = sum(balancePayment.amount, balancePayment.fees);
+            const paymentDate = balancePayment.date;
+            const description = `Payment to ${contactName}: ${reference}`;
+
+            await this.tryCreateBankStatement(
+                feedConnectionId,
+                statementTransactionId,
+                bankAccount,
+                paymentDate,
+                amount,
+                balancePayment.id,
+                EntityType.BalancePayment,
+                contactName,
+                description,
+                logger,
+            );
         } else {
             logger.info('Expense is not paid with card or via bank transfer, bank statement will not be exported');
             return;
