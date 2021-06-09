@@ -843,15 +843,12 @@ export class Manager implements IManager {
 
         const date = getExportDate(expense);
         if (isCredit) {
-            if (!expense.document?.number) {
-                throw new ExportError('Failed to export bank statement. Expense has no document number');
-            }
+            const creditNoteNumber = expense.document?.number || XeroEntities.getExpenseNumber(expense.id);
 
             logger = baseLogger.child({
-                creditNoteNumber: expense.document.number,
+                creditNoteNumber,
             });
 
-            const creditNoteNumber = expense.document.number;
             const creditNote = await this.xeroEntities.getCreditNoteByNumber(creditNoteNumber);
             if (!creditNote) {
                 logger.info(Error('Credit note not found, bank statement will not be exported'));
