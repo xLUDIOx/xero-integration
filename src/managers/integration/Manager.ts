@@ -487,25 +487,29 @@ export class Manager implements IManager {
             totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
-            if (!areAllTransactionsSettled || !expense.isReadyForReconciliation) {
-                this.logger.info('Not all transactions are settled or expense is not ready to be reconciled, expense payments will not be exported and bill will use default expense account');
+            if (!expense.isReadyForReconciliation) {
+                this.logger.info('Expense is not ready to be reconciled, payments will not be exported and bill will use default expense account');
                 accountCode = undefined; // use default account code for unsettled transactions
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+                if (!areAllTransactionsSettled) {
+                    this.logger.info('Expense transactions are not settled, payments will not be exported');
+                } else {
+                    const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
 
-                for (const expenseTransaction of expense.transactions) {
-                    if (!expenseTransaction.settlementDate) {
-                        throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
+                    for (const expenseTransaction of expense.transactions) {
+                        if (!expenseTransaction.settlementDate) {
+                            throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
+                        }
+
+                        paymentData.push({
+                            bankAccountId: bankAccount.accountID,
+                            amount: expenseTransaction.cardAmount,
+                            currency: expenseTransaction.cardCurrency,
+                            date: expenseTransaction.settlementDate,
+                            fxFees: expenseTransaction.fees.fx,
+                            posFees: expenseTransaction.fees.pos,
+                        });
                     }
-
-                    paymentData.push({
-                        bankAccountId: bankAccount.accountID,
-                        amount: expenseTransaction.cardAmount,
-                        currency: expenseTransaction.cardCurrency,
-                        date: expenseTransaction.settlementDate,
-                        fxFees: expenseTransaction.fees.fx,
-                        posFees: expenseTransaction.fees.pos,
-                    });
                 }
             }
         }
