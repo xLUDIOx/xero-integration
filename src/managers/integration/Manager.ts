@@ -1,5 +1,5 @@
 import { Payhawk, Xero } from '@services';
-import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement } from '@shared';
+import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
@@ -398,11 +398,15 @@ export class Manager implements IManager {
         }
     }
 
-    private extractTrackingCategories(expense: Payhawk.IExpense, logger: ILogger): Xero.ITrackingCategoryValue[] | undefined {
-        if (!expense.reconciliation.customFields2) {
+    private extractTrackingCategories(
+        customFields: Optional<Payhawk.ICustomFields>,
+        logger: ILogger,
+    ): Optional<Xero.ITrackingCategoryValue[]> {
+        if (!customFields) {
             return undefined;
         }
-        const xeroCustomFieldsWithEntries = Object.entries(expense.reconciliation.customFields2!)
+
+        const xeroCustomFieldsWithEntries = Object.entries(customFields)
             .filter(([_, value]) => value.externalSource === 'xero' && value.selectedValues && Object.keys(value.selectedValues));
 
         xeroCustomFieldsWithEntries.forEach(([key, value]) => {
@@ -514,7 +518,7 @@ export class Manager implements IManager {
             }
         }
 
-        const trackingCategories = this.extractTrackingCategories(expense, logger);
+        const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, accountCode, logger);
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
@@ -528,7 +532,7 @@ export class Manager implements IManager {
                 taxType: expense.taxRate?.code,
                 creditNoteNumber: expense.document?.number || XeroEntities.getExpenseNumber(expense.id),
                 files,
-                trackingCategories,
+                lineItems,
             };
 
             const creditNoteId = await this.xeroEntities.createOrUpdateCreditNote(newCreditNote);
@@ -562,7 +566,7 @@ export class Manager implements IManager {
                 taxType: expense.taxRate ? expense.taxRate.code : undefined,
                 files,
                 url: billUrl,
-                trackingCategories,
+                lineItems,
             };
 
             const billId = await this.xeroEntities.createOrUpdateBill(newBill);
@@ -570,6 +574,40 @@ export class Manager implements IManager {
         }
 
         await this.updateExpenseLinks(expense.id, [itemUrl]);
+    }
+
+    private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, accountCode: string | undefined, logger: ILogger) {
+        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ? sum(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount)) : 0;
+        if (lineItemsSum > 0 && lineItemsSum !== totalAmount) {
+            throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
+        }
+
+        const lineItems: XeroEntities.ILineItem[] = [];
+
+        if (!expense.lineItems || expense.lineItems.length === 0) {
+            const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
+            const lineItem: XeroEntities.ILineItem = {
+                amount: totalAmount,
+                accountCode,
+                taxType: expense.taxRate?.code,
+                trackingCategories,
+            };
+
+            lineItems.push(lineItem);
+        } else {
+            for (const item of expense.lineItems) {
+                const lineItem: XeroEntities.ILineItem = {
+                    amount: item.reconciliation.expenseTotalAmount,
+                    accountCode: accountCode ? item.reconciliation.accountCode : undefined,
+                    taxType: item.taxRate?.code,
+                    trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),
+                };
+
+                lineItems.push(lineItem);
+            }
+        }
+
+        return lineItems;
     }
 
     private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined) {

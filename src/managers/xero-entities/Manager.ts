@@ -592,6 +592,7 @@ export class Manager implements IManager {
         url,
         trackingCategories,
         paymentData = [],
+        lineItems = [],
     }: INewBill,
 
         defaultAccount: IAccountCode,
@@ -618,6 +619,12 @@ export class Manager implements IManager {
             taxType,
             url,
             trackingCategories,
+            lineItems: lineItems.map(l => ({
+                accountCode: l.accountCode || defaultAccount.code,
+                amount: l.amount,
+                taxType: l.taxType,
+                trackingCategories: l.trackingCategories,
+            })),
         };
     }
 

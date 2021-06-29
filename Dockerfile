@@ -29,6 +29,7 @@ RUN apk add ghostscript
 
 COPY --from=build-env /app/node_modules /app/node_modules
 COPY --from=build-env /app/build /app/build
+COPY --from=build-env /app/wait-for.sh /app/wait-for.sh
 
 COPY --from=build-env /app/assets ./assets
 COPY --from=build-env /app/public ./public

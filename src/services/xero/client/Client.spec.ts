@@ -14,7 +14,7 @@ import { BankTransactionType, ClientResponseStatus, CurrencyKeys, ICreateBillDat
 
 const CURRENCY = 'GBP';
 
-describe('Xero client', () => {
+describe.only('Xero client', () => {
     const authClientMock = TypeMoq.Mock.ofType<AuthClient.IClient>();
     const accountingClientMock = TypeMoq.Mock.ofType<AccountingClient.IClient>();
     const bankFeedsClientMock = TypeMoq.Mock.ofType<BankFeedsClient.IClient>();
@@ -465,10 +465,10 @@ describe('Xero client', () => {
                 fxFees: 1,
             });
 
-            const feesItem = model.lineItems[1];
+            const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
-            expect(feesItem.description).toEqual('Exchange fees');
-            expect(feesItem.unitAmount).toEqual(1);
+            expect(feesItem!.description).toEqual('Exchange fees');
+            expect(feesItem!.unitAmount).toEqual(1);
         });
 
         it('should map pos fees', () => {
@@ -484,10 +484,10 @@ describe('Xero client', () => {
                 posFees: 1,
             });
 
-            const feesItem = model.lineItems[1];
+            const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
-            expect(feesItem.description).toEqual('POS fees');
-            expect(feesItem.unitAmount).toEqual(1);
+            expect(feesItem!.description).toEqual('POS fees');
+            expect(feesItem!.unitAmount).toEqual(1);
         });
 
         it('should map fx + pos fees', () => {
@@ -504,10 +504,10 @@ describe('Xero client', () => {
                 fxFees: 3,
             });
 
-            const feesItem = model.lineItems[1];
+            const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
-            expect(feesItem.description).toEqual('Exchange + POS fees');
-            expect(feesItem.unitAmount).toEqual(4);
+            expect(feesItem!.description).toEqual('Exchange + POS fees');
+            expect(feesItem!.unitAmount).toEqual(4);
         });
 
         it('should map no fees', () => {
@@ -522,43 +522,38 @@ describe('Xero client', () => {
                 feesAccountCode: '200',
             });
 
-            const feesItem = model.lineItems[1];
+            const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).toEqual(undefined);
         });
     });
 
     function getSpendTransactionModel(): ICreateTransactionData {
-        const transaction: ICreateTransactionData = {
-            date: new Date(2012, 10, 10).toISOString(),
-            bankAccountId: 'bank-account-id',
-            contactId: 'contact-id',
-            description: 'expense note',
-            reference: 'tx description',
-            amount: 12.05,
-            fxFees: 0,
-            posFees: 0,
-            feesAccountCode: FEES_ACCOUNT_CODE,
-            accountCode: '310',
-            taxType: 'TAX001',
-            url: 'expense url',
-        };
-
-        return transaction;
+        return createTransactionModel();
     }
 
     function getReceiveTransactionModel(): ICreateTransactionData {
+        return createTransactionModel(true);
+    }
+
+    function createTransactionModel(isReceive: boolean = false): ICreateTransactionData {
         const transaction: ICreateTransactionData = {
             date: new Date(2012, 10, 10).toISOString(),
             bankAccountId: 'bank-account-id',
             contactId: 'contact-id',
             description: 'expense note',
             reference: 'tx description',
-            amount: -12.05,
+            amount: isReceive ? -12.05 : 12.05,
             fxFees: 0,
             posFees: 0,
             feesAccountCode: FEES_ACCOUNT_CODE,
             accountCode: '310',
             url: 'expense url',
+            taxType: 'TAX001',
+            lineItems: [{
+                accountCode: '310',
+                amount: 12.05,
+                taxType: 'TAX001',
+            }],
         };
 
         return transaction;
@@ -581,6 +576,11 @@ describe('Xero client', () => {
             accountCode: '310',
             taxType: 'TAX001',
             url: 'expense url',
+            lineItems: [{
+                accountCode: '310',
+                amount: 12.05,
+                taxType: 'TAX001',
+            }],
         };
 
         return bill;

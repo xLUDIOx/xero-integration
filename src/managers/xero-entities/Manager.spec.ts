@@ -557,6 +557,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: newBill.taxType,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -604,6 +605,7 @@ describe('XeroEntities.Manager', () => {
                 taxType: 'TAX001',
                 files,
                 url: 'expense url',
+                lineItems: [],
             };
 
             const id = 'bId';
@@ -643,6 +645,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: newBill.taxType,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -706,6 +709,7 @@ describe('XeroEntities.Manager', () => {
                 taxType: 'TAX001',
                 files,
                 url: 'expense url',
+                lineItems: [],
             };
 
             const id = 'bId';
@@ -750,6 +754,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: newBill.taxType,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -804,6 +809,7 @@ describe('XeroEntities.Manager', () => {
                 accountCode: '310',
                 files,
                 url: 'expense url',
+                lineItems: [],
             };
 
             const id = 'bId';
@@ -843,6 +849,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: undefined,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -903,6 +910,7 @@ describe('XeroEntities.Manager', () => {
                 taxType: 'TAX001',
                 files,
                 url: 'expense url',
+                lineItems: [],
             };
 
             xeroClientMock
@@ -922,6 +930,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: newBill.taxType,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
@@ -967,6 +976,7 @@ describe('XeroEntities.Manager', () => {
                 accountCode: '310',
                 files,
                 url: 'expense url',
+                lineItems: [],
             };
 
             xeroClientMock
@@ -986,6 +996,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: undefined,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
@@ -1059,6 +1070,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     url: newBill.url,
                     taxType: undefined,
+                    lineItems: [],
                 })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
@@ -1117,6 +1129,7 @@ describe('XeroEntities.Manager', () => {
                     reference: DEFAULT_REFERENCE,
                     taxType: undefined,
                     url: newBill.url,
+                    lineItems: [],
                 })))
                 .returns(async () => newBillId)
                 .verifiable(TypeMoq.Times.once());
@@ -1177,6 +1190,7 @@ describe('XeroEntities.Manager', () => {
                             reference: DEFAULT_REFERENCE,
                             taxType: undefined,
                             url: newBill.url,
+                            lineItems: [],
                         })))
                         .throws(Error(`
                         [
@@ -1246,6 +1260,7 @@ describe('XeroEntities.Manager', () => {
                             reference: DEFAULT_REFERENCE,
                             taxType: undefined,
                             url: newBill.url,
+                            lineItems: [],
                         })))
                         .returns(async () => newBillId)
                         .verifiable(TypeMoq.Times.exactly(2));

@@ -1,5 +1,6 @@
 import { Payhawk, Xero } from '@services';
 
+import { ILineItem } from './ILineItem';
 import { IPaymentData } from './IPaymentData';
 
 export interface INewCreditNote {
@@ -7,11 +8,14 @@ export interface INewCreditNote {
     contactId: string;
     currency: string;
     date: string,
-    totalAmount: number;
     description?: string;
-    accountCode?: string;
-    taxType?: string;
     files: Payhawk.IDownloadedFile[];
     paymentData: IPaymentData[];
+
+    lineItems?: ILineItem[];
+
+    totalAmount: number;
+    accountCode?: string;
+    taxType?: string;
     trackingCategories?: Xero.ITrackingCategoryValue[];
 }

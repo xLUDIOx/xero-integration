@@ -46,4 +46,7 @@ module.exports = {
         "@utils": "<rootDir>/src/utils",
         "@test-utils": "<rootDir>/src/test-utils",
     },
+    "setupFiles": [
+        "./jest.setup.js",
+    ],
 };

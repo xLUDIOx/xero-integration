@@ -8,6 +8,7 @@ import { getBillExternalUrl, getCreditNoteExternalUrl, getExpenseNumber, getTran
 export { IManager, getBillExternalUrl, getTransactionExternalUrl, getCreditNoteExternalUrl, getTransactionNumber, getExpenseNumber };
 export * from './IAccountCode';
 export * from './INewAccountTransaction';
+export * from './ILineItem';
 export * from './INewBill';
 export * from './INewCreditNote';
 export * from './IPaymentData';

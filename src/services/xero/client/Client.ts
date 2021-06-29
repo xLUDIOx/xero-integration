@@ -214,8 +214,8 @@ export class Client implements IClient {
         return transaction;
     }
 
-    async createTransaction({ date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories }: ICreateTransactionData): Promise<string> {
-        const transactionModel = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, trackingCategories, feesAccountCode, taxType, url);
+    async createTransaction(data: ICreateTransactionData): Promise<string> {
+        const transactionModel = getBankTransactionModel(data);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -230,7 +230,7 @@ export class Client implements IClient {
             throw Error('Failed to create bank transaction');
         }
 
-        const logger = this.logger.child({ bankTransactionId: bankTransaction.bankTransactionID, url });
+        const logger = this.logger.child({ bankTransactionId: bankTransaction.bankTransactionID, url: data.url });
 
         ensureTrackingCategoriesAreApplied(
             transactionModel.lineItems,
@@ -241,19 +241,19 @@ export class Client implements IClient {
         return bankTransaction.bankTransactionID;
     }
 
-    async updateTransaction({ transactionId, date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories }: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(date, bankAccountId, contactId, description, reference, amount, fxFees, posFees, accountCode, trackingCategories, feesAccountCode, taxType, url, transactionId);
+    async updateTransaction(data: IUpdateTransactionData): Promise<void> {
+        const transaction = getBankTransactionModel(data);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
                 this.tenantId,
-                transactionId,
+                data.transactionId,
                 { bankTransactions: [transaction] },
             ),
             XeroEntityResponseType.BankTransactions
         );
 
-        let logger = this.logger.child({ url });
+        let logger = this.logger.child({ url: data.url });
         const errorMessage = 'No updated transaction after update';
         if (!bankTransactions || !bankTransactions.length) {
             logger.error(Error(errorMessage));
@@ -650,15 +650,15 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(date: string, bankAccountId: string, contactId: string, description: string, reference: string, amount: number, fxFees: number, posFees: number, accountCode: string, trackingCategories: Optional<ITrackingCategoryValue[]>, feesAccountCode: string, taxType: string | undefined, url: string, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel({ date, contactId, description, reference, amount, fxFees, posFees, accountCode, feesAccountCode, taxType, url, trackingCategories });
+function getBankTransactionModel(data: ICreateTransactionData, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(data);
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
         bankAccount: {
-            accountID: bankAccountId,
+            accountID: data.bankAccountId,
         },
-        type: amount >= 0 ? BankTransaction.TypeEnum.SPEND : BankTransaction.TypeEnum.RECEIVE,
+        type: data.amount >= 0 ? BankTransaction.TypeEnum.SPEND : BankTransaction.TypeEnum.RECEIVE,
     };
 
     return transaction;
@@ -698,9 +698,6 @@ function getNewCreditNoteModel(data: ICreditNoteData): CreditNote {
 export function getAccountingItemModel({
     description,
     reference,
-    accountCode,
-    amount,
-    taxType,
     bankFees = 0,
     fxFees = 0,
     posFees = 0,
@@ -708,19 +705,19 @@ export function getAccountingItemModel({
     date,
     url,
     contactId,
-    trackingCategories,
+    lineItems = [],
 }: PartialBy<IAccountingItemData, 'url' | 'reference'> &
     Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>> &
     Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>
 ): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
-    const lineItems: IBankTransactionLineItem[] = [{
+    const items: ILineItem[] = lineItems.map(l => ({
         description,
-        accountCode,
+        accountCode: l.accountCode,
         quantity: 1,
-        unitAmount: Math.abs(amount),
-        taxType,
-        tracking: toTrackingCategory(trackingCategories),
-    }];
+        unitAmount: l.amount,
+        taxType: l.taxType,
+        tracking: toTrackingCategory(l.trackingCategories),
+    }));
 
     const feesTotal = sum(bankFees, posFees, fxFees);
 
@@ -732,7 +729,7 @@ export function getAccountingItemModel({
                     'Exchange fees' :
                     'POS fees';
 
-        lineItems.push({
+        items.push({
             description: feesDescription,
             accountCode: feesAccountCode,
             quantity: 1,
@@ -748,7 +745,7 @@ export function getAccountingItemModel({
             contactID: contactId,
         },
         lineAmountTypes: LineAmountTypes.Inclusive,
-        lineItems,
+        lineItems: items,
     };
 }
 
@@ -830,5 +827,5 @@ const ALLOWED_CURRENCIES: string[] = [
     CurrencyCode.GBP.toString(),
 ];
 
-type BankItemSelectedFields = 'description' | 'accountCode' | 'quantity' | 'unitAmount' | 'taxType' | 'tracking';
-type IBankTransactionLineItem = Pick<RequiredNonNullBy<LineItem, ExcludeStrict<BankItemSelectedFields, 'taxType' | 'tracking'>>, BankItemSelectedFields>;
+type LineItemSelectedFields = 'description' | 'accountCode' | 'quantity' | 'unitAmount' | 'taxType' | 'tracking';
+type ILineItem = Pick<RequiredNonNullBy<LineItem, ExcludeStrict<LineItemSelectedFields, 'taxType' | 'tracking'>>, LineItemSelectedFields>;

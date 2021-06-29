@@ -59,6 +59,14 @@ export interface IAccountingItemData {
     taxType?: string;
     url: string;
     trackingCategories?: ITrackingCategoryValue[];
+    lineItems?: ILineItem[];
+}
+
+export interface ILineItem {
+    amount: number;
+    accountCode: string;
+    taxType?: string;
+    trackingCategories?: ITrackingCategoryValue[];
 }
 
 export interface ITrackingCategoryValue {

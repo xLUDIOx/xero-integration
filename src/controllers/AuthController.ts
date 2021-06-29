@@ -189,6 +189,8 @@ export class AuthController {
 
                 return redirectUrl.toString();
             }
+
+            throw err;
         }
 
         await connectionManager.createAccount(tenantId);

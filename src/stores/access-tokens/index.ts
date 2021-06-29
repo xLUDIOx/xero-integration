@@ -16,7 +16,7 @@ export const parseToken = (tokenSet: ITokenSet): ITokenSetPayload | undefined =>
         return undefined;
     }
 
-    const payload = decode(tokenSet.access_token, { json: true });
+    const payload = decode(tokenSet.access_token);
     if (!payload) {
         return undefined;
     }

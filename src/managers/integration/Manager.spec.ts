@@ -314,6 +314,11 @@ describe('integrations/Manager', () => {
                         totalAmount: 10,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                        lineItems: [{
+                            amount: 10,
+                            accountCode: reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
                     })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
@@ -426,6 +431,10 @@ describe('integrations/Manager', () => {
                         totalAmount: 10,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                        lineItems: [{
+                            amount: 10,
+                            taxType: expense.taxRate?.code,
+                        }],
                     })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
@@ -548,6 +557,11 @@ describe('integrations/Manager', () => {
                         })),
                         totalAmount: -10,
                         files,
+                        lineItems: [{
+                            amount: -10,
+                            accountCode: reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
                     })))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
@@ -623,6 +637,11 @@ describe('integrations/Manager', () => {
                         paymentData: [],
                         totalAmount: 11.28,
                         files,
+                        lineItems: [{
+                            amount: 11.28,
+                            accountCode: reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     })))
                     .returns(() => Promise.resolve('1'))
@@ -693,6 +712,11 @@ describe('integrations/Manager', () => {
                         totalAmount: 11.28,
                         paymentData: [],
                         files,
+                        lineItems: [{
+                            amount: 11.28,
+                            accountCode: reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     })))
                     .returns(() => Promise.resolve('1'))
@@ -769,6 +793,11 @@ describe('integrations/Manager', () => {
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
                         files,
+                        lineItems: [{
+                            amount: 11.28,
+                            accountCode: reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                     })))
                     .returns(() => Promise.reject())

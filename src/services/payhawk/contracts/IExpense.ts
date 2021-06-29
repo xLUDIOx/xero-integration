@@ -19,6 +19,13 @@ export interface IExpense {
     externalLinks: IExternalLink[];
     recipient: IRecipient;
     balancePayments: IBalancePayment[];
+    lineItems?: ILineItem[];
+}
+
+export interface ILineItem {
+    id: string;
+    taxRate?: ITaxRate;
+    reconciliation: IReconciliation;
 }
 
 export interface IBalancePayment {
@@ -75,11 +82,11 @@ export interface IReconciliation {
     baseTotalAmount: number;
     baseTaxAmount: number;
     baseCurrency: string;
-    customFields2?: {
-        [fieldId: string]: IExpenseCustomFieldData;
-    };
+    customFields2?: ICustomFields;
     accountCode?: string;
 }
+
+export type ICustomFields = Record<string, IExpenseCustomFieldData>;
 
 export interface IExpenseCustomFieldData {
     label: string;
