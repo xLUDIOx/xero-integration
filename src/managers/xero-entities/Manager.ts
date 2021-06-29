@@ -221,6 +221,17 @@ export class Manager implements IManager {
             }
 
             if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
+                const canDeleteExistingPayments = newBill.payments && newBill.payments.length === bill.payments.length;
+                if (!canDeleteExistingPayments) {
+                    logger.warn('Existing bill payments cannot be deleted, not paid with Payhawk');
+                    return bill.invoiceID;
+                }
+
+                const hasReconciledPayment = bill.payments.some(p => p.isReconciled);
+                if (hasReconciledPayment) {
+                    throw new ExportError('Failed to export expense into Xero. Payments have been reconciled');
+                }
+
                 for (const payment of bill.payments) {
                     await this.deletePayment(payment.paymentID);
                 }
@@ -261,10 +272,10 @@ export class Manager implements IManager {
             }
         }
 
-        if (newBill.isPaid && newBill.paymentData !== undefined && newBill.paymentData.length > 0) {
+        if (newBill.isPaid && newBill.payments !== undefined && newBill.payments.length > 0) {
             logger.info('Expense is paid and new payments will be created for this bill');
 
-            for (const paymentInfo of newBill.paymentData) {
+            for (const paymentInfo of newBill.payments) {
                 const { date, bankAccountId, amount, fxFees = 0, bankFees = 0, posFees = 0, currency } = paymentInfo;
 
                 const paymentData: Xero.IPaymentData = {
@@ -421,10 +432,10 @@ export class Manager implements IManager {
             }
         }
 
-        if (newCreditNote.paymentData !== undefined && newCreditNote.paymentData.length > 0) {
+        if (newCreditNote.payments !== undefined && newCreditNote.payments.length > 0) {
             logger.info('Expense is paid and new payments will be created for this credit note');
 
-            for (const paymentInfo of newCreditNote.paymentData) {
+            for (const paymentInfo of newCreditNote.payments) {
                 const { date, bankAccountId, amount, fxFees = 0, bankFees = 0, posFees = 0, currency } = paymentInfo;
 
                 const paymentData: Xero.IPaymentData = {
@@ -470,7 +481,7 @@ export class Manager implements IManager {
         }
 
         logger.info('Deleting credit note');
-        await this.xeroClient.deleteBill(creditNoteNumber);
+        await this.xeroClient.deleteCreditNote(creditNoteNumber);
         logger.info('Credit note deleted');
     }
 
@@ -591,7 +602,7 @@ export class Manager implements IManager {
         taxType,
         url,
         trackingCategories,
-        paymentData = [],
+        payments: paymentData = [],
         lineItems = [],
     }: INewBill,
 
@@ -634,7 +645,7 @@ export class Manager implements IManager {
         description = DEFAULT_DESCRIPTION,
         totalAmount,
         currency,
-        paymentData = [],
+        payments: paymentData = [],
         creditNoteNumber,
         accountCode,
         taxType,

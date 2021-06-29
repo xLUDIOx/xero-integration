@@ -303,7 +303,7 @@ describe('integrations/Manager', () => {
                         fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
-                        paymentData: expense.transactions.map<XeroEntities.IPaymentData>(t => ({
+                        payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
                             amount: t.cardAmount,
                             bankAccountId,
                             currency: t.cardCurrency,
@@ -427,7 +427,7 @@ describe('integrations/Manager', () => {
                         fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
-                        paymentData: [],
+                        payments: [],
                         totalAmount: 10,
                         files,
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
@@ -547,7 +547,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
-                        paymentData: expense.transactions.map<XeroEntities.IPaymentData>(t => ({
+                        payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
                             amount: t.cardAmount,
                             bankAccountId,
                             currency: t.cardCurrency,
@@ -634,7 +634,7 @@ describe('integrations/Manager', () => {
                         fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
-                        paymentData: [],
+                        payments: [],
                         totalAmount: 11.28,
                         files,
                         lineItems: [{
@@ -710,7 +710,7 @@ describe('integrations/Manager', () => {
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
-                        paymentData: [],
+                        payments: [],
                         files,
                         lineItems: [{
                             amount: 11.28,
@@ -788,7 +788,7 @@ describe('integrations/Manager', () => {
                         isPaid: expense.isPaid,
                         accountCode: reconciliation.accountCode,
                         currency: reconciliation.expenseCurrency!,
-                        paymentData: [],
+                        payments: [],
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,

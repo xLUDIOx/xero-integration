@@ -1,4 +1,4 @@
-export interface IPaymentData {
+export interface IPayment {
     bankAccountId: string;
     date: string;
     amount: number;

@@ -51,7 +51,7 @@ export class Manager implements IManager {
             result.data!.taxRatesCount = taxRatesCount;
         } catch (err) {
             isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. Sync tax rates failed'), { error: err });
+            this.logger.error(Error('Failed to initialize account. Sync tax rates failed'), { err });
 
             result.data!.errors!.taxRates = 'Sync tax rates failed';
         }
@@ -62,7 +62,7 @@ export class Manager implements IManager {
             this.logger.info(`Completed`);
         } catch (err) {
             isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. Sync chart of accounts failed'), { error: err });
+            this.logger.error(Error('Failed to initialize account. Sync chart of accounts failed'), { err });
 
             result.data!.errors!.accountCodes = 'Sync chart of accounts failed';
         }
@@ -75,7 +75,7 @@ export class Manager implements IManager {
             result.data!.bankAccounts = currencies;
         } catch (err) {
             isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. Sync bank accounts failed'), { error: err });
+            this.logger.error(Error('Failed to initialize account. Sync bank accounts failed'), { err });
 
             result.data!.errors!.bankAccounts = 'Sync bank accounts failed';
         }
@@ -88,7 +88,7 @@ export class Manager implements IManager {
             result.data!.expenseAccounts = [DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_NAME];
         } catch (err) {
             isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. Create default expense accounts failed'), { error: err });
+            this.logger.error(Error('Failed to initialize account. Create default expense accounts failed'), { err });
 
             result.data!.errors!.expenseAccounts = 'Creating default expense accounts failed';
         }
@@ -99,7 +99,7 @@ export class Manager implements IManager {
             this.logger.info(`Completed`);
         } catch (err) {
             isSuccessful = false;
-            this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { error: err });
+            this.logger.error(Error('Failed to initialize account. `Sync tracking categories failed'), { err });
             result.data!.errors!.customFields = 'Sync tracking categories failed';
         }
 
@@ -476,7 +476,7 @@ export class Manager implements IManager {
         }
 
         let itemUrl: string;
-        const paymentData: XeroEntities.IPaymentData[] = [];
+        const payments: XeroEntities.IPayment[] = [];
         const description = formatDescription(expense.ownerName, expense.note);
 
         const logger = this.logger.child({ expenseId: expense.id });
@@ -505,7 +505,7 @@ export class Manager implements IManager {
                             throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                         }
 
-                        paymentData.push({
+                        payments.push({
                             bankAccountId: bankAccount.accountID,
                             amount: expenseTransaction.cardAmount,
                             currency: expenseTransaction.cardCurrency,
@@ -522,7 +522,7 @@ export class Manager implements IManager {
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
-                paymentData,
+                payments,
                 totalAmount,
                 currency: expenseCurrency,
                 contactId,
@@ -547,13 +547,13 @@ export class Manager implements IManager {
                     const bill = await this.xeroEntities.getBillByUrl(billUrl);
                     const balancePayment = await this.processBalancePayments(expense, bill);
                     if (balancePayment) {
-                        paymentData.push(balancePayment);
+                        payments.push(balancePayment);
                     }
                 }
             }
 
             const newBill: XeroEntities.INewBill = {
-                paymentData,
+                payments,
                 date,
                 dueDate: expense.paymentData.dueDate || date,
                 isPaid: expense.isPaid,
@@ -611,7 +611,7 @@ export class Manager implements IManager {
     }
 
     private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined) {
-        let paymentData: XeroEntities.IPaymentData | undefined;
+        let paymentData: XeroEntities.IPayment | undefined;
 
         const failedPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Rejected);
         const settledPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Settled);
@@ -719,11 +719,7 @@ export class Manager implements IManager {
     private async deleteBillIfExists(expenseId: string, logger: ILogger): Promise<void> {
         const billUrl = this.buildExpenseUrl(expenseId);
 
-        const billLogger = logger.child({ billUrl });
-
-        billLogger.info('Deleting bill');
         await this.xeroEntities.deleteBill(billUrl);
-        billLogger.info('Bill deleted');
     }
 
     private async updateExpenseLinks(expenseId: string, urls: string[]) {

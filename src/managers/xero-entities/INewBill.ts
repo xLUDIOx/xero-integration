@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 
 import { ILineItem } from './ILineItem';
-import { IPaymentData } from './IPaymentData';
+import { IPayment } from './IPaymentData';
 
 export interface INewBill {
     date: string;
@@ -16,7 +16,7 @@ export interface INewBill {
 
     lineItems?: ILineItem[];
 
-    paymentData?: IPaymentData[];
+    payments?: IPayment[];
 
     // TODO: Remove
     totalAmount: number;

@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 
 import { ILineItem } from './ILineItem';
-import { IPaymentData } from './IPaymentData';
+import { IPayment } from './IPaymentData';
 
 export interface INewCreditNote {
     creditNoteNumber: string;
@@ -10,7 +10,7 @@ export interface INewCreditNote {
     date: string,
     description?: string;
     files: Payhawk.IDownloadedFile[];
-    paymentData: IPaymentData[];
+    payments: IPayment[];
 
     lineItems?: ILineItem[];
 

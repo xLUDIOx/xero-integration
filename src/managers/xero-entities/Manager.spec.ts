@@ -590,7 +590,7 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
-                paymentData: [{
+                payments: [{
                     amount: 12.05,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
@@ -670,8 +670,8 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
-            if (newBill.paymentData) {
-                for (const paymentInfo of newBill.paymentData) {
+            if (newBill.payments) {
+                for (const paymentInfo of newBill.payments) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
                         .setup(x => x.createPayment(typeIsEqualSkipUndefined({
@@ -694,7 +694,7 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
-                paymentData: [{
+                payments: [{
                     amount: 12.05,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
@@ -779,8 +779,8 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
-            if (newBill.paymentData) {
-                for (const paymentInfo of newBill.paymentData) {
+            if (newBill.payments) {
+                for (const paymentInfo of newBill.payments) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
                         .setup(x => x.createPayment(typeIsEqualSkipUndefined({
@@ -794,6 +794,62 @@ describe('XeroEntities.Manager', () => {
                         .verifiable(TypeMoq.Times.once());
                 }
             }
+
+            await manager.createOrUpdateBill(newBill);
+        });
+
+        test('does nothing if bill is paid from another xero bank account', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 12).toISOString(),
+                isPaid: true,
+                payments: [],
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+                lineItems: [],
+            };
+
+            const id = 'bId';
+            const paymentId = 'payment-id';
+
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(newBill.url))
+                .returns(async () => existingBill)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
+                ))
+                .verifiable(TypeMoq.Times.never());
+
+            accountingClientMock
+                .setup(x => x.deletePayment(paymentId))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.updateBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.createPayment(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
 
             await manager.createOrUpdateBill(newBill);
         });
@@ -962,7 +1018,7 @@ describe('XeroEntities.Manager', () => {
                 date: new Date(2012, 10, 10).toISOString(),
                 dueDate: new Date(2012, 10, 12).toISOString(),
                 isPaid: true,
-                paymentData: [{
+                payments: [{
                     amount: 12.05,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
@@ -1019,8 +1075,8 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(files.length));
 
-            if (newBill.paymentData) {
-                for (const paymentInfo of newBill.paymentData) {
+            if (newBill.payments) {
+                for (const paymentInfo of newBill.payments) {
                     const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
                         .setup(x => x.createPayment(typeIsEqualSkipUndefined({
@@ -1290,7 +1346,7 @@ describe('XeroEntities.Manager', () => {
             const newCreditNoteId = 'new-credit-note-id';
             const newCreditNote: INewCreditNote = {
                 date: new Date(2012, 10, 10).toISOString(),
-                paymentData: [{
+                payments: [{
                     amount: -10,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
@@ -1338,8 +1394,8 @@ describe('XeroEntities.Manager', () => {
                     .verifiable(TypeMoq.Times.once());
             }
 
-            if (newCreditNote.paymentData) {
-                for (const paymentInfo of newCreditNote.paymentData) {
+            if (newCreditNote.payments) {
+                for (const paymentInfo of newCreditNote.payments) {
                     const { amount, posFees, fxFees, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
                         .setup(x => x.createPayment(typeIsEqualSkipUndefined({
