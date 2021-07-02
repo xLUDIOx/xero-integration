@@ -345,6 +345,283 @@ describe('integrations/Manager', () => {
                 await manager.exportExpense(expenseId);
             });
 
+            test('creates bill with payments and multiple line items when expense has settled transactions', async () => {
+                const expenseId = 'expenseId';
+                // cspell:disable-next-line
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2).toISOString(),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation: {
+                        ...reconciliation,
+                        accountCode: undefined,
+                    },
+                    supplier,
+                    recipient: supplier,
+                    paymentData: {},
+                    title: txDescription,
+                    isReadyForReconciliation: true,
+                    transactions: [
+                        {
+                            id: 'tx1',
+                            cardAmount: 5,
+                            cardCurrency: 'USD',
+                            cardName: 'Card 1',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'EUR',
+                            date: new Date(2019, 2, 3).toISOString(),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
+                        },
+                        {
+                            id: 'tx2',
+                            cardAmount: 5,
+                            cardCurrency: 'USD',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'EUR',
+                            date: new Date(2019, 2, 3).toISOString(),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
+                        },
+                    ],
+                    lineItems: [{
+                        id: 'test',
+                        reconciliation: {
+                            ...reconciliation,
+                            expenseTotalAmount: 10,
+                            accountCode: 'line_item',
+                        },
+                        taxRate: {
+                            code: 'TAX001',
+                            name: 'Test',
+                            rate: 14,
+                        },
+                    }],
+                    balancePayments: [],
+                    externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
+                };
+
+                const bankAccountId = 'bank-account-id';
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                bankAccountsManagerMock
+                    .setup(x => x.getOrCreateByCurrency(expense.transactions[0].cardCurrency))
+                    .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactForRecipient(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
+                        date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
+                        paymentDate: undefined,
+                        isPaid: expense.isPaid,
+                        taxType: 'TAX001',
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
+                        contactId,
+                        description: `${expense.ownerName} | ${expense.note}`,
+                        payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
+                            amount: t.cardAmount,
+                            bankAccountId,
+                            currency: t.cardCurrency,
+                            date: t.settlementDate!,
+                            fxFees: t.fees.fx,
+                            posFees: t.fees.pos,
+                        })),
+                        totalAmount: 10,
+                        files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                        lineItems: [{
+                            amount: 10,
+                            accountCode: expense.lineItems![0].reconciliation.accountCode,
+                            taxType: expense.taxRate?.code,
+                        }],
+                    })))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
+                            }],
+                        }));
+
+                await manager.exportExpense(expenseId);
+            });
+
+            test('creates bill with fallback to default account code for line items', async () => {
+                const expenseId = 'expenseId';
+                // cspell:disable-next-line
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2).toISOString(),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation: {
+                        ...reconciliation,
+                        accountCode: undefined,
+                    },
+                    supplier,
+                    recipient: supplier,
+                    paymentData: {},
+                    title: txDescription,
+                    isReadyForReconciliation: false,
+                    transactions: [
+                        {
+                            id: 'tx1',
+                            cardAmount: 5,
+                            cardCurrency: 'USD',
+                            cardName: 'Card 1',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'EUR',
+                            date: new Date(2019, 2, 3).toISOString(),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
+                        },
+                        {
+                            id: 'tx2',
+                            cardAmount: 5,
+                            cardCurrency: 'USD',
+                            cardHolderName: 'John Smith',
+                            cardLastDigits: '9999',
+                            description: txDescription,
+                            paidAmount: 5.64,
+                            paidCurrency: 'EUR',
+                            date: new Date(2019, 2, 3).toISOString(),
+                            settlementDate: new Date(2019, 2, 3).toISOString(),
+                            fees: {
+                                fx: 1,
+                                pos: 2,
+                            },
+                        },
+                    ],
+                    lineItems: [{
+                        id: 'test',
+                        reconciliation: {
+                            ...reconciliation,
+                            expenseTotalAmount: 10,
+                            accountCode: 'line_item',
+                        },
+                        taxRate: {
+                            code: 'TAX001',
+                            name: 'Test',
+                            rate: 14,
+                        },
+                    }],
+                    balancePayments: [],
+                    externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
+                };
+
+                const bankAccountId = 'bank-account-id';
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                bankAccountsManagerMock
+                    .setup(x => x.getOrCreateByCurrency(expense.transactions[0].cardCurrency))
+                    .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactForRecipient(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
+                        date: expense.createdAt,
+                        dueDate: expense.paymentData.dueDate || expense.createdAt,
+                        paymentDate: undefined,
+                        isPaid: expense.isPaid,
+                        taxType: 'TAX001',
+                        currency: reconciliation.expenseCurrency!,
+                        fxRate: undefined,
+                        contactId,
+                        description: `${expense.ownerName} | ${expense.note}`,
+                        payments: [],
+                        totalAmount: 10,
+                        files,
+                        url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                        lineItems: [{
+                            amount: 10,
+                            accountCode: undefined,
+                            taxType: expense.taxRate?.code,
+                        }],
+                    })))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
+                            }],
+                        }));
+
+                await manager.exportExpense(expenseId);
+            });
+
             test('creates bill with no payments and default acc code when expense has auth transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line

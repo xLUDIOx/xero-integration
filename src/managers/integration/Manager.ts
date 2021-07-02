@@ -598,7 +598,7 @@ export class Manager implements IManager {
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
                     amount: item.reconciliation.expenseTotalAmount,
-                    accountCode: accountCode ? item.reconciliation.accountCode : undefined,
+                    accountCode: expense.isReadyForReconciliation ? item.reconciliation.accountCode : undefined,
                     taxType: item.taxRate?.code,
                     trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),
                 };
@@ -1043,6 +1043,9 @@ export class Manager implements IManager {
         } else if (errorMessage === TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE) {
             throw new ExportError('A tracking category was not found in Xero. Please sync your tracking categories and update your expense.');
         }
+
+        // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
+        this.logger.info(`Export failed with an unexpected ${['err', err]}`);
 
         throw new ExportError(genericErrorMessage, err);
     }
