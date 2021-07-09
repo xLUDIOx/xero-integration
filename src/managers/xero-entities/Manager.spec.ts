@@ -279,6 +279,12 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
+                    lineItems: [{
+                        accountCode: newAccountTx.accountCode!,
+                        amount: newAccountTx.amount,
+                        taxType: newAccountTx.taxType,
+                        trackingCategories: undefined,
+                    }],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -348,6 +354,12 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: undefined,
                     url: newAccountTx.url,
+                    lineItems: [{
+                        accountCode: newAccountTx.accountCode!,
+                        amount: newAccountTx.amount,
+                        taxType: undefined,
+                        trackingCategories: undefined,
+                    }],
                 })))
                 .verifiable(TypeMoq.Times.once());
 
@@ -426,6 +438,12 @@ describe('XeroEntities.Manager', () => {
                     accountCode: newAccountTx.accountCode!,
                     taxType: newAccountTx.taxType,
                     url: newAccountTx.url,
+                    lineItems: [{
+                        accountCode: newAccountTx.accountCode!,
+                        amount: newAccountTx.amount,
+                        taxType: newAccountTx.taxType,
+                        trackingCategories: undefined,
+                    }],
                 })))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());
@@ -479,6 +497,12 @@ describe('XeroEntities.Manager', () => {
                     accountCode: DEFAULT_ACCOUNT_CODE,
                     taxType: undefined,
                     url: newAccountTx.url,
+                    lineItems: [{
+                        accountCode: DEFAULT_ACCOUNT_CODE,
+                        amount: newAccountTx.amount,
+                        taxType: undefined,
+                        trackingCategories: undefined,
+                    }],
                 })))
                 .returns(async () => newTxId)
                 .verifiable(TypeMoq.Times.once());

@@ -586,6 +586,12 @@ export class Manager implements IManager {
             taxType: taxExempt ? taxExemptAccount.taxType : taxType,
             url,
             trackingCategories,
+            lineItems: [{
+                accountCode: accountCode || defaultAccount.code,
+                amount,
+                taxType: taxExempt ? taxExemptAccount.taxType : taxType,
+                trackingCategories,
+            }],
         };
     }
 

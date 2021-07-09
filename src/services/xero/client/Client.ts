@@ -215,7 +215,7 @@ export class Client implements IClient {
     }
 
     async createTransaction(data: ICreateTransactionData): Promise<string> {
-        const transactionModel = getBankTransactionModel(data);
+        const transactionModel = getBankTransactionModel(data, this.logger);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -242,7 +242,7 @@ export class Client implements IClient {
     }
 
     async updateTransaction(data: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(data);
+        const transaction = getBankTransactionModel(data, this.logger);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
@@ -329,7 +329,7 @@ export class Client implements IClient {
     async createBill(data: ICreateBillData): Promise<string> {
         await this.ensureCurrency(data.currency);
 
-        const bill = getNewBillModel(data);
+        const bill = getNewBillModel(data, this.logger);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.createInvoices(
@@ -356,7 +356,7 @@ export class Client implements IClient {
     }
 
     async updateBill(data: IUpdateBillData): Promise<void> {
-        const billModel = getNewBillModel(data, data.billId);
+        const billModel = getNewBillModel(data, this.logger, data.billId);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.updateInvoice(
@@ -420,7 +420,7 @@ export class Client implements IClient {
     async createCreditNote(data: ICreditNoteData): Promise<string> {
         await this.ensureCurrency(data.currency);
 
-        const creditNoteModel = getNewCreditNoteModel(data);
+        const creditNoteModel = getNewCreditNoteModel(data, this.logger);
 
         const creditNotes = await this.xeroClient.makeClientRequest<ICreditNote[]>(
             x => x.accountingApi.createCreditNotes(
@@ -448,7 +448,7 @@ export class Client implements IClient {
     }
 
     async updateCreditNote(data: ICreditNoteData): Promise<void> {
-        const creditNoteModel = getNewCreditNoteModel(data);
+        const creditNoteModel = getNewCreditNoteModel(data, this.logger);
 
         const creditNotes = await this.xeroClient.makeClientRequest<CreditNote[]>(
             x => x.accountingApi.updateCreditNote(
@@ -650,8 +650,8 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(data: ICreateTransactionData, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel(data);
+function getBankTransactionModel(data: ICreateTransactionData, logger: ILogger, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(data, logger);
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
@@ -664,8 +664,8 @@ function getBankTransactionModel(data: ICreateTransactionData, id?: string): Ban
     return transaction;
 }
 
-function getNewBillModel(data: ICreateBillData, id?: string): Invoice {
-    const commonData = getAccountingItemModel(data);
+function getNewBillModel(data: ICreateBillData, logger: ILogger, id?: string): Invoice {
+    const commonData = getAccountingItemModel(data, logger);
 
     const bill: Invoice = {
         ...commonData,
@@ -680,8 +680,8 @@ function getNewBillModel(data: ICreateBillData, id?: string): Invoice {
     return bill;
 }
 
-function getNewCreditNoteModel(data: ICreditNoteData): CreditNote {
-    const commonData = getAccountingItemModel(data);
+function getNewCreditNoteModel(data: ICreditNoteData, logger: ILogger): CreditNote {
+    const commonData = getAccountingItemModel(data, logger);
 
     const bill: CreditNote = {
         ...commonData,
@@ -695,21 +695,27 @@ function getNewCreditNoteModel(data: ICreditNoteData): CreditNote {
     return bill;
 }
 
-export function getAccountingItemModel({
-    description,
-    reference,
-    bankFees = 0,
-    fxFees = 0,
-    posFees = 0,
-    feesAccountCode,
-    date,
-    url,
-    contactId,
-    lineItems = [],
-}: PartialBy<IAccountingItemData, 'url' | 'reference'> &
+export function getAccountingItemModel(entity: PartialBy<IAccountingItemData, 'url' | 'reference'> &
     Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>> &
-    Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>
+    Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>,
+    logger: ILogger
 ): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
+    const {
+        description,
+        reference,
+        bankFees = 0,
+        fxFees = 0,
+        posFees = 0,
+        feesAccountCode,
+        date,
+        url,
+        contactId,
+        lineItems = [],
+    } = entity;
+    if (lineItems.length === 0) {
+        throw logger.error(Error('Entity has no line items'), { entity });
+    }
+
     const items: ILineItem[] = lineItems.map(l => ({
         description,
         accountCode: l.accountCode,

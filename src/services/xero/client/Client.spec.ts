@@ -453,17 +453,20 @@ describe.only('Xero client', () => {
 
     describe('transaction model', () => {
         it('should map fx fees', () => {
-            const model = getAccountingItemModel({
-                description: 'desc',
-                reference: 'ref',
-                accountCode: '100',
-                amount: 100,
-                contactId: '1',
-                date: new Date().toISOString(),
-                url: '/',
-                feesAccountCode: '200',
-                fxFees: 1,
-            });
+            const model = getAccountingItemModel(
+                {
+                    description: 'desc',
+                    reference: 'ref',
+                    accountCode: '100',
+                    amount: 100,
+                    contactId: '1',
+                    date: new Date().toISOString(),
+                    url: '/',
+                    feesAccountCode: '200',
+                    fxFees: 1,
+                    lineItems: [{} as any],
+                },
+                loggerMock.object);
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
@@ -472,17 +475,21 @@ describe.only('Xero client', () => {
         });
 
         it('should map pos fees', () => {
-            const model = getAccountingItemModel({
-                description: 'desc',
-                reference: 'ref',
-                accountCode: '100',
-                amount: 100,
-                contactId: '1',
-                date: new Date().toISOString(),
-                url: '/',
-                feesAccountCode: '200',
-                posFees: 1,
-            });
+            const model = getAccountingItemModel(
+                {
+                    description: 'desc',
+                    reference: 'ref',
+                    accountCode: '100',
+                    amount: 100,
+                    contactId: '1',
+                    date: new Date().toISOString(),
+                    url: '/',
+                    feesAccountCode: '200',
+                    posFees: 1,
+                    lineItems: [{} as any],
+                },
+
+                loggerMock.object);
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
@@ -491,18 +498,22 @@ describe.only('Xero client', () => {
         });
 
         it('should map fx + pos fees', () => {
-            const model = getAccountingItemModel({
-                description: 'desc',
-                reference: 'ref',
-                accountCode: '100',
-                amount: 100,
-                contactId: '1',
-                date: new Date().toISOString(),
-                url: '/',
-                feesAccountCode: '200',
-                posFees: 1,
-                fxFees: 3,
-            });
+            const model = getAccountingItemModel(
+                {
+                    description: 'desc',
+                    reference: 'ref',
+                    accountCode: '100',
+                    amount: 100,
+                    contactId: '1',
+                    date: new Date().toISOString(),
+                    url: '/',
+                    feesAccountCode: '200',
+                    posFees: 1,
+                    fxFees: 3,
+                    lineItems: [{} as any],
+                },
+                loggerMock.object,
+            );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
@@ -511,16 +522,20 @@ describe.only('Xero client', () => {
         });
 
         it('should map no fees', () => {
-            const model = getAccountingItemModel({
-                description: 'desc',
-                reference: 'ref',
-                accountCode: '100',
-                amount: 100,
-                contactId: '1',
-                date: new Date().toISOString(),
-                url: '/',
-                feesAccountCode: '200',
-            });
+            const model = getAccountingItemModel(
+                {
+                    description: 'desc',
+                    reference: 'ref',
+                    accountCode: '100',
+                    amount: 100,
+                    contactId: '1',
+                    date: new Date().toISOString(),
+                    url: '/',
+                    feesAccountCode: '200',
+                    lineItems: [{} as any],
+                },
+                loggerMock.object,
+            );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).toEqual(undefined);
