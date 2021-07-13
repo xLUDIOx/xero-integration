@@ -5,7 +5,7 @@ import { ILogger } from '@utils';
 import { IManager } from './IManager';
 import { getBillExternalUrl, getCreditNoteExternalUrl, getExpenseNumber, getTransactionExternalUrl, getTransactionNumber, Manager } from './Manager';
 
-export { IManager, getBillExternalUrl, getTransactionExternalUrl, getCreditNoteExternalUrl, getTransactionNumber, getExpenseNumber };
+export { IManager, Manager, getBillExternalUrl, getTransactionExternalUrl, getCreditNoteExternalUrl, getTransactionNumber, getExpenseNumber };
 export * from './IAccountCode';
 export * from './INewAccountTransaction';
 export * from './ILineItem';

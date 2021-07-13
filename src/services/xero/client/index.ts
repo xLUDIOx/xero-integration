@@ -12,6 +12,8 @@ import { create as createBankFeedsClient } from './bank-feeds';
 import { Client } from './Client';
 import { IClient } from './contracts';
 
+export { Client };
+
 export * from './contracts';
 
 export * as AuthClient from './auth';

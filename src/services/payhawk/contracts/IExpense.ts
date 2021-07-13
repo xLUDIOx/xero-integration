@@ -12,6 +12,9 @@ export interface IExpense {
     taxRate?: ITaxRate;
     category?: string;
     document?: IDocument;
+    /**
+     * @deprecated Use recipient instead
+     */
     supplier: ISupplier;
     reconciliation: IReconciliation;
     paymentData: IPaymentData;
@@ -53,7 +56,7 @@ export interface IExternalLink {
 export interface ISupplier {
     name: string;
     countryCode: string;
-    address: string;
+    address?: string;
     vat?: string;
     uic?: string;
 }

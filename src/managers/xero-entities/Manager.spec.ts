@@ -1371,17 +1371,17 @@ describe('XeroEntities.Manager', () => {
             const newCreditNote: INewCreditNote = {
                 date: new Date(2012, 10, 10).toISOString(),
                 payments: [{
-                    amount: -10,
+                    amount: 10,
                     bankAccountId: 'bank_id',
                     date: new Date(2012, 10, 11).toISOString(),
                     currency: 'EUR',
-                    fxFees: 1,
-                    posFees: 2,
+                    fxFees: 0,
+                    posFees: 0,
                 }],
                 currency: 'EUR',
                 contactId: 'contact-id',
                 description: 'expense note',
-                totalAmount: -10,
+                totalAmount: 10,
                 accountCode: '310',
                 files,
                 creditNoteNumber: 'INV-1',
@@ -1397,7 +1397,7 @@ describe('XeroEntities.Manager', () => {
                     contactId: newCreditNote.contactId,
                     description: newCreditNote.description!,
                     currency: newCreditNote.currency,
-                    amount: -7,
+                    amount: 10,
                     accountCode: newCreditNote.accountCode!,
                     fxFees: 0,
                     posFees: 0,
@@ -1406,6 +1406,7 @@ describe('XeroEntities.Manager', () => {
                     reference: newCreditNote.creditNoteNumber,
                     creditNoteNumber: newCreditNote.creditNoteNumber,
                     trackingCategories: newCreditNote.trackingCategories,
+                    lineItems: [],
                 })))
                 .returns(async () => newCreditNoteId)
                 .verifiable(TypeMoq.Times.once());
@@ -1420,12 +1421,12 @@ describe('XeroEntities.Manager', () => {
 
             if (newCreditNote.payments) {
                 for (const paymentInfo of newCreditNote.payments) {
-                    const { amount, posFees, fxFees, bankAccountId, date, currency } = paymentInfo;
+                    const { amount, bankAccountId, date, currency } = paymentInfo;
                     xeroClientMock
                         .setup(x => x.createPayment(typeIsEqualSkipUndefined({
                             itemId: newCreditNoteId,
                             itemType: Xero.PaymentItemType.CreditNote,
-                            amount: Math.abs(amount + posFees! + fxFees!),
+                            amount,
                             bankAccountId,
                             date,
                             currency,

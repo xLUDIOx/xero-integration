@@ -488,7 +488,7 @@ export class Manager implements IManager {
             }
 
             expenseCurrency = transactionCurrencies[0];
-            totalAmount = sum(...expense.transactions.map(t => t.cardAmount));
+            totalAmount = Math.abs(sum(...expense.transactions.map(t => t.cardAmount)));
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
             if (!expense.isReadyForReconciliation) {
@@ -516,6 +516,16 @@ export class Manager implements IManager {
                     }
                 }
             }
+        }
+
+        const totalFees = sum(
+            ...payments.map(d => d.fxFees || 0),
+            ...payments.map(d => d.posFees || 0),
+            ...payments.map(d => d.bankFees || 0),
+        );
+
+        if (isCredit) {
+            totalAmount = totalAmount - totalFees;
         }
 
         const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, accountCode, logger);

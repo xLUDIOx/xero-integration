@@ -1,11 +1,13 @@
 import { ITokenSet } from '@shared';
 
-import { config } from './Config';
+import { config, IXeroClientConfig } from './Config';
 
 export * from './auth';
 export * from './client';
 export * from './http/errors';
-export { HttpStatusCodes } from './http';
+export { HttpStatusCodes, createXeroHttpClient, IHttpClient } from './http';
+
+export { IXeroClientConfig };
 
 export enum XeroScope {
     BankFeeds = 'bankfeeds',

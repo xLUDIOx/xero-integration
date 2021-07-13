@@ -5,7 +5,7 @@ import { ILogger } from '@utils';
 import { IManager } from './IManager';
 import { isAccessTokenExpired, Manager } from './Manager';
 
-export { IManager, isAccessTokenExpired };
+export { IManager, isAccessTokenExpired, Manager };
 
 export type IManagerFactory = (params: Xero.IAuthParams, logger: ILogger) => IManager;
 

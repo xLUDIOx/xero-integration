@@ -10,7 +10,7 @@ import * as XeroEntities from '../xero-entities';
 import { IManager } from './IManager';
 import { Manager } from './Manager';
 
-export { IManager };
+export { IManager, Manager };
 
 export type IManagerFactory = (params: IManagerFactoryParams, logger: ILogger) => IManager;
 

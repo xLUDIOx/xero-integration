@@ -832,10 +832,10 @@ describe('integrations/Manager', () => {
                             fxFees: t.fees.fx,
                             posFees: t.fees.pos,
                         })),
-                        totalAmount: -10,
+                        totalAmount: 4,
                         files,
                         lineItems: [{
-                            amount: -10,
+                            amount: 4,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],

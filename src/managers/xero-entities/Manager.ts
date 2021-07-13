@@ -651,21 +651,16 @@ export class Manager implements IManager {
         description = DEFAULT_DESCRIPTION,
         totalAmount,
         currency,
-        payments: paymentData = [],
         creditNoteNumber,
         accountCode,
         taxType,
+        lineItems = [],
         trackingCategories,
     }: INewCreditNoteEntity,
 
         defaultAccount: IAccountCode,
         taxExemptAccount: IAccountCode,
     ): Xero.ICreditNoteData {
-        const fxFees = sum(...paymentData.map(d => d.fxFees || 0));
-        const posFees = sum(...paymentData.map(d => d.posFees || 0));
-        const bankFees = sum(...paymentData.map(d => d.bankFees || 0));
-        const deductedAmount = sum(totalAmount, fxFees, posFees, bankFees);
-
         return {
             date,
             contactId,
@@ -675,11 +670,17 @@ export class Manager implements IManager {
             taxType,
             description,
             reference: creditNoteNumber,
-            amount: deductedAmount,
+            amount: totalAmount,
             bankFees: 0,
             fxFees: 0,
             posFees: 0,
             feesAccountCode: taxExemptAccount.code,
+            lineItems: lineItems.map(l => ({
+                amount: l.amount,
+                accountCode: l.accountCode || defaultAccount.code,
+                taxType: l.taxType,
+                trackingCategories: l.trackingCategories,
+            })),
             trackingCategories,
         };
     }
