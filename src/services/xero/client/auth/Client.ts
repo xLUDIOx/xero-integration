@@ -1,10 +1,10 @@
 import { TokenSet } from 'openid-client';
-import { IXeroClientConfig } from 'xero-node';
 
 import { IEnvironment } from '@environment';
 import { ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
+import { IXeroClientConfig } from '../../Config';
 import { IHttpClient } from '../../http';
 import { buildUrl, toUrlParams } from '../../shared';
 import { ITenant } from '../contracts';

@@ -3,6 +3,7 @@ export * from './ForbiddenError';
 export * from './TenantConflictError';
 
 export const TAX_TYPE_IS_MANDATORY_MESSAGE = 'The TaxType field is mandatory';
+export const DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE = 'The document cannot be edited as it is currently dated before the end of year lock date';
 export const INVALID_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' is not a valid code|Account must be valid/;
 export const ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX = /Account code '.+' has been archived/;
 export const ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX = /.+ bank account is archived and cannot be used/;

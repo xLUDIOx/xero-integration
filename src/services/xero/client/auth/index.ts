@@ -1,8 +1,7 @@
-import { IXeroClientConfig } from 'xero-node';
-
 import { IEnvironment } from '@environment';
 import { ILogger } from '@utils';
 
+import { IXeroClientConfig } from '../../Config';
 import { IHttpClient } from '../../http';
 import { Client } from './Client';
 import { IClient } from './IClient';

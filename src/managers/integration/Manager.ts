@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -505,6 +505,8 @@ export class Manager implements IManager {
                             throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                         }
 
+                        this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
+
                         payments.push({
                             bankAccountId: bankAccount.accountID,
                             amount: expenseTransaction.cardAmount,
@@ -709,18 +711,19 @@ export class Manager implements IManager {
     }
 
     private validateExportDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
-        const lockDate = organisation.endOfYearLockDate;
-        if (!lockDate) {
-            return;
-        }
+        const endOfYearLockDate = organisation.endOfYearLockDate;
+        const periodLockDate = organisation.periodLockDate;
 
         const logger = baseLogger.child({
             organisationName: organisation.name,
             expenseExportDate: date,
-            organisationPeriodLockDate: lockDate,
+            organisationPeriodLockDate: periodLockDate,
+            organisationEndOfYearLockDate: endOfYearLockDate,
         });
 
-        if (isBeforeDate(date, lockDate)) {
+        if ((endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate)) ||
+            (periodLockDate && isBeforeOrEqualToDate(date, periodLockDate))
+        ) {
             logger.info(LOCK_PERIOD_ERROR_MESSAGE);
             throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
         }

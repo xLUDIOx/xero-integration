@@ -33,8 +33,8 @@ export const fromDateTicks = (dateTicks?: string): Date | undefined => {
     return isNaN(ticks) ? undefined : moment.utc(ticks).toDate();
 };
 
-export const isBeforeDate = (date: string | Date, before: string | Date): boolean => {
-    return moment(date).diff(moment(before), 'd') < 0;
+export const isBeforeOrEqualToDate = (date: string | Date, before: string | Date): boolean => {
+    return moment.utc(date).diff(moment.utc(before), 'd') <= 0;
 };
 
 export const DATE_FORMAT = 'YYYY-MM-DD';

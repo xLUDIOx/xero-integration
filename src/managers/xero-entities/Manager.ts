@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -240,15 +240,18 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateBill(updateData);
             } catch (err) {
-                const updateDataFallback = await this.tryFallbackItemData(
-                    err,
-                    updateData,
-                    generalExpenseAccount.code,
-                    generalExpenseAccount.taxType,
-                    logger,
-                );
+                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
+                if (!skipUpdates) {
+                    const updateDataFallback = await this.tryFallbackItemData(
+                        err,
+                        updateData,
+                        generalExpenseAccount.code,
+                        generalExpenseAccount.taxType,
+                        logger,
+                    );
 
-                await this.xeroClient.updateBill(updateDataFallback);
+                    await this.xeroClient.updateBill(updateDataFallback);
+                }
             }
 
             if (filesToUpload.length > 0) {
@@ -400,15 +403,18 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateCreditNote(updateData);
             } catch (err) {
-                const updateDataFallback = await this.tryFallbackItemData(
-                    err,
-                    updateData,
-                    generalExpenseAccount.code,
-                    generalExpenseAccount.taxType,
-                    logger,
-                );
+                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
+                if (!skipUpdates) {
+                    const updateDataFallback = await this.tryFallbackItemData(
+                        err,
+                        updateData,
+                        generalExpenseAccount.code,
+                        generalExpenseAccount.taxType,
+                        logger,
+                    );
 
-                await this.xeroClient.updateCreditNote(updateDataFallback);
+                    await this.xeroClient.updateCreditNote(updateDataFallback);
+                }
             }
 
             if (filesToUpload.length > 0) {
@@ -541,7 +547,7 @@ export class Manager implements IManager {
 
     private async tryFallbackItemData<TData extends Pick<Xero.IAccountingItemData, 'accountCode' | 'taxType'>>(error: Error, data: TData, defaultAccountCode: string, taxExemptCode: string, logger: ILogger): Promise<TData> {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
-            logger.info(`Bank transaction create failed, falling back to default account code ${defaultAccountCode}`);
+            logger.info(`Invalid account code for this item, falling back to default account code ${defaultAccountCode}`);
             data.accountCode = defaultAccountCode;
         } else if (error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
             data.taxType = taxExemptCode;

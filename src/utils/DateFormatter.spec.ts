@@ -1,4 +1,4 @@
-import { fromDateTicks, isBeforeDate } from './DateFormatter';
+import { fromDateTicks, isBeforeOrEqualToDate } from './DateFormatter';
 
 describe('Date Formatter', () => {
     describe(fromDateTicks.name, () => {
@@ -27,28 +27,28 @@ describe('Date Formatter', () => {
         });
     });
 
-    describe(isBeforeDate.name, () => {
+    describe(isBeforeOrEqualToDate.name, () => {
         it('should return false - different dates', () => {
             const exportDate = new Date(Date.UTC(2020, 5, 10));
             const lockDate = new Date(Date.UTC(2020, 3, 5));
 
-            const result = isBeforeDate(exportDate, lockDate);
+            const result = isBeforeOrEqualToDate(exportDate, lockDate);
             expect(result).toEqual(false);
         });
 
-        it('should return false - same dates', () => {
+        it('should return true - same dates', () => {
             const exportDate = new Date(Date.UTC(2020, 5, 10));
             const lockDate = exportDate;
 
-            const result = isBeforeDate(exportDate, lockDate);
-            expect(result).toEqual(false);
+            const result = isBeforeOrEqualToDate(exportDate, lockDate);
+            expect(result).toEqual(true);
         });
 
         it('should return true - different dates', () => {
             const exportDate = new Date(Date.UTC(2020, 5, 10));
             const lockDate = new Date(Date.UTC(2020, 6, 5));
 
-            const result = isBeforeDate(exportDate, lockDate);
+            const result = isBeforeOrEqualToDate(exportDate, lockDate);
             expect(result).toEqual(true);
         });
     });
