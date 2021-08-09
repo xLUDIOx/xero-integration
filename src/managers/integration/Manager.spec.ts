@@ -1301,9 +1301,14 @@ describe('integrations/Manager', () => {
     });
 
     describe('getTransactionTotalAmount', () => {
-        it('should calculate correctly', () => {
+        it('should calculate correctly with fees', () => {
             const result = getTransactionTotalAmount({ cardAmount: 336.1400, fees: { fx: 3.03, pos: 0 } } as any);
             expect(result).toEqual(339.17);
+        });
+
+        it('should calculate correctly without fees', () => {
+            const result = getTransactionTotalAmount({ cardAmount: 5.94, fees: { fx: 0, pos: 0 } } as any);
+            expect(result).toEqual(5.94); // 5.9399999999999995 was received prior to fix
         });
     });
 });

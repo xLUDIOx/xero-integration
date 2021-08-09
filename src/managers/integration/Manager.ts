@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, myriadthsToNumber, numberToMyriadths, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -1113,12 +1113,7 @@ function formatDescription(name: string, expenseNote?: string): string {
 }
 
 export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
-    return myriadthsToNumber((
-        BigInt(numberToMyriadths(t.cardAmount)) +
-        BigInt(numberToMyriadths(t.fees.fx)) +
-        BigInt(numberToMyriadths(t.fees.pos)))
-        .toString()
-    );
+    return sum(t.cardAmount, t.fees.fx, t.fees.pos);
 }
 
 function getExportDate(expense: Payhawk.IExpense): string {
