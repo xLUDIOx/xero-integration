@@ -594,7 +594,7 @@ export class Manager implements IManager {
             trackingCategories,
             lineItems: [{
                 accountCode: accountCode || defaultAccount.code,
-                amount,
+                amount: Math.abs(amount),
                 taxType: taxExempt ? taxExemptAccount.taxType : taxType,
                 trackingCategories,
             }],
