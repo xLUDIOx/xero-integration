@@ -1,3 +1,4 @@
+// eslint-disable-next-line import/no-named-as-default
 import Axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from 'axios';
 
 import { ILock, ILogger, toBase64 } from '@utils';
@@ -16,6 +17,10 @@ export class HttpClient implements IHttpClient {
     ) {
         this.client = Axios.create();
         this.client.interceptors.request.use(async (reqConfig: AxiosRequestConfig) => {
+            if (!reqConfig.headers) {
+                reqConfig.headers = {};
+            }
+
             if (this.accessToken && !reqConfig.headers[AUTHORIZATION_HEADER]) {
                 reqConfig.headers[AUTHORIZATION_HEADER] = `Bearer ${this.accessToken}`;
             }
@@ -99,10 +104,14 @@ export class HttpClient implements IHttpClient {
 
             actionResult = await action();
         } catch (err) {
-            actionResult = await this._handleFailedRequest(err, action, logger, retryCount);
-            if (!actionResult) {
-                return undefined as any;
+            if (Axios.isAxiosError(err)) {
+                actionResult = await this._handleFailedRequest(err, action, logger, retryCount);
+                if (!actionResult) {
+                    return undefined as any;
+                }
             }
+
+            throw err;
         } finally {
             await this.lock.release();
         }

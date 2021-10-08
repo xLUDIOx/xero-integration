@@ -279,7 +279,7 @@ describe.only('Xero client', () => {
             let error: Error | undefined;
             try {
                 await client.createTransaction(transaction);
-            } catch (err) {
+            } catch (err: any) {
                 error = err;
             }
 
@@ -386,7 +386,7 @@ describe.only('Xero client', () => {
             let error: Error | undefined;
             try {
                 await client.createBill(invoice);
-            } catch (err) {
+            } catch (err: any) {
                 error = err;
             }
 

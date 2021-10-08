@@ -180,12 +180,13 @@ export class AuthController {
             await connectionManager.createAccessToken(accessToken, tenantId);
         } catch (err) {
             if (err instanceof TenantConflictError) {
+                const { conflictingAccountId, tenantId: tenantIdErr } = err;
                 const authorizedTenants = await connectionManager.getAuthorizedTenants(accessToken);
-                const tenant = authorizedTenants.find(t => t.tenantId === err.tenantId);
+                const tenant = authorizedTenants.find(t => t.tenantId === tenantIdErr);
 
                 redirectUrl.searchParams.set('errorType', 'conflict');
                 redirectUrl.searchParams.set('organisationName', tenant!.tenantName);
-                redirectUrl.searchParams.set('conflictingAccountId', err.conflictingAccountId);
+                redirectUrl.searchParams.set('conflictingAccountId', conflictingAccountId);
 
                 return redirectUrl.toString();
             }

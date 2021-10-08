@@ -51,7 +51,7 @@ export class PgSchemaStore implements ISchemaStore {
             await this.dbClient.query(scriptText);
 
             this.logger.info('Database migration finished');
-        } catch (err) {
+        } catch (err: any) {
             const error = Error(`Database migration script failed: ${err.toString()}`);
 
             this.logger.error(error);

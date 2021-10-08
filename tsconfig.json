@@ -48,7 +48,8 @@
             "*": [
                 "types/*"
             ]
-        }
+        },
+        "skipLibCheck": true // added because of axios: Cannot find name 'AbortSignal'
     },
     "include": [
         "src/**/*.ts"

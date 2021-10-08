@@ -84,7 +84,7 @@ export class Manager implements IManager {
 
             try {
                 transactionId = await this.xeroClient.createTransaction(createData);
-            } catch (err) {
+            } catch (err: any) {
                 const createDataFallback = await this.tryFallbackItemData(
                     err,
                     createData,
@@ -111,7 +111,7 @@ export class Manager implements IManager {
 
             try {
                 await this.xeroClient.updateTransaction(updateData);
-            } catch (err) {
+            } catch (err: any) {
                 const updateDataFallback = await this.tryFallbackItemData(
                     err,
                     updateData,
@@ -194,7 +194,7 @@ export class Manager implements IManager {
 
             try {
                 billId = await this.xeroClient.createBill(billData);
-            } catch (err) {
+            } catch (err: any) {
                 const createDataFallback = await this.tryFallbackItemData(
                     err,
                     billData,
@@ -239,7 +239,7 @@ export class Manager implements IManager {
 
             try {
                 await this.xeroClient.updateBill(updateData);
-            } catch (err) {
+            } catch (err: any) {
                 const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
                 if (!skipUpdates) {
                     const updateDataFallback = await this.tryFallbackItemData(
@@ -369,7 +369,7 @@ export class Manager implements IManager {
 
             try {
                 creditNoteId = await this.xeroClient.createCreditNote(creditNoteData);
-            } catch (err) {
+            } catch (err: any) {
                 const createDataFallback = await this.tryFallbackItemData(
                     err,
                     creditNoteData,
@@ -402,7 +402,7 @@ export class Manager implements IManager {
 
             try {
                 await this.xeroClient.updateCreditNote(updateData);
-            } catch (err) {
+            } catch (err: any) {
                 const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
                 if (!skipUpdates) {
                     const updateDataFallback = await this.tryFallbackItemData(

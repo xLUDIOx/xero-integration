@@ -99,7 +99,7 @@ export class Client implements IClient {
                 x => x.accountingApi.createContacts(this.tenantId, { contacts: [payload] }),
                 XeroEntityResponseType.Contacts,
             );
-        } catch (err) {
+        } catch (err: any) {
             if (err.message && err.message.includes('The contact name must be unique across all active contacts.')) {
                 const existing = await this.findContact(name, vat);
                 if (existing) {

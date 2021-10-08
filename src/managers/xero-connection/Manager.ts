@@ -112,7 +112,7 @@ export class Manager implements IManager {
             await this.updateAccessToken(tenantId, refreshedAccessToken);
 
             return refreshedAccessToken;
-        } catch (err) {
+        } catch (err: any) {
             const error = Error(`Failed to refresh access token - ${err.toString()}`);
             this.logger.error(error);
         }

@@ -188,7 +188,7 @@ export class Manager implements IManager {
 
         try {
             await this._exportExpense(expense, files, organisation);
-        } catch (err) {
+        } catch (err: any) {
             this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
             await Promise.all(files.map(async (f: Payhawk.IDownloadedFile) => this.deleteFile(f.path)));
@@ -200,7 +200,7 @@ export class Manager implements IManager {
 
         try {
             await this.deleteBillIfExists(expenseId, logger);
-        } catch (err) {
+        } catch (err: any) {
             this.handleExpenseDeleteError(err);
         }
     }
@@ -233,7 +233,7 @@ export class Manager implements IManager {
                 }
 
                 await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
-            } catch (err) {
+            } catch (err: any) {
                 this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
             }
         }
@@ -255,7 +255,7 @@ export class Manager implements IManager {
             const bankAccountId = bankAccount.accountID;
 
             await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
-        } catch (err) {
+        } catch (err: any) {
             this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
         }
     }
@@ -278,7 +278,7 @@ export class Manager implements IManager {
 
         try {
             await this._exportBankStatementForExpense(expense, organisation, logger);
-        } catch (err) {
+        } catch (err: any) {
             this.handleExportError(err, expense.category, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
     }
@@ -388,7 +388,7 @@ export class Manager implements IManager {
 
             try {
                 await this.xeroEntities.bankFeeds.closeBankFeedConnection(connectionId);
-            } catch (err) {
+            } catch (err: any) {
                 throw connectionLogger.warn(err);
             } finally {
                 await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, connectionId);
@@ -774,7 +774,7 @@ export class Manager implements IManager {
     private async tryGetBankFeedAccount(currency: string, feedConnectionId: string | undefined, logger: ILogger): Promise<XeroEntities.BankAccounts.IBankAccount> {
         try {
             return await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
-        } catch (err) {
+        } catch (err: any) {
             if (err.message === `${currency} bank account is archived and cannot be used`) {
                 if (feedConnectionId) {
                     await this.store.bankFeeds.deleteConnectionForAccount(this.accountId, feedConnectionId);
@@ -991,12 +991,14 @@ export class Manager implements IManager {
         } else if (isPaidWithBalancePayment) {
             const settledPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Settled);
             if (settledPayments.length > 1) {
-                throw Error('Expense has multiple settled payments');
+                logger.error(Error('Expense has multiple settled payments'));
+                return;
             }
 
             const balancePayment = settledPayments[0];
             if (!balancePayment) {
-                throw new ExportError('Failed to export bank statement into Xero. Expense has no settled payment');
+                logger.info('Failed to export bank statement into Xero. Expense has no settled payment');
+                return;
             }
 
             const statementTransactionId = `balance-payment-${balancePayment.id}`;
