@@ -182,6 +182,11 @@ export class Manager implements IManager {
             return;
         }
 
+        if (!expense.isReadyForReconciliation) {
+            this.logger.info('Expense is not ready to be reconciled and will not be exported');
+            return;
+        }
+
         const files = await this.payhawkClient.downloadFiles(expense);
 
         const organisation = await this.getOrganisation();
@@ -466,7 +471,7 @@ export class Manager implements IManager {
         const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
 
         let totalAmount = expense.reconciliation.expenseTotalAmount;
-        let accountCode = expense.reconciliation.accountCode;
+        const accountCode = expense.reconciliation.accountCode;
 
         let contactId: string;
         if (expense.recipient) {
@@ -491,31 +496,26 @@ export class Manager implements IManager {
             totalAmount = Math.abs(sum(...expense.transactions.map(t => t.cardAmount)));
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
-            if (!expense.isReadyForReconciliation) {
-                this.logger.info('Expense is not ready to be reconciled, payments will not be exported and bill will use default expense account');
-                accountCode = undefined; // use default account code for unsettled transactions
+            if (!areAllTransactionsSettled) {
+                this.logger.info('Expense transactions are not settled, payments will not be exported');
             } else {
-                if (!areAllTransactionsSettled) {
-                    this.logger.info('Expense transactions are not settled, payments will not be exported');
-                } else {
-                    const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
 
-                    for (const expenseTransaction of expense.transactions) {
-                        if (!expenseTransaction.settlementDate) {
-                            throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
-                        }
-
-                        this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
-
-                        payments.push({
-                            bankAccountId: bankAccount.accountID,
-                            amount: expenseTransaction.cardAmount,
-                            currency: expenseTransaction.cardCurrency,
-                            date: expenseTransaction.settlementDate,
-                            fxFees: expenseTransaction.fees.fx,
-                            posFees: expenseTransaction.fees.pos,
-                        });
+                for (const expenseTransaction of expense.transactions) {
+                    if (!expenseTransaction.settlementDate) {
+                        throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                     }
+
+                    this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
+
+                    payments.push({
+                        bankAccountId: bankAccount.accountID,
+                        amount: expenseTransaction.cardAmount,
+                        currency: expenseTransaction.cardCurrency,
+                        date: expenseTransaction.settlementDate,
+                        fxFees: expenseTransaction.fees.fx,
+                        posFees: expenseTransaction.fees.pos,
+                    });
                 }
             }
         }

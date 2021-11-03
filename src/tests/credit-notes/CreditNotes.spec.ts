@@ -20,7 +20,7 @@ describe('Credit notes export module tests', () => {
     describe('export accounting entity', () => {
         const expenseId = '1000';
 
-        it('should create a new unpaid credit note for unsettled expense', async () => {
+        it.skip('should create a new unpaid credit note for unsettled expense', async () => {
             const expense = testEnv.setupRefundExpenseResponseMock(expenseId, { isReadyForReconciliation: false });
 
             testEnv.setupContactsByVatResponseMock(expense.recipient.vat!);
