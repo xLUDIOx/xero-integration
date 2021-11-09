@@ -3,11 +3,15 @@ import { EventEmitter } from 'events';
 import { ILogger } from '../logger';
 import { ILock } from './ILock';
 
+const MAX_LISTENERS = 20;
+
 export class Lock implements ILock {
     private isLocked: boolean = false;
     private emitter = new EventEmitter();
 
-    constructor(private readonly logger: ILogger) { }
+    constructor(private readonly logger: ILogger) {
+        this.emitter.setMaxListeners(MAX_LISTENERS);
+    }
 
     async acquire(): Promise<void> {
         return new Promise(resolve => {

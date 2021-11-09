@@ -3,7 +3,7 @@ import { createReadStream } from 'fs';
 import { Account, AccountType, Attachment, BankTransaction, Contact, CreditNote, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
 import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, PartialBy, RequiredNonNullBy } from '@shared';
-import { IDocumentSanitizer, ILogger, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import { IDocumentSanitizer, ILogger, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -725,7 +725,7 @@ export function getAccountingItemModel(entity: PartialBy<IAccountingItemData, 'u
         tracking: toTrackingCategory(l.trackingCategories),
     }));
 
-    const feesTotal = sum(bankFees, posFees, fxFees);
+    const feesTotal = sumAmounts(bankFees, posFees, fxFees);
 
     if (feesAccountCode && feesTotal > 0) {
         const feesDescription = bankFees ?

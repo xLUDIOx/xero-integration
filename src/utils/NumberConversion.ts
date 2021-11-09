@@ -3,7 +3,7 @@ export const B_MYRIAD = BigInt(MYRIAD);
 
 export const numberToMyriadths = (n: number): string => (BigInt(Math.trunc(n)) * B_MYRIAD + BigInt(Math.round((n % 1) * MYRIAD))).toString();
 
-export const sum = (...num: number[]): number => {
+export const sumAmounts = (...num: number[]): number => {
     const result = myriadthsToAmount(
         num.reduce((s, n) => s += BigInt(numberToMyriadths(n)), BigInt(0)).toString()
     );

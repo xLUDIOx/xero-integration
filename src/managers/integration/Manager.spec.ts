@@ -338,6 +338,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
                         contactId,
+                        reference: `expense-${expenseId}`,
                         description: `${expense.ownerName} | ${expense.note}`,
                         payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
                             amount: t.cardAmount,
@@ -479,6 +480,7 @@ describe('integrations/Manager', () => {
                         taxType: 'TAX001',
                         currency: reconciliation.expenseCurrency!,
                         fxRate: undefined,
+                        reference: `expense-${expenseId}`,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
@@ -945,6 +947,7 @@ describe('integrations/Manager', () => {
                         accountCode: reconciliation.accountCode,
                         taxType: 'TAX001',
                         currency: reconciliation.expenseCurrency!,
+                        reference: `expense-${expenseId}`,
                         fxRate: undefined,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
@@ -1024,6 +1027,7 @@ describe('integrations/Manager', () => {
                         currency: reconciliation.expenseCurrency!,
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
+                        reference: `expense-${expenseId}`,
                         totalAmount: 11.28,
                         payments: [],
                         files,
@@ -1108,6 +1112,7 @@ describe('integrations/Manager', () => {
                         contactId,
                         description: `${expense.ownerName} | ${expense.note}`,
                         totalAmount: 11.28,
+                        reference: `expense-${expenseId}`,
                         files,
                         lineItems: [{
                             amount: 11.28,

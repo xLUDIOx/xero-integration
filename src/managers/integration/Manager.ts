@@ -1,7 +1,7 @@
 import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sum, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -493,7 +493,7 @@ export class Manager implements IManager {
             }
 
             expenseCurrency = transactionCurrencies[0];
-            totalAmount = Math.abs(sum(...expense.transactions.map(t => t.cardAmount)));
+            totalAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
             if (!areAllTransactionsSettled) {
@@ -520,7 +520,7 @@ export class Manager implements IManager {
             }
         }
 
-        const totalFees = sum(
+        const totalFees = sumAmounts(
             ...payments.map(d => d.fxFees || 0),
             ...payments.map(d => d.posFees || 0),
             ...payments.map(d => d.bankFees || 0),
@@ -571,11 +571,11 @@ export class Manager implements IManager {
                 isPaid: expense.isPaid,
                 contactId,
                 description,
-                reference: expense.document?.number,
+                reference: expense.document?.number || XeroEntities.getExpenseNumber(expense.id),
                 currency: expenseCurrency,
                 totalAmount,
                 accountCode,
-                taxType: expense.taxRate ? expense.taxRate.code : undefined,
+                taxType: expense.taxRate?.code,
                 files,
                 url: billUrl,
                 lineItems,
@@ -589,7 +589,7 @@ export class Manager implements IManager {
     }
 
     private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, accountCode: string | undefined, logger: ILogger) {
-        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ? sum(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount)) : 0;
+        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ? sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount)) : 0;
         if (lineItemsSum > 0 && lineItemsSum !== totalAmount) {
             throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
         }
@@ -861,9 +861,8 @@ export class Manager implements IManager {
         });
     }
 
-    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, baseLogger: ILogger): Promise<void> {
+    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, logger: ILogger): Promise<void> {
         const hasTransactions = expense.transactions.length > 0;
-        const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
         const isPaidWithBalancePayment = expense.isPaid && expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance;
         if (!hasTransactions && !isPaidWithBalancePayment) {
             this.logger.info(`Expense has no transactions and is not paid with balance payment, bank statement will not be exported`);
@@ -888,46 +887,11 @@ export class Manager implements IManager {
             throw new ExportError('Failed to export bank statement. Expense has no currency');
         }
 
-        let logger;
-        let contactName: string | undefined;
-        let reference;
+        const contactName = expense.recipient.name;
+        const reference = expense.document?.number;
 
         const date = getExportDate(expense);
-        if (isCredit) {
-            const creditNoteNumber = expense.document?.number || XeroEntities.getExpenseNumber(expense.id);
-
-            logger = baseLogger.child({
-                creditNoteNumber,
-            });
-
-            const creditNote = await this.xeroEntities.getCreditNoteByNumber(creditNoteNumber);
-            if (!creditNote) {
-                logger.info(Error('Credit note not found, bank statement will not be exported'));
-                return;
-            }
-
-            contactName = creditNote.contact?.name;
-            reference = creditNote.reference || creditNoteNumber;
-        } else {
-            const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
-
-            logger = baseLogger.child({
-                billUrl,
-            });
-
-            this.validateExportDate(organisation, date, logger);
-
-            const bill = await this.xeroEntities.getBillByUrl(billUrl);
-            if (!bill) {
-                logger.info(Error('Bill not found, bank statement will not be exported'));
-                return;
-            }
-
-            contactName = bill.contact.name;
-            reference = bill.reference;
-        }
-
-        contactName = contactName || expense.supplier.name;
+        this.validateExportDate(organisation, date, logger);
 
         // backwards compatibility for no statement duplication
         const statementExists = await this.store.bankFeeds.existsStatement({
@@ -971,9 +935,9 @@ export class Manager implements IManager {
                     continue;
                 }
 
-                const amount = sum(transaction.cardAmount, transaction.fees.fx, transaction.fees.pos);
+                const amount = sumAmounts(transaction.cardAmount, transaction.fees.fx, transaction.fees.pos);
                 const paymentDate = transaction.date;
-                const description = `${amount > 0 ? 'Payment to' : 'Refund from'} ${contactName}: ${reference}`;
+                const description = `${amount > 0 ? 'Payment to' : 'Refund from'} ${contactName}${reference ? `: ${reference}` : ''}`;
 
                 await this.tryCreateBankStatement(
                     feedConnectionId,
@@ -988,7 +952,11 @@ export class Manager implements IManager {
                     logger,
                 );
             }
-        } else if (isPaidWithBalancePayment) {
+
+            return;
+        }
+
+        if (isPaidWithBalancePayment) {
             const settledPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Settled);
             if (settledPayments.length > 1) {
                 logger.error(Error('Expense has multiple settled payments'));
@@ -1014,9 +982,9 @@ export class Manager implements IManager {
                 return;
             }
 
-            const amount = sum(balancePayment.amount, balancePayment.fees);
+            const amount = sumAmounts(balancePayment.amount, balancePayment.fees);
             const paymentDate = balancePayment.date;
-            const description = `Payment to ${contactName}: ${reference}`;
+            const description = `Payment to ${contactName}${reference ? `: ${reference}` : ''}`;
 
             await this.tryCreateBankStatement(
                 feedConnectionId,
@@ -1030,10 +998,11 @@ export class Manager implements IManager {
                 description,
                 logger,
             );
-        } else {
-            logger.info('Expense is not paid with card or via bank transfer, bank statement will not be exported');
+
             return;
         }
+
+        logger.info('Expense is not paid with card or via bank transfer, bank statement will not be exported');
     }
 
     private handleExportError(err: Error, category: string | undefined, genericErrorMessage: string) {
@@ -1115,7 +1084,7 @@ function formatDescription(name: string, expenseNote?: string): string {
 }
 
 export function getTransactionTotalAmount(t: Payhawk.ITransaction): number {
-    return sum(t.cardAmount, t.fees.fx, t.fees.pos);
+    return sumAmounts(t.cardAmount, t.fees.fx, t.fees.pos);
 }
 
 function getExportDate(expense: Payhawk.IExpense): string {

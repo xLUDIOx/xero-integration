@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sum, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -283,7 +283,7 @@ export class Manager implements IManager {
 
                 const paymentData: Xero.IPaymentData = {
                     date,
-                    amount: sum(amount, fxFees, bankFees, posFees),
+                    amount: sumAmounts(amount, fxFees, bankFees, posFees),
                     fxRate: billData.fxRate,
                     currency,
                     bankAccountId,
@@ -446,7 +446,7 @@ export class Manager implements IManager {
 
                 const paymentData: Xero.IPaymentData = {
                     date,
-                    amount: Math.abs(sum(amount, fxFees, bankFees, posFees)),
+                    amount: Math.abs(sumAmounts(amount, fxFees, bankFees, posFees)),
                     currency,
                     bankAccountId,
                     itemId: creditNoteId,
@@ -621,9 +621,9 @@ export class Manager implements IManager {
         defaultAccount: IAccountCode,
         taxExemptAccount: IAccountCode,
     ): Xero.ICreateBillData {
-        const fxFees = sum(...paymentData.map(d => d.fxFees || 0));
-        const posFees = sum(...paymentData.map(d => d.posFees || 0));
-        const bankFees = sum(...paymentData.map(d => d.bankFees || 0));
+        const fxFees = sumAmounts(...paymentData.map(d => d.fxFees || 0));
+        const posFees = sumAmounts(...paymentData.map(d => d.posFees || 0));
+        const bankFees = sumAmounts(...paymentData.map(d => d.bankFees || 0));
 
         return {
             date,
