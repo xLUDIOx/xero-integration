@@ -2,7 +2,7 @@ import { KeyNameMap } from '@shared';
 
 export interface IBankFeedStatementRecord {
     account_id: string;
-    xero_entity_id: string;
+    xero_entity_id?: string | null;
     payhawk_entity_id: string;
     payhawk_entity_type: EntityType;
     bank_statement_id: string;

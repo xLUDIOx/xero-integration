@@ -101,32 +101,6 @@ export class IntegrationsController {
                     logger,
                 );
             }
-            case PayhawkEvent.TransferExport: {
-                return await this.wrapInErrorHandler(
-                    () => this.exportSingleTransfer(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    ),
-                    res,
-                    logger,
-                );
-            }
-            case PayhawkEvent.TransfersExport: {
-                return await this.wrapInErrorHandler(
-                    () => this.exportTransfers(
-                        payloadData,
-                        connectionManager,
-                        accountId,
-                        xeroAccessToken,
-                        logger,
-                    ),
-                    res,
-                    logger,
-                );
-            }
             case PayhawkEvent.BankStatementExport: {
                 return await this.wrapInErrorHandler(
                     () => this.exportBankStatement(
@@ -156,6 +130,9 @@ export class IntegrationsController {
                 await this.syncTrackingCategories(connectionManager, xeroAccessToken, accountId, logger);
                 break;
             }
+            case PayhawkEvent.TransferExport:
+            case PayhawkEvent.TransfersExport:
+                break;
             default:
                 return res.send(400, 'Unknown event');
         }
@@ -207,22 +184,6 @@ export class IntegrationsController {
         logger.info(`Delete expense completed`);
     }
 
-    private async exportSingleTransfer(payloadData: any, connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, baseLogger: ILogger) {
-        const { balanceId, transferId } = payloadData;
-        if (!balanceId || !transferId) {
-            throw Error('Balance ID and transfer ID are required');
-        }
-
-        const logger = baseLogger.child({ balanceId, transferId });
-
-        logger.info('Export transfer started');
-
-        const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
-        await integrationManager.exportTransfer(balanceId, transferId);
-
-        logger.info('Export transfer completed');
-    }
-
     private async exportBankStatement(payloadData: any, connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, baseLogger: ILogger) {
         const { expenseId, balanceId, transferId } = payloadData;
 
@@ -255,21 +216,6 @@ export class IntegrationsController {
         }
 
         logger.info('Export bank statement completed');
-    }
-
-    private async exportTransfers(payloadData: any, connectionManager: XeroConnection.IManager, accountId: string, accessToken: TokenSet, baseLogger: ILogger) {
-        if (!payloadData.startDate || !payloadData.endDate) {
-            throw Error('Start and end date are required');
-        }
-
-        const logger = baseLogger.child({ startDate: payloadData.startDate, endDate: payloadData.endDate });
-
-        logger.info('Export transfers started');
-
-        const integrationManager = await this.createIntegrationManager(connectionManager, accountId, accessToken, logger);
-        await integrationManager.exportTransfers(payloadData.startDate, payloadData.endDate);
-
-        logger.info('Export transfers completed');
     }
 
     private async syncBankAccounts(connectionManager: XeroConnection.IManager, accessToken: TokenSet, accountId: string, logger: ILogger) {

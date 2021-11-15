@@ -108,36 +108,6 @@ describe('IntegrationsController', () => {
             await controller.handlePayhawkEvent(req, responseMock.object);
         });
 
-        test('send 204 and call exportTransfers for that event', async () => {
-            const accessToken = createAccessToken();
-
-            connectionManagerMock
-                .setup(m => m.getActiveTenantId())
-                .returns(async () => '1')
-                .verifiable(TypeMoq.Times.once());
-
-            connectionManagerMock
-                .setup(m => m.getAccessToken())
-                .returns(async () => accessToken);
-
-            const exportData = {
-                startDate: new Date().toISOString(),
-                endDate: new Date().toISOString(),
-            };
-
-            integrationManagerMock
-                .setup(m => m.exportTransfers(exportData.startDate, exportData.endDate))
-                .returns(() => Promise.resolve())
-                .verifiable(TypeMoq.Times.once());
-
-            responseMock
-                .setup(r => r.send(204))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { body: { accountId, event: PayhawkEvent.TransfersExport, data: exportData } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
-        });
-
         test('throw err if payload does not contain payload data for exportExpense', async () => {
             const accessToken = createAccessToken();
             connectionManagerMock
@@ -145,16 +115,6 @@ describe('IntegrationsController', () => {
                 .returns(async () => accessToken);
 
             const req = { body: { accountId, event: PayhawkEvent.ExpenseExport, data: undefined } } as restify.Request;
-            await expect(controller.handlePayhawkEvent(req, responseMock.object)).rejects.toThrow();
-        });
-
-        test('send 500 if payload does not contain payload data for exportTransfers', async () => {
-            const accessToken = createAccessToken();
-            connectionManagerMock
-                .setup(m => m.getAccessToken())
-                .returns(async () => accessToken);
-
-            const req = { body: { accountId, event: PayhawkEvent.TransfersExport, data: undefined } } as restify.Request;
             await expect(controller.handlePayhawkEvent(req, responseMock.object)).rejects.toThrow();
         });
 

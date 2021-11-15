@@ -210,61 +210,6 @@ export class Manager implements IManager {
         }
     }
 
-    async exportTransfers(startDate: string, endDate: string): Promise<void> {
-        const logger = this.logger.child({ accountId: this.accountId, startDate, endDate });
-        const organisation = await this.getOrganisation();
-
-        const transfers = await this.payhawkClient.getTransfers(startDate, endDate);
-        if (!transfers.length) {
-            logger.info('There are no transfers for the selected period');
-            return;
-        }
-
-        const contactId = await this.xeroEntities.getContactForRecipient({ name: NEW_DEPOSIT_CONTACT_NAME });
-
-        const bankAccountIdMap = new Map<string, string>();
-
-        for (const transfer of transfers) {
-            const transferLogger = logger.child({ transferId: transfer.id });
-
-            try {
-                this.validateExportDate(organisation, transfer.date, transferLogger);
-
-                let bankAccountId = bankAccountIdMap.get(transfer.currency);
-                if (!bankAccountId) {
-                    const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
-                    bankAccountId = bankAccount.accountID;
-                    bankAccountIdMap.set(transfer.currency, bankAccountId);
-                }
-
-                await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
-            } catch (err: any) {
-                this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
-            }
-        }
-    }
-
-    async exportTransfer(balanceId: string, transferId: string): Promise<void> {
-        try {
-            const logger = this.logger.child({ accountId: this.accountId, balanceId, transferId });
-            const transfer = await this.payhawkClient.getTransfer(balanceId, transferId);
-            if (!transfer) {
-                throw logger.error(Error('Transfer not found'));
-            }
-
-            const organisation = await this.getOrganisation();
-            this.validateExportDate(organisation, transfer.date, logger);
-
-            const contactId = await this.xeroEntities.getContactForRecipient({ name: NEW_DEPOSIT_CONTACT_NAME });
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(transfer.currency);
-            const bankAccountId = bankAccount.accountID;
-
-            await this.exportTransferAsTransaction(transfer, contactId, bankAccountId);
-        } catch (err: any) {
-            this.handleExportError(err, DEFAULT_ACCOUNT_NAME, GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE);
-        }
-    }
-
     async getOrganisation(): Promise<XeroEntities.IOrganisation> {
         const organisation = await this.xeroEntities.getOrganisation();
         return organisation;
@@ -299,26 +244,10 @@ export class Manager implements IManager {
         const organisation = await this.getOrganisation();
         this.validateExportDate(organisation, transfer.date, logger);
 
-        const date = transfer.date;
-        const currency = transfer.currency;
-        const transferUrl = this.buildTransferUrl(transferId, new Date(date));
-
-        logger = logger.child({ currency, transferUrl });
-
-        const bankTransaction = await this.xeroEntities.getBankTransactionByUrl(transferUrl);
-        if (!bankTransaction) {
-            logger.error(Error('Bank statement cannot be imported because the deposit associated with it was not found'));
-            return;
-        }
-
-        if (bankTransaction.isReconciled) {
-            logger.error(Error('Bank statement cannot be imported because the deposit is already reconciled'));
-            return;
-        }
+        logger = logger.child({ currency: transfer.currency });
 
         const statementId = await this.store.bankFeeds.getStatementByEntityId({
             account_id: this.accountId,
-            xero_entity_id: bankTransaction.bankTransactionID,
             payhawk_entity_id: transferId,
             payhawk_entity_type: EntityType.Transfer,
         });
@@ -328,8 +257,9 @@ export class Manager implements IManager {
             return;
         }
 
-        const contactName = bankTransaction.contact.name;
-        const description = bankTransaction.reference;
+        const contactName = NEW_DEPOSIT_CONTACT_NAME;
+        const currency = transfer.currency;
+        const description = this.getTransferDescription(transfer);
 
         let feedConnectionId = await this.store.bankFeeds.getConnectionIdByCurrency(this.accountId, currency);
 
@@ -348,9 +278,9 @@ export class Manager implements IManager {
 
         await this.tryCreateBankStatement(
             feedConnectionId,
-            bankTransaction.bankTransactionID,
+            `balanceId-${balanceId}:transferId-${transferId}`,
             bankAccount,
-            date,
+            transfer.date,
             -transfer.amount,
             transferId,
             EntityType.Transfer,
@@ -439,22 +369,8 @@ export class Manager implements IManager {
             }));
     }
 
-    private async exportTransferAsTransaction(transfer: Payhawk.IBalanceTransfer, contactId: string, bankAccountId: string): Promise<void> {
-        const date = transfer.date;
-        const newAccountTransaction: XeroEntities.INewAccountTransaction = {
-            date,
-            bankAccountId,
-            contactId,
-            reference: `Bank wire ${transfer.amount > 0 ? 'received' : 'sent'} on ${new Date(date).toUTCString()}`,
-            amount: -transfer.amount,
-            taxExempt: true,
-            fxFees: 0,
-            posFees: 0,
-            files: [],
-            url: this.buildTransferUrl(transfer.id, new Date(date)),
-        };
-
-        await this.xeroEntities.createOrUpdateAccountTransaction(newAccountTransaction);
+    private getTransferDescription(transfer: Payhawk.IBalanceTransfer): string {
+        return `Bank wire ${transfer.amount > 0 ? 'received' : 'sent'} on ${new Date(transfer.date).toUTCString()}`;
     }
 
     private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
@@ -1064,11 +980,6 @@ export class Manager implements IManager {
         return `${this.portalUrl}/expenses?transactionId=${encodeURIComponent(transactionId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
     }
 
-    private buildTransferUrl(transferId: string, date: Date): string {
-        const accountIdQueryParam = this.getAccountIdQueryParam(date);
-        return `${this.portalUrl}/funds?transferId=${encodeURIComponent(transferId)}&${accountIdQueryParam}=${encodeURIComponent(this.accountId)}`;
-    }
-
     private getAccountIdQueryParam(date?: Date): 'account' | 'accountId' {
         const time = date ? date.getTime() : undefined;
         if (time === undefined || time >= TIME_AT_PARAM_CHANGE) {
@@ -1096,5 +1007,4 @@ const NEW_DEPOSIT_CONTACT_NAME = 'New Deposit';
 const TIME_AT_PARAM_CHANGE = Date.UTC(2020, 0, 29, 0, 0, 0, 0);
 
 const GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. Please check that all expense data is correct and try again.';
-const GENERIC_TRANSFER_EXPORT_ERROR_MESSAGE = 'Failed to export deposit into Xero. Please check that all deposit data is correct and try again.';
 const GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE = 'Failed to export expense into Xero. There is an error with your bank feed connection. Make sure you are not using a demo organization in Xero.';

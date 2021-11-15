@@ -15,11 +15,11 @@ export class Client implements IClient {
     }
 
     async getOrCreateBankFeedConnection({ accountName, accountNumber, accountToken, accountType, currency }: INewBankFeedConnection): Promise<IBankFeedConnection> {
-        const logger = this.logger.child({ bankFeedConnection: { accountNumber, accountToken, currency } });
+        const logger = this.logger.child({ bankFeedConnectionParams: { accountName, accountNumber, accountToken, currency } });
 
-        let feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency);
+        let feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency, logger);
         if (!feedConnection) {
-            feedConnection = await this.createBankFeedConnection({ accountName, accountNumber, accountToken, accountType, currency });
+            feedConnection = await this.createBankFeedConnection({ accountName, accountNumber, accountToken, accountType, currency }, logger);
         }
 
         if (!feedConnection) {
@@ -29,20 +29,15 @@ export class Client implements IClient {
         let retries = 1;
 
         while (feedConnection.status && feedConnection.status === BankFeedConnectionStatus.Pending) {
-            if (retries === 1) {
-                logger.info('Bank feed connection is PENDING, waiting to be ready');
-            }
-
             if (retries === MAX_BANK_FEED_CONNECTIONS_RETRIES) {
                 throw logger.error(Error(`Bank feed connection is still PENDING after ${MAX_BANK_FEED_CONNECTIONS_RETRIES} retries`));
             }
 
-            logger.info(`Waiting ${BANK_FEED_CONNECTIONS_DELAY} ms before trying again`);
+            logger.info(`Bank feed connection is PENDING, waiting to be ready ${BANK_FEED_CONNECTIONS_DELAY} ms before trying again`);
 
             await sleep(BANK_FEED_CONNECTIONS_DELAY);
 
-            feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency);
-
+            feedConnection = await this.getBankFeedConnectionByAccountDetails(accountNumber, accountToken, currency, logger);
             if (!feedConnection) {
                 throw logger.error(Error('Could not get bank feed connection'));
             }
@@ -100,27 +95,36 @@ export class Client implements IClient {
         });
     }
 
-    private async getBankFeedConnectionByAccountDetails(accountNumber: string, accountToken: string, currency: Currency): Promise<IBankFeedConnection | undefined> {
+    private async getBankFeedConnectionByAccountDetails(accountNumber: string, accountToken: string, currency: Currency, baseLogger: ILogger): Promise<IBankFeedConnection | undefined> {
         const url = buildUrl(
             this.baseUrl(),
             '/FeedConnections',
         );
 
-        const getItems = await this.httpClient.request<IBankFeedConnection[]>({
+        const bankFeedConnectionItems = await this.httpClient.request<IBankFeedConnection[]>({
             url,
             method: 'GET',
             entityResponseType: EntityResponseType.Items.toLowerCase(),
         });
 
-        const feedConnection = getItems.find(c => c.accountNumber === accountNumber && c.accountToken === accountToken && c.currency === currency);
+        const logger = baseLogger.child({ bankFeedConnectionItems });
+        logger.info('Fetched bank feed connections');
+
+        const feedConnection = bankFeedConnectionItems.find(c => c.accountNumber === accountNumber && c.accountToken === accountToken && c.currency === currency);
+        if (!feedConnection) {
+            logger.info('Did not find bank feed connection');
+        }
+
         return feedConnection;
     }
 
-    private async createBankFeedConnection(connection: INewBankFeedConnection): Promise<IBankFeedConnection> {
+    private async createBankFeedConnection(connection: INewBankFeedConnection, baseLogger: ILogger): Promise<IBankFeedConnection> {
         const url = buildUrl(
             this.baseUrl(),
             '/FeedConnections',
         );
+
+        baseLogger.info('Creating new bank feed connection');
 
         const createItems = await this.httpClient.request<IBankFeedConnection[]>({
             url,
@@ -131,7 +135,15 @@ export class Client implements IClient {
             entityResponseType: EntityResponseType.Items.toLowerCase(),
         });
 
-        return createItems[0];
+        const newBankFeedConnection = createItems[0];
+        const logger = baseLogger.child({ newBankFeedConnection });
+        if (newBankFeedConnection.status === BankFeedConnectionStatus.Rejected) {
+            throw logger.error(Error('Creating bank feed connection was rejected. See inner response for details'));
+        }
+
+        logger.info('Bank feed connection created');
+
+        return newBankFeedConnection;
     }
 
     private baseUrl(): string {

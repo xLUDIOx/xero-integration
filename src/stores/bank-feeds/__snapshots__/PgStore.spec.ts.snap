@@ -109,16 +109,13 @@ Object {
   "text": "
                 SELECT \\"bank_statement_id\\"
                 FROM bank_feed_statements
-                WHERE \\"account_id\\"=$1 AND
-                    \\"xero_entity_id\\"=$2 AND
-                    \\"payhawk_entity_id\\"=$3 AND
-                    \\"payhawk_entity_type\\"=$4
+                WHERE \\"account_id\\"=$1 AND \\"payhawk_entity_id\\"=$2 AND \\"payhawk_entity_type\\"=$3 AND \\"xero_entity_id\\"=$4
             ",
   "values": Array [
     "acc_id",
-    "entity_id",
     "100",
     "expense",
+    "entity_id",
   ],
 }
 `;

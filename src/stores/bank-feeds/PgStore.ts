@@ -91,21 +91,30 @@ export class PgStore implements IStore {
     }
 
     async getStatementByEntityId({ account_id, xero_entity_id, payhawk_entity_id, payhawk_entity_type }: IStatementFilter): Promise<string | undefined> {
+        const whereClauses = [
+            `"${BankFeedStatementRecordKeys.account_id}"=$1`,
+            `"${BankFeedStatementRecordKeys.payhawk_entity_id}"=$2`,
+            `"${BankFeedStatementRecordKeys.payhawk_entity_type}"=$3`,
+        ];
+
+        const values = [
+            account_id,
+            payhawk_entity_id,
+            payhawk_entity_type,
+        ];
+
+        if (xero_entity_id) {
+            whereClauses.push(`"${BankFeedStatementRecordKeys.xero_entity_id}"=$4`);
+            values.push(xero_entity_id);
+        }
+
         const result = await this.dbClient.query<Pick<IBankFeedStatementRecord, 'bank_statement_id'>>({
             text: `
                 SELECT "${BankFeedStatementRecordKeys.bank_statement_id}"
                 FROM ${this.statementsTableName}
-                WHERE "${BankFeedStatementRecordKeys.account_id}"=$1 AND
-                    "${BankFeedStatementRecordKeys.xero_entity_id}"=$2 AND
-                    "${BankFeedStatementRecordKeys.payhawk_entity_id}"=$3 AND
-                    "${BankFeedStatementRecordKeys.payhawk_entity_type}"=$4
+                WHERE ${whereClauses.join(' AND ')}
             `,
-            values: [
-                account_id,
-                xero_entity_id,
-                payhawk_entity_id,
-                payhawk_entity_type,
-            ],
+            values,
         });
 
         const statementId = result.rows.length === 0 ? undefined : result.rows[0].bank_statement_id;
