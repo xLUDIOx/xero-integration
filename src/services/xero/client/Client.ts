@@ -1,5 +1,6 @@
 import { createReadStream } from 'fs';
 
+import * as latinize from 'latinize';
 import { Account, AccountType, Attachment, BankTransaction, Contact, CreditNote, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
 import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, PartialBy, RequiredNonNullBy } from '@shared';
@@ -823,7 +824,7 @@ export function normalizeName(name: string): string {
     const res = name
         .replace(/["]/g, '')
         .replace(/\s+/g, ' ');
-    return res.trim();
+    return latinize(res.trim());
 }
 
 const ALLOWED_CURRENCIES: string[] = [

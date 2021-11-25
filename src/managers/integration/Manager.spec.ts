@@ -257,7 +257,7 @@ describe('integrations/Manager', () => {
             test('creates bill with payments when expense has settled transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
-                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
                     createdAt: new Date(2019, 2, 2).toISOString(),
@@ -385,7 +385,7 @@ describe('integrations/Manager', () => {
             test('creates bill with payments and multiple line items when expense has settled transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
-                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
                     createdAt: new Date(2019, 2, 2).toISOString(),
@@ -528,7 +528,7 @@ describe('integrations/Manager', () => {
             test.skip('creates bill with fallback to default account code for line items', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
-                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
                     createdAt: new Date(2019, 2, 2).toISOString(),
@@ -663,7 +663,7 @@ describe('integrations/Manager', () => {
             test.skip('creates bill with no payments and default acc code when expense has auth transactions', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
-                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
                     createdAt: new Date(2019, 2, 2).toISOString(),
@@ -779,7 +779,7 @@ describe('integrations/Manager', () => {
             test('creates credit note with payments when expense is refund', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line
-                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\87766 DEUDEU';
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
                 const expense: Payhawk.IExpense = {
                     id: expenseId,
                     createdAt: new Date(2019, 2, 2).toISOString(),

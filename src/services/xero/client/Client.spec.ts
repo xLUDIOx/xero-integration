@@ -9,12 +9,12 @@ import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
-import { Client, escapeParam, getAccountingItemModel } from './Client';
+import { Client, escapeParam, getAccountingItemModel, normalizeName } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, ICreateBillData, ICreateTransactionData, InvoiceType, IPaymentData, LineAmountType, PaymentItemType } from './contracts';
 
 const CURRENCY = 'GBP';
 
-describe.only('Xero client', () => {
+describe('Xero client', () => {
     const authClientMock = TypeMoq.Mock.ofType<AuthClient.IClient>();
     const accountingClientMock = TypeMoq.Mock.ofType<AccountingClient.IClient>();
     const bankFeedsClientMock = TypeMoq.Mock.ofType<BankFeedsClient.IClient>();
@@ -541,6 +541,16 @@ describe.only('Xero client', () => {
             expect(feesItem).toEqual(undefined);
         });
     });
+
+    // cspell: disable
+    describe(normalizeName.name, () => {
+        it('should remove forbidden chars', () => {
+            const input = 'Naïm "Boughazi" ';
+            const expectedOutput = 'Naim Boughazi';
+            expect(normalizeName(input)).toEqual(expectedOutput);
+        });
+    });
+    // cspell: enable
 
     function getSpendTransactionModel(): ICreateTransactionData {
         return createTransactionModel();
