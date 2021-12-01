@@ -81,8 +81,9 @@ export class Client implements IClient {
     }
 
     async getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact> {
+        const escapedName = escapeParam(name);
         const payload: Contact = {
-            name: escapeParam(name),
+            name: escapedName,
         };
 
         if (vat) {
@@ -102,7 +103,7 @@ export class Client implements IClient {
             );
         } catch (err: any) {
             if (err.message && err.message.includes('The contact name must be unique across all active contacts.')) {
-                const existing = await this.findContact(name, vat);
+                const existing = await this.findContact(escapedName, vat);
                 if (existing) {
                     return existing;
                 }
