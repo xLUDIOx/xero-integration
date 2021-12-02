@@ -32,9 +32,9 @@ export abstract class XeroTestEnvironmentBase {
         this.controller = this.createIntegrationsController();
     }
 
-    setupContactsByVatResponseMock(vat: string) {
+    setupContactsByNameResponseMock(name: string) {
         this.accountingXeroApiMock
-            .setup(x => x.getContacts(this.xeroTenantId, undefined, `taxNumber=="${vat}"`))
+            .setup(x => x.getContacts(this.xeroTenantId, undefined, `name.toLower()=="${name.toLowerCase()}"`))
             .returns(async () => getContactsResponse())
             .verifiable(TypeMoq.Times.once());
     }

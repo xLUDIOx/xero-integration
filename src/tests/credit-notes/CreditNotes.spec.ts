@@ -23,7 +23,7 @@ describe('Credit notes export module tests', () => {
         it.skip('should create a new unpaid credit note for unsettled expense', async () => {
             const expense = testEnv.setupRefundExpenseResponseMock(expenseId, { isReadyForReconciliation: false });
 
-            testEnv.setupContactsByVatResponseMock(expense.recipient.vat!);
+            testEnv.setupContactsByNameResponseMock(expense.recipient.vat!);
             testEnv.setupDefaultExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expense.transactions[0].cardCurrency);
 
@@ -44,7 +44,7 @@ describe('Credit notes export module tests', () => {
             const expense = testEnv.setupRefundExpenseResponseMock(expenseId);
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
-            testEnv.setupContactsByVatResponseMock(expense.recipient.vat!);
+            testEnv.setupContactsByNameResponseMock(expense.recipient.name);
             testEnv.setupDefaultExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
@@ -65,7 +65,7 @@ describe('Credit notes export module tests', () => {
             const expense = testEnv.setupRefundExpenseWithFeesResponseMock(expenseId);
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
-            testEnv.setupContactsByVatResponseMock(expense.recipient.vat!);
+            testEnv.setupContactsByNameResponseMock(expense.recipient.name);
             testEnv.setupDefaultExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);

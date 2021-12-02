@@ -14,7 +14,7 @@ export interface IManager {
 
     getOrganisation(): Promise<IOrganisation>;
 
-    getContactForRecipient(recipient: Pick<Payhawk.IRecipient, 'name' | 'vat' | 'email'>): Promise<string>;
+    getContactForRecipient(recipient: Payhawk.IRecipient): Promise<string>;
     getExpenseAccounts(): Promise<IAccountCode[]>;
     getTaxRates(): Promise<ITaxRate[]>;
     getTrackingCategories(): Promise<ITrackingCategory[]>;

@@ -46,12 +46,14 @@ export class Manager implements IManager {
         return this.xeroClient.accounting.getTrackingCategories();
     }
 
-    async getContactForRecipient(recipient: Pick<Payhawk.IRecipient, 'name' | 'vat' | 'email'>): Promise<string> {
-        const contactName = recipient.name || DEFAULT_SUPPLIER_NAME;
-        let contact = await this.xeroClient.findContact(contactName, recipient.vat, recipient.email);
-        if (!contact) {
-            contact = await this.xeroClient.getOrCreateContact(contactName, recipient.name ? recipient.vat : undefined, recipient.email);
-        }
+    async getContactForRecipient(recipient: Payhawk.IRecipient): Promise<string> {
+        const hasRecipient = recipient.name !== undefined && recipient.name.length > 0;
+        const contactName = hasRecipient ? recipient.name : DEFAULT_SUPPLIER_NAME;
+        const contact = await this.xeroClient.getOrCreateContact(
+            contactName,
+            hasRecipient ? recipient.vat : undefined,
+            recipient.email,
+        );
 
         return contact.contactID!;
     }

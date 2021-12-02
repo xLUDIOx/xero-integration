@@ -4,7 +4,7 @@ import * as latinize from 'latinize';
 import { Account, AccountType, Attachment, BankTransaction, Contact, CreditNote, Currency, CurrencyCode, Invoice, LineAmountTypes, LineItem, Payment } from 'xero-node';
 
 import { ExcludeStrict, FEES_ACCOUNT_CODE, Intersection, Optional, PartialBy, RequiredNonNullBy } from '@shared';
-import { IDocumentSanitizer, ILogger, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import { ExportError, IDocumentSanitizer, ILogger, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import { IXeroHttpClient, XeroEntityResponseType } from '../http';
 import * as Accounting from './accounting';
@@ -50,37 +50,31 @@ export class Client implements IClient {
     ) {
     }
 
-    async findContact(name: string, vat?: string, email?: string): Promise<Contact | undefined> {
-        let contacts: Contact[] | undefined;
-
-        if (vat) {
-            const where = `${ContactKeys.taxNumber}=="${escapeParam(vat.trim())}"`;
-            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
-                x => x.accountingApi.getContacts(this.tenantId, undefined, where),
-                XeroEntityResponseType.Contacts
-            );
-        }
-
-        if ((!contacts || contacts.length === 0) && email) {
-            const where = `${ContactKeys.emailAddress}=="${escapeParam(email.toLowerCase().trim())}"`;
-            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
-                x => x.accountingApi.getContacts(this.tenantId, undefined, where),
-                XeroEntityResponseType.Contacts
-            );
-        }
-
-        if (!contacts || contacts.length === 0) {
-            const where = `${ContactKeys.name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
-            contacts = await this.xeroClient.makeClientRequest<Contact[]>(
-                x => x.accountingApi.getContacts(this.tenantId, undefined, where),
-                XeroEntityResponseType.Contacts,
-            );
-        }
+    async findContactByName(name: string): Promise<Contact | undefined> {
+        const where = `${ContactKeys.name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
+        const contacts = await this.xeroClient.makeClientRequest<Contact[]>(
+            x => x.accountingApi.getContacts(this.tenantId, undefined, where),
+            XeroEntityResponseType.Contacts,
+        );
 
         return contacts && contacts.length > 0 ? contacts[0] : undefined;
     }
 
     async getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact> {
+        const logger = this.logger.child({
+            contact: {
+                name,
+                vat,
+                email,
+            },
+        });
+
+        const existing = await this.findContactByName(name);
+        if (existing) {
+            logger.info`Did not find contact by unique name`;
+            return existing;
+        }
+
         const escapedName = escapeParam(name);
         const payload: Contact = {
             name: escapedName,
@@ -97,18 +91,15 @@ export class Client implements IClient {
         let contacts: Contact[] | undefined;
 
         try {
+            logger.info`Trying to create a new contact`;
             contacts = await this.xeroClient.makeClientRequest<Contact[]>(
                 x => x.accountingApi.createContacts(this.tenantId, { contacts: [payload] }),
                 XeroEntityResponseType.Contacts,
             );
         } catch (err: any) {
-            if (err.message && err.message.includes('The contact name must be unique across all active contacts.')) {
-                const existing = await this.findContact(escapedName, vat);
-                if (existing) {
-                    return existing;
-                }
-
-                throw Error('Create contact failed with duplicate name, but could not find the contact');
+            if (err.message && err.message.includes('The contact name must be unique across all active contacts')) {
+                logger.info`A contact with this name already exists`;
+                throw new ExportError(`A contact with this name already exists`);
             }
 
             throw err;
@@ -117,6 +108,8 @@ export class Client implements IClient {
         if (!contacts || contacts.length === 0) {
             throw Error('Failed to create contact');
         }
+
+        logger.info`Contact created`;
 
         return contacts[0];
     }
