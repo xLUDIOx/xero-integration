@@ -99,7 +99,7 @@ export class Client implements IClient {
         } catch (err: any) {
             if (err.message && err.message.includes('The contact name must be unique across all active contacts')) {
                 logger.info`A contact with this name already exists`;
-                throw new ExportError(`A contact with this name already exists`);
+                throw new ExportError(`Failed to export into Xero. A contact with this name already exists`);
             }
 
             throw err;

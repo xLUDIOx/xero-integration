@@ -559,17 +559,27 @@ export class Manager implements IManager {
         if (settledPayment) {
             const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
             if (bankAccount) {
-                if (settledPayment.amount !== expense.reconciliation.expenseTotalAmount) {
-                    throw new ExportError('Payment total amount does not match expense total amount');
+                if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
+                    throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
                 }
 
-                paymentData = {
-                    bankAccountId: bankAccount.accountID,
-                    currency: settledPayment.currency,
-                    amount: settledPayment.amount,
-                    bankFees: settledPayment.fees,
-                    date: settledPayment.date,
-                };
+                if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
+                    paymentData = {
+                        bankAccountId: bankAccount.accountID,
+                        currency: settledPayment.currency,
+                        amount: settledPayment.amount,
+                        bankFees: settledPayment.fees,
+                        date: settledPayment.date,
+                    };
+                } else {
+                    paymentData = {
+                        bankAccountId: bankAccount.accountID,
+                        currency: settledPayment.currency,
+                        amount: expense.reconciliation.expenseTotalAmount,
+                        bankFees: 0,
+                        date: settledPayment.date,
+                    };
+                }
             }
         }
 

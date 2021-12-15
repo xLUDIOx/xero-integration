@@ -151,7 +151,7 @@ export class Client implements IClient {
         const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
 
         if (expenseAccounts.length === 0) {
-            throw new ExportError(`Could not create ${name} expense account`);
+            throw new ExportError(`Failed to export into Xero. Could not create ${name} expense account`);
         }
 
         return expenseAccounts[0];
