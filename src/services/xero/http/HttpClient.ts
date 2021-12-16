@@ -75,6 +75,8 @@ export class HttpClient implements IHttpClient {
                     responseType,
                 });
 
+                logger.child({ responseHeaders: response.headers }).info`Response received`;
+
                 if (response.data.error) {
                     throw new HttpError(response.data.error);
                 }
@@ -105,6 +107,8 @@ export class HttpClient implements IHttpClient {
             actionResult = await action();
         } catch (err) {
             if (Axios.isAxiosError(err)) {
+                logger.child({ requestError: err, responseHeaders: err.response?.headers }).info`Request failed with error`;
+
                 actionResult = await this._handleFailedRequest(err, action, logger, retryCount);
                 if (!actionResult) {
                     return undefined as any;
@@ -154,6 +158,8 @@ export class HttpClient implements IHttpClient {
                     secondsToRetryAfter = DEFAULT_SECONDS_TO_RETRY_AFTER;
                 }
 
+                secondsToRetryAfter += ADDITIONAL_SECONDS_TO_RETRY_AFTER;
+
                 if (secondsToRetryAfter <= 0) {
                     throw logger.error(Error(`Invalid 'Retry-After' header: '${retryAfterHeaderValue}'`));
                 }
@@ -164,10 +170,14 @@ export class HttpClient implements IHttpClient {
                 logger.info(`Rate limit exceeded. Retrying again after ${secondsToRetryAfter} seconds (${nextRetryCount})`);
 
                 return new Promise((resolve, reject) => {
-                    const handledRetry = () =>
-                        this._makeSafeRequest<TResult>(action, logger, nextRetryCount)
-                            .then(d => resolve(d))
-                            .catch(e => reject(e));
+                    const handledRetry = async () => {
+                        try {
+                            const retryResult = await this._makeSafeRequest<TResult>(action, logger, nextRetryCount);
+                            resolve(retryResult);
+                        } catch (retryErr) {
+                            reject(retryErr);
+                        }
+                    };
 
                     setTimeout(handledRetry, millisecondsToRetryAfter);
                 });
@@ -181,3 +191,4 @@ export class HttpClient implements IHttpClient {
 const MAX_RETRIES = 5;
 const MIN_SECONDS_TO_WAIT_THRESHOLD = 10;
 const DEFAULT_SECONDS_TO_RETRY_AFTER = 60;
+const ADDITIONAL_SECONDS_TO_RETRY_AFTER = 5;

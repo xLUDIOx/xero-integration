@@ -141,10 +141,14 @@ export class XeroHttpClient implements IXeroHttpClient {
                     logger.info(`Rate limit exceeded. Retrying again after ${secondsToRetryAfter} seconds (${nextRetryCount})`);
 
                     return new Promise((resolve, reject) => {
-                        const handledRetry = () =>
-                            this.makeRequest<TResult>(action, nextRetryCount)
-                                .then(d => resolve(d))
-                                .catch(e => reject(e));
+                        const handledRetry = async () => {
+                            try {
+                                const retryResult = await this.makeRequest<TResult>(action, nextRetryCount);
+                                resolve(retryResult);
+                            } catch (retryErr) {
+                                reject(retryErr);
+                            }
+                        };
 
                         setTimeout(handledRetry, millisecondsToRetryAfter);
                     });
