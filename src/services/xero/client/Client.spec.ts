@@ -9,7 +9,7 @@ import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
-import { Client, escapeParam, getAccountingItemModel, normalizeName } from './Client';
+import { Client, escapeParam, getAccountingItemModel } from './Client';
 import { BankTransactionType, ClientResponseStatus, CurrencyKeys, ICreateBillData, ICreateTransactionData, InvoiceType, IPaymentData, LineAmountType, PaymentItemType } from './contracts';
 
 const CURRENCY = 'GBP';
@@ -449,6 +449,20 @@ describe('Xero client', () => {
             expect(escapeParam('"My Company" Ltd.')).toEqual(expected);
             expect(escapeParam('"  My Company   " Ltd.')).toEqual(expected);
         });
+
+        // cspell:disable
+        it('should latinize name by default', () => {
+            const input = 'Naïm "Boughazi" ';
+            const expectedOutput = 'Naim Boughazi';
+            expect(escapeParam(input)).toEqual(expectedOutput);
+        });
+
+        it('should not latinize name', () => {
+            const input = 'Naïm "Boughazi" ';
+            const expectedOutput = 'Naïm Boughazi';
+            expect(escapeParam(input, false)).toEqual(expectedOutput);
+        });
+        // cspell:enable
     });
 
     describe('transaction model', () => {
@@ -541,16 +555,6 @@ describe('Xero client', () => {
             expect(feesItem).toEqual(undefined);
         });
     });
-
-    // cspell: disable
-    describe(normalizeName.name, () => {
-        it('should remove forbidden chars', () => {
-            const input = 'Naïm "Boughazi" ';
-            const expectedOutput = 'Naim Boughazi';
-            expect(normalizeName(input)).toEqual(expectedOutput);
-        });
-    });
-    // cspell: enable
 
     function getSpendTransactionModel(): ICreateTransactionData {
         return createTransactionModel();

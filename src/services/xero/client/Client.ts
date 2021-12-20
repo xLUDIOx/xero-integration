@@ -51,13 +51,24 @@ export class Client implements IClient {
     }
 
     async findContactByName(name: string): Promise<Contact | undefined> {
-        const where = `${ContactKeys.name}.toLower()=="${escapeParam(name.toLowerCase().trim())}"`;
-        const contacts = await this.xeroClient.makeClientRequest<Contact[]>(
-            x => x.accountingApi.getContacts(this.tenantId, undefined, where),
+        const getContactNameFilter = (n: string) =>
+            `${ContactKeys.name}.toLower()=="${n}"`;
+
+        const latinizedContacts = await this.xeroClient.makeClientRequest<Contact[]>(
+            x => x.accountingApi.getContacts(this.tenantId, undefined, getContactNameFilter(escapeParam(name.toLowerCase().trim()))),
             XeroEntityResponseType.Contacts,
         );
 
-        return contacts && contacts.length > 0 ? contacts[0] : undefined;
+        if (latinizedContacts && latinizedContacts.length > 0) {
+            return latinizedContacts[0];
+        }
+
+        const nonLatinizedContacts = await this.xeroClient.makeClientRequest<Contact[]>(
+            x => x.accountingApi.getContacts(this.tenantId, undefined, getContactNameFilter(escapeParam(name.toLowerCase().trim(), false))),
+            XeroEntityResponseType.Contacts,
+        );
+
+        return nonLatinizedContacts && nonLatinizedContacts.length > 0 ? nonLatinizedContacts[0] : undefined;
     }
 
     async getOrCreateContact(name: string, vat?: string, email?: string): Promise<Contact> {
@@ -70,9 +81,12 @@ export class Client implements IClient {
         });
 
         const existing = await this.findContactByName(name);
-        if (existing) {
             logger.info`Did not find contact by unique name`;
+            if (existing) {
+            logger.info`Contact found by unique name`;
             return existing;
+        } else {
+            logger.info`Did not find contact by unique name`;
         }
 
         const escapedName = escapeParam(name);
@@ -804,11 +818,16 @@ function getNewPaymentModel({ date, itemId, itemType, bankAccountId, amount, fxR
     return paymentModel;
 }
 
-export function escapeParam(val: string): string {
-    const res = normalizeName(val)
+export function escapeParam(val: string, transformToLatin: boolean = true): string {
+    let res = normalizeName(val)
         .replace(/[\\$']/g, '\\$&')
-        ;
-    return res.trim();
+        .trim();
+
+    if (transformToLatin) {
+        res = latinize(res);
+    }
+
+    return res;
 }
 
 /*
@@ -817,8 +836,9 @@ export function escapeParam(val: string): string {
 export function normalizeName(name: string): string {
     const res = name
         .replace(/["]/g, '')
-        .replace(/\s+/g, ' ');
-    return latinize(res.trim());
+        .replace(/\s+/g, ' ')
+        .trim();
+    return res;
 }
 
 const ALLOWED_CURRENCIES: string[] = [
