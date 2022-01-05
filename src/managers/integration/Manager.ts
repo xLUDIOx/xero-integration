@@ -516,6 +516,7 @@ export class Manager implements IManager {
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
                 amount: totalAmount,
+                taxAmount: expense.reconciliation.expenseTaxAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
                 trackingCategories,
@@ -526,6 +527,7 @@ export class Manager implements IManager {
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
                     amount: item.reconciliation.expenseTotalAmount,
+                    taxAmount: item.reconciliation.expenseTaxAmount,
                     accountCode: expense.isReadyForReconciliation ? item.reconciliation.accountCode : undefined,
                     taxType: item.taxRate?.code,
                     trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),

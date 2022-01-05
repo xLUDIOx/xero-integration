@@ -64,6 +64,7 @@ export interface IAccountingItemData {
 
 export interface ILineItem {
     amount: number;
+    taxAmount?: number;
     accountCode: string;
     taxType?: string;
     trackingCategories?: ITrackingCategoryValue[];

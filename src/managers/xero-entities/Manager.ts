@@ -647,6 +647,7 @@ export class Manager implements IManager {
             lineItems: lineItems.map(l => ({
                 accountCode: l.accountCode || defaultAccount.code,
                 amount: l.amount,
+                taxAmount: l.taxAmount,
                 taxType: l.taxType,
                 trackingCategories: l.trackingCategories,
             })),
@@ -685,6 +686,7 @@ export class Manager implements IManager {
             feesAccountCode: taxExemptAccount.code,
             lineItems: lineItems.map(l => ({
                 amount: l.amount,
+                taxAmount: l.taxAmount,
                 accountCode: l.accountCode || defaultAccount.code,
                 taxType: l.taxType,
                 trackingCategories: l.trackingCategories,

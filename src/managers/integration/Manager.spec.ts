@@ -353,6 +353,7 @@ describe('integrations/Manager', () => {
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                         lineItems: [{
                             amount: 10,
+                            taxAmount: reconciliation.expenseTaxAmount,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -496,6 +497,7 @@ describe('integrations/Manager', () => {
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
                         lineItems: [{
                             amount: 10,
+                            taxAmount: expense.lineItems![0].reconciliation.expenseTaxAmount,
                             accountCode: expense.lineItems![0].reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -874,6 +876,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 4,
+                            taxAmount: reconciliation.expenseTaxAmount,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -956,6 +959,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 11.28,
+                            taxAmount: reconciliation.expenseTaxAmount,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -1033,6 +1037,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 11.28,
+                            taxAmount: reconciliation.expenseTaxAmount,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -1116,6 +1121,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 11.28,
+                            taxAmount: expense.reconciliation.expenseTaxAmount,
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],

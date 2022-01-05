@@ -730,6 +730,7 @@ export function getAccountingItemModel(entity: PartialBy<IAccountingItemData, 'u
         accountCode: l.accountCode,
         quantity: 1,
         unitAmount: l.amount,
+        taxAmount: l.taxAmount,
         taxType: l.taxType,
         tracking: toTrackingCategory(l.trackingCategories),
     }));
@@ -848,5 +849,5 @@ const ALLOWED_CURRENCIES: string[] = [
     CurrencyCode.GBP.toString(),
 ];
 
-type LineItemSelectedFields = 'description' | 'accountCode' | 'quantity' | 'unitAmount' | 'taxType' | 'tracking';
-type ILineItem = Pick<RequiredNonNullBy<LineItem, ExcludeStrict<LineItemSelectedFields, 'taxType' | 'tracking'>>, LineItemSelectedFields>;
+type LineItemSelectedFields = 'description' | 'accountCode' | 'quantity' | 'unitAmount' | 'taxAmount' | 'taxType' | 'tracking';
+type ILineItem = Pick<RequiredNonNullBy<LineItem, ExcludeStrict<LineItemSelectedFields, 'taxAmount' | 'taxType' | 'tracking'>>, LineItemSelectedFields>;
