@@ -561,24 +561,39 @@ export class Manager implements IManager {
         if (settledPayment) {
             const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
             if (bankAccount) {
-                if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
-                    throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
-                }
+                if (settledPayment.currency === expense.reconciliation.expenseCurrency) {
+                    if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
+                        // should never happen
+                        throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
+                    }
 
-                if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
+                    // most common scenario - reimbursement in same currency
+                    if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
+                        paymentData = {
+                            bankAccountId: bankAccount.accountID,
+                            currency: settledPayment.currency,
+                            amount: settledPayment.amount,
+                            bankFees: settledPayment.fees,
+                            date: settledPayment.date,
+                        };
+                    } else {
+                        // bulk payment - single for several expenses in Payhawk
+                        // in Xero - multiple payments
+                        paymentData = {
+                            bankAccountId: bankAccount.accountID,
+                            currency: settledPayment.currency,
+                            amount: expense.reconciliation.expenseTotalAmount,
+                            bankFees: 0,
+                            date: settledPayment.date,
+                        };
+                    }
+                } else {
+                    // reimbursement in different currency, amounts also differ, we may have fee as well
                     paymentData = {
                         bankAccountId: bankAccount.accountID,
                         currency: settledPayment.currency,
                         amount: settledPayment.amount,
-                        bankFees: settledPayment.fees,
-                        date: settledPayment.date,
-                    };
-                } else {
-                    paymentData = {
-                        bankAccountId: bankAccount.accountID,
-                        currency: settledPayment.currency,
-                        amount: expense.reconciliation.expenseTotalAmount,
-                        bankFees: 0,
+                        bankFees: settledPayment.fees || 0,
                         date: settledPayment.date,
                     };
                 }
