@@ -473,7 +473,7 @@ export class Manager implements IManager {
                     expense.balancePayments.length > 0
                 ) {
                     const bill = await this.xeroEntities.getBillByUrl(billUrl);
-                    const balancePayment = await this.processBalancePayments(expense, bill);
+                    const balancePayment = await this.processBalancePayments(expense, bill, organisation);
                     if (balancePayment) {
                         payments.push(balancePayment);
                     }
@@ -540,7 +540,7 @@ export class Manager implements IManager {
         return lineItems;
     }
 
-    private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined) {
+    private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined, organisation: XeroEntities.IOrganisation) {
         let paymentData: XeroEntities.IPayment | undefined;
 
         const failedPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Rejected);
@@ -559,6 +559,19 @@ export class Manager implements IManager {
         }
 
         if (settledPayment) {
+            const operationCurrencies = new Set([
+                expense.reconciliation.expenseCurrency,
+                organisation.baseCurrency,
+                settledPayment.currency,
+            ]);
+
+            if (operationCurrencies.size === 3) {
+                this.logger.error(Error('Failed to export into Xero. Bill, payment and organisation base currency are all different, which is currently not supported'));
+
+                // do not block export - user can do nothing but manually pay, let the bill be exported
+                return;
+            }
+
             const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
             if (bankAccount) {
                 if (settledPayment.currency === expense.reconciliation.expenseCurrency) {

@@ -454,7 +454,7 @@ describe('integrations/Manager', () => {
                 const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
-                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                    .returns(async () => ({ shortCode, baseCurrency: 'GBP' } as XeroEntities.IOrganisation))
                     .verifiable(TypeMoq.Times.once());
 
                 payhawkClientMock
