@@ -234,6 +234,12 @@ export class Manager implements IManager {
                     throw new ExportError('Failed to export expense into Xero. Payments have been reconciled');
                 }
 
+                const anyPaymentIsBatch = bill.payments.some(p => p.batchPaymentID !== undefined);
+                if (anyPaymentIsBatch) {
+                    logger.info('Payment is part of a batch payment, no updates will be performed');
+                    return bill.invoiceID;
+                }
+
                 for (const payment of bill.payments) {
                     await this.deletePayment(payment.paymentID);
                 }
