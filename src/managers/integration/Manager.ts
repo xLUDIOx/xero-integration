@@ -241,9 +241,6 @@ export class Manager implements IManager {
             throw logger.error(Error('Transfer not found'));
         }
 
-        const organisation = await this.getOrganisation();
-        this.validateExportDate(organisation, transfer.date, logger);
-
         logger = logger.child({ currency: transfer.currency });
 
         const statementId = await this.store.bankFeeds.getStatementByEntityId({
@@ -376,7 +373,7 @@ export class Manager implements IManager {
     private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
         const date = getExportDate(expense);
 
-        this.validateExportDate(organisation, date, this.logger);
+        this.checkExpenseAgainstLockDate(organisation, date, this.logger);
 
         let expenseCurrency = expense.reconciliation.expenseCurrency;
         if (!expenseCurrency) {
@@ -421,8 +418,6 @@ export class Manager implements IManager {
                     if (!expenseTransaction.settlementDate) {
                         throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                     }
-
-                    this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
 
                     payments.push({
                         bankAccountId: bankAccount.accountID,
@@ -666,7 +661,7 @@ export class Manager implements IManager {
         await this.xeroEntities.deletePayment(paymentId);
     }
 
-    private validateExportDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
+    private checkExpenseAgainstLockDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
         const endOfYearLockDate = organisation.endOfYearLockDate;
         const periodLockDate = organisation.periodLockDate;
 
@@ -677,9 +672,8 @@ export class Manager implements IManager {
             organisationEndOfYearLockDate: endOfYearLockDate,
         });
 
-        if ((endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate)) ||
-            (periodLockDate && isBeforeOrEqualToDate(date, periodLockDate))
-        ) {
+        const lockedForAll = endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate);
+        if (lockedForAll) {
             logger.info(LOCK_PERIOD_ERROR_MESSAGE);
             throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
         }
@@ -845,9 +839,6 @@ export class Manager implements IManager {
 
         const contactName = expense.recipient.name;
         const reference = expense.document?.number;
-
-        const date = getExportDate(expense);
-        this.validateExportDate(organisation, date, logger);
 
         // backwards compatibility for no statement duplication
         const statementExists = await this.store.bankFeeds.existsStatement({

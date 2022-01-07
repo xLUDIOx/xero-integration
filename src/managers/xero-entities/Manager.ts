@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -222,13 +222,9 @@ export class Manager implements IManager {
                 return bill.invoiceID;
             }
 
-            if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
-                const canDeleteExistingPayments = newBill.payments && newBill.payments.length === bill.payments.length;
-                if (!canDeleteExistingPayments) {
-                    logger.warn('Existing bill payments cannot be deleted, not paid with Payhawk');
-                    return bill.invoiceID;
-                }
-
+            // paid or partially paid we need to try to delete existing payments
+            // in order to perform an update on the bill
+            if (bill.payments && bill.payments.length > 0) {
                 const hasReconciledPayment = bill.payments.some(p => p.isReconciled);
                 if (hasReconciledPayment) {
                     throw new ExportError('Failed to export expense into Xero. Payments have been reconciled');
@@ -248,18 +244,15 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateBill(updateData);
             } catch (err: any) {
-                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
-                if (!skipUpdates) {
-                    const updateDataFallback = await this.tryFallbackItemData(
-                        err,
-                        updateData,
-                        generalExpenseAccount.code,
-                        generalExpenseAccount.taxType,
-                        logger,
-                    );
+                const updateDataFallback = await this.tryFallbackItemData(
+                    err,
+                    updateData,
+                    generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
+                    logger,
+                );
 
-                    await this.xeroClient.updateBill(updateDataFallback);
-                }
+                await this.xeroClient.updateBill(updateDataFallback);
             }
 
             if (filesToUpload.length > 0) {
@@ -411,18 +404,15 @@ export class Manager implements IManager {
             try {
                 await this.xeroClient.updateCreditNote(updateData);
             } catch (err: any) {
-                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
-                if (!skipUpdates) {
-                    const updateDataFallback = await this.tryFallbackItemData(
-                        err,
-                        updateData,
-                        generalExpenseAccount.code,
-                        generalExpenseAccount.taxType,
-                        logger,
-                    );
+                const updateDataFallback = await this.tryFallbackItemData(
+                    err,
+                    updateData,
+                    generalExpenseAccount.code,
+                    generalExpenseAccount.taxType,
+                    logger,
+                );
 
-                    await this.xeroClient.updateCreditNote(updateDataFallback);
-                }
+                await this.xeroClient.updateCreditNote(updateDataFallback);
             }
 
             if (filesToUpload.length > 0) {
