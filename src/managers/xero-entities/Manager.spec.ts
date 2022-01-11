@@ -822,62 +822,6 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateBill(newBill);
         });
 
-        test('does nothing if bill is paid from another xero bank account', async () => {
-            const newBill: INewBill = {
-                date: new Date(2012, 10, 10).toISOString(),
-                dueDate: new Date(2012, 10, 12).toISOString(),
-                isPaid: true,
-                payments: [],
-                currency: 'EUR',
-                contactId: 'contact-id',
-                description: 'expense note',
-                totalAmount: 12.05,
-                accountCode: '310',
-                taxType: 'TAX001',
-                files,
-                url: 'expense url',
-                lineItems: [],
-            };
-
-            const id = 'bId';
-            const paymentId = 'payment-id';
-
-            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
-
-            xeroClientMock
-                .setup(x => x.getBillByUrl(newBill.url))
-                .returns(async () => existingBill)
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.once());
-
-            xeroClientMock
-                .setup(x => x.createBill(
-                    TypeMoq.It.isAny(),
-                ))
-                .verifiable(TypeMoq.Times.never());
-
-            accountingClientMock
-                .setup(x => x.deletePayment(paymentId))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.updateBill(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            xeroClientMock
-                .setup(x => x.createPayment(TypeMoq.It.isAny()))
-                .verifiable(TypeMoq.Times.never());
-
-            await manager.createOrUpdateBill(newBill);
-        });
-
         test('does nothing if bill is paid with a batch payment manually', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
