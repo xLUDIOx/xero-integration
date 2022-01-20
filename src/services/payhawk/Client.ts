@@ -5,6 +5,7 @@ import * as path from 'path';
 import * as mime from 'mime-types';
 import * as requestNative from 'request';
 import * as request from 'request-promise';
+import { StatusCodeError } from 'request-promise/errors';
 
 import { config } from '../../Config';
 import { IAccountCode, IBalance, IBalanceTransfer, IBusinessAccount, IClient, ICustomField, IDownloadedFile, IExpense, IFile, ITaxRate } from './contracts';
@@ -19,12 +20,26 @@ export class Client implements IClient {
         };
     }
 
-    async getExpense(expenseId: string): Promise<IExpense> {
-        const result = await request(`${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/expenses/${encodeURIComponent(expenseId)}`, {
-            method: 'GET', json: true, headers: this.headers,
-        });
+    async getExpense(expenseId: string): Promise<IExpense | undefined> {
+        try {
+            const result = await request(
+                `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/expenses/${encodeURIComponent(expenseId)}`,
+                {
+                    method: 'GET',
+                    json: true,
+                    headers: this.headers,
+                });
 
-        return result;
+            return result;
+        } catch (err) {
+            if (err instanceof StatusCodeError) {
+                if (err.statusCode === 404) {
+                    return undefined;
+                }
+            }
+
+            throw err;
+        }
     }
 
     async updateExpense(expenseId: string, patch: Partial<IExpense>): Promise<void> {
@@ -44,13 +59,23 @@ export class Client implements IClient {
     async getTransfer(balanceId: string, transferId: string): Promise<IBalanceTransfer | undefined> {
         const url = `${config.payhawkUrl}/api/v2/accounts/${encodeURIComponent(this.accountId)}/balances/${encodeURIComponent(balanceId)}/transfers/${encodeURIComponent(transferId)}`;
 
-        const result = await request(url, {
-            method: 'GET',
-            json: true,
-            headers: this.headers,
-        });
+        try {
+            const result = await request(url, {
+                method: 'GET',
+                json: true,
+                headers: this.headers,
+            });
 
-        return result;
+            return result;
+        } catch (err) {
+            if (err instanceof StatusCodeError) {
+                if (err.statusCode === 404) {
+                    return undefined;
+                }
+            }
+
+            throw err;
+        }
     }
 
     async getBankAccounts(): Promise<IBalance[]> {

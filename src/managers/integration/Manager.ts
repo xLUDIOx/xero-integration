@@ -177,6 +177,11 @@ export class Manager implements IManager {
 
     async exportExpense(expenseId: string): Promise<void> {
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (!expense) {
+            this.logger.info('Expense not found');
+            return;
+        }
+
         if (expense.isLocked) {
             this.logger.info('Expense will not be exported because it is locked');
             return;
@@ -219,6 +224,11 @@ export class Manager implements IManager {
         const logger = this.logger.child({ accountId: this.accountId, expenseId });
 
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (!expense) {
+            logger.info('Expense not found');
+            return;
+        }
+
         if (expense.isLocked) {
             logger.info('Expense is locked, bank statement will not be exported');
             return;

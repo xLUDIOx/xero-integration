@@ -8,7 +8,7 @@ import { IExpense } from './IExpense';
 import { ITaxRate } from './ITaxRate';
 
 export interface IClient {
-    getExpense(expenseId: string): Promise<IExpense>;
+    getExpense(expenseId: string): Promise<IExpense | undefined>;
     updateExpense(expenseId: string, patch: Partial<IExpense>): Promise<void>;
     getTransfer(balanceId: string, transferId: string): Promise<IBalanceTransfer | undefined>;
     getBankAccounts(): Promise<IBalance[]>;

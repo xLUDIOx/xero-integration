@@ -106,16 +106,19 @@ export class HttpClient implements IHttpClient {
 
             actionResult = await action();
         } catch (err) {
-            if (Axios.isAxiosError(err)) {
-                logger.child({ requestError: err, responseHeaders: err.response?.headers }).info`Request failed with error`;
-
-                actionResult = await this._handleFailedRequest(err, action, logger, retryCount);
-                if (!actionResult) {
-                    return undefined as any;
-                }
+            if (!Axios.isAxiosError(err)) {
+                throw err;
             }
 
-            throw err;
+            logger.child({
+                requestError: err,
+                responseHeaders: err.response?.headers,
+            }).info`Request failed with http error`;
+
+            actionResult = await this._handleFailedRequest(err, action, logger, retryCount);
+            if (!actionResult) {
+                return undefined as any;
+            }
         } finally {
             await this.lock.release();
         }
