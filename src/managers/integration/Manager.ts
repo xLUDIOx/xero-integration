@@ -1,6 +1,6 @@
+import { ISchemaStore } from '@data-access';
 import { Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
-import { ISchemaStore } from '@stores';
 import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
 
 import * as XeroEntities from '../xero-entities';

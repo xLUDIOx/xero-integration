@@ -1,17 +1,17 @@
 // tslint:disable-next-line: no-var-requires
 require('module-alias').addAliases({
-    '@controllers': `${__dirname}/controllers`,
+    '@web-api': `${__dirname}/controllers`,
     '@environment': `${__dirname}/environment`,
     '@managers': `${__dirname}/managers`,
     '@services': `${__dirname}/services`,
     '@shared': `${__dirname}/shared`,
-    '@stores': `${__dirname}/stores`,
+    '@data-access': `${__dirname}/stores`,
     '@utils': `${__dirname}/utils`,
     '@test-utils': `${__dirname}/test-utils`,
 });
 
-import * as Controllers from '@controllers';
-import * as Schema from '@stores';
+import * as Schema from '@data-access';
+import * as Controllers from '@web-api';
 
 import { createServer } from './Server';
 

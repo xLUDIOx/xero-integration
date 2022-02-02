@@ -1,8 +1,8 @@
 import * as fs from 'fs';
 
+import { createSchemaStore } from '@data-access';
 import { Payhawk } from '@services';
 import { ITokenSet } from '@shared';
-import { createSchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { config } from '../../Config';

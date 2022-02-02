@@ -1,7 +1,7 @@
 import * as restify from 'restify';
 
-import { AuthController, IntegrationsController } from '@controllers';
 import { requestHandler } from '@utils';
+import { AuthController, IntegrationsController } from '@web-api';
 
 import { config } from './Config';
 

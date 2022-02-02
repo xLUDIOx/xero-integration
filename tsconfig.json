@@ -21,8 +21,8 @@
         "outDir": "build",
         "baseUrl": ".",
         "paths": {
-            "@controllers": [
-                "src/controllers/index"
+            "@web-api": [
+                "src/web-api/index"
             ],
             "@environment": [
                 "src/environment/index"
@@ -33,8 +33,8 @@
             "@services": [
                 "src/services/index"
             ],
-            "@stores": [
-                "src/stores/index"
+            "@data-access": [
+                "src/data-access/index"
             ],
             "@shared": [
                 "src/shared/index"
