@@ -49,10 +49,35 @@ export abstract class XeroTestEnvironmentBase {
             .verifiable(TypeMoq.Times.once());
     }
 
+    setupExpenseAccountsResponseMock() {
+        this.setupDefaultExpenseAccountsResponseMock();
+        this.setupAssetAccountsResponseMock();
+    }
+
     setupDefaultExpenseAccountsResponseMock() {
         this.httpClientMock
             .setup(x => x.request(TypeMoq.It.isObjectWith({
                 url: 'http://xero-api/api.xro/2.0/Accounts?where=Class%3D%3D%22EXPENSE%22',
+                method: 'GET',
+            })))
+            .returns(async () => ({
+                Accounts: [{
+                    name: 'Payhawk General',
+                    code: '999999',
+                    status: 'ACTIVE',
+                }, {
+                    name: 'Fees',
+                    code: '888888',
+                    status: 'ACTIVE',
+                }],
+            }))
+            .verifiable(TypeMoq.Times.once());
+    }
+
+    setupAssetAccountsResponseMock() {
+        this.httpClientMock
+            .setup(x => x.request(TypeMoq.It.isObjectWith({
+                url: 'http://xero-api/api.xro/2.0/Accounts?where=Class%3D%3D%22ASSET%22',
                 method: 'GET',
             })))
             .returns(async () => ({
