@@ -72,7 +72,7 @@ export class Client implements IClient {
     }
 
     async getExpenseAccounts({ status }: IExpenseAccountsFilter = {}): Promise<IAccountCode[]> {
-        const [expenses, assets] = await Promise.all([this.loadExpenseAccount([DEFAULT_EXPENSE_ACCOUNT_FILTER], status), this.loadExpenseAccount([ASSET_ACCOUNT_FILTER], status)]);
+        const [expenses, assets] = await Promise.all([this.loadExpenseAccount([DEFAULT_EXPENSE_ACCOUNT_FILTER], status), this.loadExpenseAccount([FIXED_ASSET_ACCOUNT_FILTER], status)]);
 
         const responseItems = [...expenses[EntityResponseType.Accounts], ...assets[EntityResponseType.Accounts]];
         const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
@@ -186,7 +186,7 @@ export class Client implements IClient {
     }
 }
 
-const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"`;
-const ASSET_ACCOUNT_FILTER = `Class=="${AccountType.Asset}"`;
+const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Type=="${AccountType.Expense}"`;
+const FIXED_ASSET_ACCOUNT_FILTER = `Type=="${AccountType.FixedAsset}"`;
 
 const API_PREFIX = '/api.xro/2.0';

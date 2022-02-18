@@ -57,7 +57,7 @@ export abstract class XeroTestEnvironmentBase {
     setupDefaultExpenseAccountsResponseMock() {
         this.httpClientMock
             .setup(x => x.request(TypeMoq.It.isObjectWith({
-                url: 'http://xero-api/api.xro/2.0/Accounts?where=Class%3D%3D%22EXPENSE%22',
+                url: 'http://xero-api/api.xro/2.0/Accounts?where=Type%3D%3D%22EXPENSE%22',
                 method: 'GET',
             })))
             .returns(async () => ({
@@ -77,7 +77,7 @@ export abstract class XeroTestEnvironmentBase {
     setupAssetAccountsResponseMock() {
         this.httpClientMock
             .setup(x => x.request(TypeMoq.It.isObjectWith({
-                url: 'http://xero-api/api.xro/2.0/Accounts?where=Class%3D%3D%22ASSET%22',
+                url: 'http://xero-api/api.xro/2.0/Accounts?where=Type%3D%3D%22FIXED%22',
                 method: 'GET',
             })))
             .returns(async () => ({

@@ -1,7 +1,7 @@
 export enum AccountType {
     Bank = 'BANK',
     Expense = 'EXPENSE',
-    Asset = 'ASSET',
+    FixedAsset = 'FIXED',
 }
 
 export enum AccountStatus {
