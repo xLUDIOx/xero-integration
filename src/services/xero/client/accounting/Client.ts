@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountStatus, AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
+import { AccountStatus, AccountType, ClassType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
 import { ExportError, ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -186,7 +186,7 @@ export class Client implements IClient {
     }
 }
 
-const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Type=="${AccountType.Expense}"`;
+const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${ClassType.Expense}"`;
 const FIXED_ASSET_ACCOUNT_FILTER = `Type=="${AccountType.FixedAsset}"`;
 
 const API_PREFIX = '/api.xro/2.0';

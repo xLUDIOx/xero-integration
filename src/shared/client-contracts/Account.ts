@@ -1,8 +1,13 @@
+/* cspell:disable */
 export enum AccountType {
-    Bank = 'BANK',
-    Expense = 'EXPENSE',
     FixedAsset = 'FIXED',
+    Expense = 'EXPENSE',
 }
+
+export enum ClassType {
+    Expense = 'EXPENSE',
+}
+/* cspell:enable */
 
 export enum AccountStatus {
     Active = 'ACTIVE',
