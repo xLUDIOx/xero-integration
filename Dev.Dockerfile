@@ -14,7 +14,8 @@ COPY ["./package.json", "./package-lock.json", "./"]
 
 ENV TESTING=true \
     LOG_LEVEL="error" \
-    CI=true
+    CI=true \
+    NODE_TLS_REJECT_UNAUTHORIZED=0
 
 RUN npm ci
 

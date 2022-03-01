@@ -515,8 +515,11 @@ export class Manager implements IManager {
     }
 
     private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, accountCode: string | undefined, logger: ILogger) {
-        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ? sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount)) : 0;
-        if (lineItemsSum > 0 && lineItemsSum !== totalAmount) {
+        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ?
+            Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
+            0;
+
+        if (lineItemsSum !== 0 && lineItemsSum !== totalAmount) {
             throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
         }
 
@@ -526,7 +529,7 @@ export class Manager implements IManager {
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
                 amount: totalAmount,
-                taxAmount: expense.reconciliation.expenseTaxAmount,
+                taxAmount: Math.abs(expense.reconciliation.expenseTaxAmount),
                 accountCode,
                 taxType: expense.taxRate?.code,
                 trackingCategories,
@@ -536,8 +539,8 @@ export class Manager implements IManager {
         } else {
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
-                    amount: item.reconciliation.expenseTotalAmount,
-                    taxAmount: item.reconciliation.expenseTaxAmount,
+                    amount: Math.abs(item.reconciliation.expenseTotalAmount),
+                    taxAmount: Math.abs(item.reconciliation.expenseTaxAmount),
                     accountCode: expense.isReadyForReconciliation ? item.reconciliation.accountCode : undefined,
                     taxType: item.taxRate?.code,
                     trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),

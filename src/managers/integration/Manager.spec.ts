@@ -1005,7 +1005,11 @@ describe('integrations/Manager', () => {
                     createdAt: new Date(2019, 2, 2).toISOString(),
                     note: 'Expense Note',
                     ownerName: 'John Smith',
-                    reconciliation,
+                    reconciliation: {
+                        ...reconciliation,
+                        expenseTotalAmount: -reconciliation.expenseTotalAmount,
+                        expenseTaxAmount: -reconciliation.expenseTaxAmount,
+                    },
                     supplier,
                     recipient: supplier,
                     paymentData: {},
@@ -1094,7 +1098,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 4,
-                            taxAmount: reconciliation.expenseTaxAmount,
+                            taxAmount: Math.abs(reconciliation.expenseTaxAmount),
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
