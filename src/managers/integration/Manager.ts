@@ -388,8 +388,8 @@ export class Manager implements IManager {
 
         this.validateExportDate(organisation, date, this.logger);
 
-        let expenseCurrency = expense.reconciliation.expenseCurrency;
-        if (!expenseCurrency) {
+        let currency = expense.reconciliation.expenseCurrency;
+        if (!currency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
 
@@ -418,14 +418,14 @@ export class Manager implements IManager {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
 
-            expenseCurrency = transactionCurrencies[0];
+            currency = transactionCurrencies[0];
             totalAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
             if (!areAllTransactionsSettled) {
                 this.logger.info('Expense transactions are not settled, payments will not be exported');
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
 
                 for (const expenseTransaction of expense.transactions) {
                     if (!expenseTransaction.settlementDate) {
@@ -456,13 +456,13 @@ export class Manager implements IManager {
             totalAmount = totalAmount - totalFees;
         }
 
-        const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, accountCode, logger);
+        const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, currency, accountCode, logger);
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
                 payments,
                 totalAmount,
-                currency: expenseCurrency,
+                currency,
                 contactId,
                 description,
                 date,
@@ -498,7 +498,7 @@ export class Manager implements IManager {
                 contactId,
                 description,
                 reference: expense.document?.number || XeroEntities.getExpenseNumber(expense.id),
-                currency: expenseCurrency,
+                currency,
                 totalAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
@@ -514,18 +514,10 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, [itemUrl]);
     }
 
-    private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, accountCode: string | undefined, logger: ILogger) {
-        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ?
-            Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
-            0;
-
-        if (lineItemsSum !== 0 && lineItemsSum !== totalAmount) {
-            throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
-        }
-
+    private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, currency: string, accountCode: string | undefined, logger: ILogger) {
         const lineItems: XeroEntities.ILineItem[] = [];
 
-        if (!expense.lineItems || expense.lineItems.length === 0) {
+        if (!expense.lineItems || expense.lineItems.length === 0 || expense.reconciliation.expenseCurrency !== currency) {
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
                 amount: totalAmount,
@@ -537,6 +529,14 @@ export class Manager implements IManager {
 
             lineItems.push(lineItem);
         } else {
+            const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ?
+                Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
+                0;
+
+            if (lineItemsSum !== 0 && lineItemsSum !== totalAmount) {
+                throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
+            }
+
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
                     amount: Math.abs(item.reconciliation.expenseTotalAmount),
