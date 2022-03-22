@@ -69,19 +69,6 @@ describe('IntegrationsController', () => {
                 );
         });
 
-        test('sends 400 for unknown event', async () => {
-            connectionManagerMock
-                .setup(m => m.getAccessToken())
-                .returns(async () => ({} as ITokenSet));
-
-            responseMock
-                .setup(r => r.send(400, 'Unknown event'))
-                .verifiable(TypeMoq.Times.once());
-
-            const req = { body: { accountId, event: 'some unknown event' } } as restify.Request;
-            await controller.handlePayhawkEvent(req, responseMock.object);
-        });
-
         test('send 204 and call exportExpense for that event', async () => {
             const accessToken = createAccessToken();
             const expenseId = 'expId';

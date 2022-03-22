@@ -81,8 +81,7 @@ export class Client implements IClient {
         });
 
         const existing = await this.findContactByName(name);
-            logger.info`Did not find contact by unique name`;
-            if (existing) {
+        if (existing) {
             logger.info`Contact found by unique name`;
             return existing;
         } else {

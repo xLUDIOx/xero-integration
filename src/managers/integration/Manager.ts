@@ -998,7 +998,9 @@ export class Manager implements IManager {
         }
 
         // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
-        this.logger.info(`Export failed with an unexpected ${['err', err]}`);
+        this.logger.error(Error(`Export failed with an unexpected error`), {
+            exportError: err,
+        });
 
         throw new ExportError(genericErrorMessage, err);
     }

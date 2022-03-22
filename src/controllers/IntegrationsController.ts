@@ -134,7 +134,8 @@ export class IntegrationsController {
             case PayhawkEvent.TransfersExport:
                 break;
             default:
-                return res.send(400, 'Unknown event');
+                logger.info({ payhawkEvent: payload }, 'Unknown Payhawk event');
+                break;
         }
 
         res.send(204);
@@ -286,7 +287,10 @@ export class IntegrationsController {
                         message: err.innerError?.message,
                     },
                 }).warn`Export failed`;
-                return res.send(400, err.message);
+                return res.send(400, {
+                    message: err.message,
+                    code: 'export-error',
+                });
             } else {
                 throw err;
             }
