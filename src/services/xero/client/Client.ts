@@ -23,6 +23,7 @@ import {
     IBankAccount,
     IBankTransaction,
     IClient,
+    IClientOptions,
     ICreateBillData,
     ICreateTransactionData,
     ICreditNote,
@@ -47,6 +48,7 @@ export class Client implements IClient {
         private readonly tenantId: string,
         private readonly documentSanitizer: IDocumentSanitizer,
         private readonly logger: ILogger,
+        private readonly options: IClientOptions,
     ) {
     }
 
@@ -223,7 +225,7 @@ export class Client implements IClient {
     }
 
     async createTransaction(data: ICreateTransactionData): Promise<string> {
-        const transactionModel = getBankTransactionModel(data, this.logger);
+        const transactionModel = getBankTransactionModel(data, this.logger, this.options);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.createBankTransactions(
@@ -250,7 +252,7 @@ export class Client implements IClient {
     }
 
     async updateTransaction(data: IUpdateTransactionData): Promise<void> {
-        const transaction = getBankTransactionModel(data, this.logger);
+        const transaction = getBankTransactionModel(data, this.logger, this.options);
 
         const bankTransactions = await this.xeroClient.makeClientRequest<IBankTransaction[]>(
             x => x.accountingApi.updateBankTransaction(
@@ -337,7 +339,7 @@ export class Client implements IClient {
     async createBill(data: ICreateBillData): Promise<string> {
         await this.ensureCurrency(data.currency);
 
-        const bill = getNewBillModel(data, this.logger);
+        const bill = getNewBillModel(data, this.logger, this.options);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.createInvoices(
@@ -364,7 +366,7 @@ export class Client implements IClient {
     }
 
     async updateBill(data: IUpdateBillData): Promise<void> {
-        const billModel = getNewBillModel(data, this.logger, data.billId);
+        const billModel = getNewBillModel(data, this.logger, this.options, data.billId);
 
         const invoices = await this.xeroClient.makeClientRequest<Invoice[]>(
             x => x.accountingApi.updateInvoice(
@@ -428,7 +430,7 @@ export class Client implements IClient {
     async createCreditNote(data: ICreditNoteData): Promise<string> {
         await this.ensureCurrency(data.currency);
 
-        const creditNoteModel = getNewCreditNoteModel(data, this.logger);
+        const creditNoteModel = getNewCreditNoteModel(data, this.logger, this.options);
 
         const creditNotes = await this.xeroClient.makeClientRequest<ICreditNote[]>(
             x => x.accountingApi.createCreditNotes(
@@ -456,7 +458,7 @@ export class Client implements IClient {
     }
 
     async updateCreditNote(data: ICreditNoteData): Promise<void> {
-        const creditNoteModel = getNewCreditNoteModel(data, this.logger);
+        const creditNoteModel = getNewCreditNoteModel(data, this.logger, this.options);
 
         const creditNotes = await this.xeroClient.makeClientRequest<CreditNote[]>(
             x => x.accountingApi.updateCreditNote(
@@ -658,8 +660,8 @@ async function getFileContents(filePath: string): Promise<any[]> {
     });
 }
 
-function getBankTransactionModel(data: ICreateTransactionData, logger: ILogger, id?: string): BankTransaction {
-    const commonData = getAccountingItemModel(data, logger);
+function getBankTransactionModel(data: ICreateTransactionData, logger: ILogger, options: IClientOptions, id?: string): BankTransaction {
+    const commonData = getAccountingItemModel(data, logger, options);
     const transaction: BankTransaction = {
         ...commonData,
         bankTransactionID: id,
@@ -672,8 +674,8 @@ function getBankTransactionModel(data: ICreateTransactionData, logger: ILogger, 
     return transaction;
 }
 
-function getNewBillModel(data: ICreateBillData, logger: ILogger, id?: string): Invoice {
-    const commonData = getAccountingItemModel(data, logger);
+function getNewBillModel(data: ICreateBillData, logger: ILogger, options: IClientOptions, id?: string): Invoice {
+    const commonData = getAccountingItemModel(data, logger, options);
 
     const bill: Invoice = {
         ...commonData,
@@ -688,8 +690,8 @@ function getNewBillModel(data: ICreateBillData, logger: ILogger, id?: string): I
     return bill;
 }
 
-function getNewCreditNoteModel(data: ICreditNoteData, logger: ILogger): CreditNote {
-    const commonData = getAccountingItemModel(data, logger);
+function getNewCreditNoteModel(data: ICreditNoteData, logger: ILogger, options: IClientOptions): CreditNote {
+    const commonData = getAccountingItemModel(data, logger, options);
 
     const bill: CreditNote = {
         ...commonData,
@@ -706,7 +708,8 @@ function getNewCreditNoteModel(data: ICreditNoteData, logger: ILogger): CreditNo
 export function getAccountingItemModel(entity: PartialBy<IAccountingItemData, 'url' | 'reference'> &
     Partial<Pick<ICreateTransactionData, 'posFees' | 'fxFees' | 'feesAccountCode'>> &
     Partial<Pick<ICreateBillData, 'bankFees' | 'feesAccountCode'>>,
-    logger: ILogger
+    logger: ILogger,
+    options: IClientOptions
 ): Omit<Intersection<BankTransaction, Invoice>, 'type'> {
     const {
         description,
@@ -744,12 +747,18 @@ export function getAccountingItemModel(entity: PartialBy<IAccountingItemData, 'u
                     'Exchange fees' :
                     'POS fees';
 
-        items.push({
+        const feesItem: ILineItem = {
             description: feesDescription,
             accountCode: feesAccountCode,
             quantity: 1,
             unitAmount: feesTotal,
-        });
+        };
+
+        if (options.setTrackingCategoriesOnFees) {
+            feesItem.tracking = items[0].tracking; // Use the tracking categories of the first line item
+        }
+
+        items.push(feesItem);
     }
 
     return {

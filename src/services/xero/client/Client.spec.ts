@@ -5,12 +5,13 @@ import { FEES_ACCOUNT_CODE } from '@shared';
 import { typeIsEqualSkipUndefined } from '@test-utils';
 import { ILogger, Lock } from '@utils';
 
+import { createClientOptions } from '.';
 import { createXeroHttpClient } from '../http';
 import * as AccountingClient from './accounting';
 import * as AuthClient from './auth';
 import * as BankFeedsClient from './bank-feeds';
 import { Client, escapeParam, getAccountingItemModel } from './Client';
-import { BankTransactionType, ClientResponseStatus, CurrencyKeys, ICreateBillData, ICreateTransactionData, InvoiceType, IPaymentData, LineAmountType, PaymentItemType } from './contracts';
+import { BankTransactionType, ClientResponseStatus, CurrencyKeys, IClientOptions, ICreateBillData, ICreateTransactionData, InvoiceType, IPaymentData, LineAmountType, PaymentItemType } from './contracts';
 
 const CURRENCY = 'GBP';
 
@@ -22,6 +23,10 @@ describe('Xero client', () => {
     const loggerMock = TypeMoq.Mock.ofType<ILogger>();
     const tenantId = '00000000-0000-0000-0000-000000000000';
 
+    const clientOptions: IClientOptions = {
+        setTrackingCategoriesOnFees: false,
+    };
+
     const client = new Client(
         authClientMock.object,
         accountingClientMock.object,
@@ -30,6 +35,7 @@ describe('Xero client', () => {
         tenantId,
         { sanitize: () => Promise.resolve() },
         loggerMock.object,
+        clientOptions
     );
 
     beforeEach(() => {
@@ -480,7 +486,9 @@ describe('Xero client', () => {
                     fxFees: 1,
                     lineItems: [{} as any],
                 },
-                loggerMock.object);
+                loggerMock.object,
+                clientOptions
+            );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
@@ -502,8 +510,9 @@ describe('Xero client', () => {
                     posFees: 1,
                     lineItems: [{} as any],
                 },
-
-                loggerMock.object);
+                loggerMock.object,
+                clientOptions
+            );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).not.toEqual(undefined);
@@ -527,6 +536,7 @@ describe('Xero client', () => {
                     lineItems: [{} as any],
                 },
                 loggerMock.object,
+                clientOptions
             );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
@@ -549,10 +559,114 @@ describe('Xero client', () => {
                     lineItems: [{} as any],
                 },
                 loggerMock.object,
+                clientOptions
             );
 
             const feesItem = model.lineItems.find(l => l.accountCode === '200');
             expect(feesItem).toEqual(undefined);
+        });
+
+        describe('tracking categories', () => {
+            let data: any;
+
+            beforeEach(() => {
+                data = {
+                    description: 'desc',
+                    accountCode: '100',
+                    amount: 100,
+                    contactId: '1',
+                    date: new Date().toISOString(),
+                    lineItems: [
+                        {
+                            trackingCategories: [
+                                { categoryId: '1', valueId: '11' },
+                                { categoryId: '2', valueId: '22' },
+                            ],
+                        } as any,
+                        {
+                            trackingCategories: [
+                                { categoryId: '3', valueId: '33' },
+                            ],
+                        } as any,
+                    ],
+                };
+            });
+
+            it('should be set on line items', () => {
+                const model = getAccountingItemModel(
+                    data,
+                    loggerMock.object,
+                    clientOptions
+                );
+
+                expect(model.lineItems.length).toEqual(2);
+
+                expect(model.lineItems[0].tracking).toEqual([
+                    { trackingCategoryID: '1', trackingOptionID: '11' },
+                    { trackingCategoryID: '2', trackingOptionID: '22' },
+                ]);
+
+                expect(model.lineItems[1].tracking).toEqual([
+                    { trackingCategoryID: '3', trackingOptionID: '33' },
+                ]);
+            });
+
+            it('should not be set on fees line item by default', () => {
+                data.feesAccountCode = '200';
+                data.posFees = 1;
+                data.fxFees = 3;
+
+                const model = getAccountingItemModel(
+                    data,
+                    loggerMock.object,
+                    clientOptions
+                );
+
+                expect(model.lineItems.length).toEqual(3);
+
+                const feesItem = model.lineItems.find(l => l.accountCode === '200');
+                expect(feesItem).not.toEqual(undefined);
+                expect(feesItem!.unitAmount).toEqual(4);
+                expect(feesItem!.tracking).toBeUndefined();
+            });
+
+            it('should be set on fees line item when option specified', () => {
+                data.feesAccountCode = '200';
+                data.posFees = 1;
+                data.fxFees = 3;
+
+                const model = getAccountingItemModel(
+                    data,
+                    loggerMock.object,
+                    {
+                        setTrackingCategoriesOnFees: true,
+                    }
+                );
+
+                expect(model.lineItems.length).toEqual(3);
+
+                const feesItem = model.lineItems.find(l => l.accountCode === '200');
+                expect(feesItem).not.toEqual(undefined);
+                expect(feesItem!.unitAmount).toEqual(4);
+                expect(feesItem!.tracking).toEqual([
+                    { trackingCategoryID: '1', trackingOptionID: '11' },
+                    { trackingCategoryID: '2', trackingOptionID: '22' },
+                ]);
+            });
+        });
+    });
+
+    describe('createClientOptions helper', () => {
+        describe('setTrackingCategoriesOnFees option', () => {
+            it('set to false if account not listed', () => {
+                const options = createClientOptions('banana');
+                expect(options.setTrackingCategoriesOnFees).toEqual(false);
+            });
+
+            it('set to true if account listed', () => {
+                const options = createClientOptions('macpaw_labs_ltd_76b9c04d');
+                expect(options.setTrackingCategoriesOnFees).toEqual(true);
+            });
         });
     });
 

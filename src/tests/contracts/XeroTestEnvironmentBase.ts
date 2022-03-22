@@ -10,7 +10,7 @@ import { PayhawkEvent } from '@shared';
 import { AccessTokens, ApiKeys, ISchemaStore } from '@stores';
 import { ExportError, IDocumentSanitizer, ILock, ILogger } from '@utils';
 
-import { AccountingClient, AuthClient, BankFeedsClient } from '../../services/xero';
+import { AccountingClient, AuthClient, BankFeedsClient, IClientOptions } from '../../services/xero';
 
 export abstract class XeroTestEnvironmentBase {
     private readonly accessTokensStore = TypeMoq.Mock.ofType<AccessTokens.IStore>();
@@ -190,6 +190,10 @@ export abstract class XeroTestEnvironmentBase {
             fxRatesApiUrl: 'http://fx-api',
         };
 
+        const xeroClientOptions: IClientOptions = {
+            setTrackingCategoriesOnFees: false,
+        };
+
         const schemaStoreMock = TypeMoq.Mock.ofType<ISchemaStore>();
         const xeroClientMock = TypeMoq.Mock.ofType<XeroClient>();
         const documentSanitizerMock = TypeMoq.Mock.ofType<IDocumentSanitizer>();
@@ -233,7 +237,8 @@ export abstract class XeroTestEnvironmentBase {
                     Xero.createXeroHttpClient(xeroClientMock.object, lockMock.object, loggerMock.object),
                     this.xeroTenantId,
                     documentSanitizerMock.object,
-                    loggerMock.object
+                    loggerMock.object,
+                    xeroClientOptions
                 ),
                 loggerMock.object
             ),
