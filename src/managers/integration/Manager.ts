@@ -615,13 +615,19 @@ export class Manager implements IManager {
                     }
                 } else {
                     // reimbursement in different currency, amounts also differ, we may have fee as well
-                    paymentData = {
-                        bankAccountId: bankAccount.accountID,
-                        currency: settledPayment.currency,
-                        amount: settledPayment.amount,
-                        bankFees: settledPayment.fees || 0,
-                        date: settledPayment.date,
-                    };
+                    // The following is not a valid solution. We cannot pay a USD invoice with EUR without providing an fx.
+                    // But in the case of bulk payment we do not have all the related expenses to make a split payment
+                    // paymentData = {
+                    //     bankAccountId: bankAccount.accountID,
+                    //     currency: settledPayment.currency,
+                    //     amount: settledPayment.amount,
+                    //     bankFees: settledPayment.fees || 0,
+                    //     date: settledPayment.date,
+                    // };
+
+                    // Solution: Leave the bill unpaid and let the accountant mark them as paid via the bank reconciliation feature
+                    // which will automatically mark the bills paid in Xero
+                    paymentData = undefined;
                 }
             }
         }
