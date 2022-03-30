@@ -1079,7 +1079,8 @@ describe('integrations/Manager', () => {
 
                 xeroEntitiesMock
                     .setup(x => x.createOrUpdateCreditNote(typeIsEqualSkipUndefined({
-                        creditNoteNumber: expense.document!.number!,
+                        number: XeroEntities.getExpenseNumber(expense.id),
+                        reference: expense.document!.number!,
                         date: expense.createdAt,
                         accountCode: reconciliation.accountCode,
                         taxType: 'TAX001',

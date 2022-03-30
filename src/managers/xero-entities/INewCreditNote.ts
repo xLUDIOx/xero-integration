@@ -4,7 +4,8 @@ import { ILineItem } from './ILineItem';
 import { IPayment } from './IPaymentData';
 
 export interface INewCreditNote {
-    creditNoteNumber: string;
+    number: string;
+    reference: string;
     contactId: string;
     currency: string;
     date: string,
