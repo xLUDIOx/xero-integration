@@ -356,7 +356,7 @@ export class Manager implements IManager {
     }
 
     async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
-        const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.creditNoteNumber);
+        const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.number);
 
         const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
 
@@ -666,7 +666,8 @@ export class Manager implements IManager {
         description = DEFAULT_DESCRIPTION,
         totalAmount,
         currency,
-        creditNoteNumber,
+        number: creditNoteNumber,
+        reference,
         accountCode,
         taxType,
         lineItems = [],
@@ -684,7 +685,7 @@ export class Manager implements IManager {
             accountCode: accountCode || defaultAccount.code,
             taxType,
             description,
-            reference: creditNoteNumber,
+            reference,
             amount: totalAmount,
             bankFees: 0,
             fxFees: 0,

@@ -1,5 +1,7 @@
 import { CreditNote, Payment } from 'xero-node';
 
+import { XeroEntities } from '@managers';
+
 import { CreditNotesTestEnvironment } from './CreditNotesTestEnvironment';
 
 describe('Credit notes export module tests', () => {
@@ -50,7 +52,7 @@ describe('Credit notes export module tests', () => {
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
 
             const amount = 16;
-            const creditNoteNumber = expense.document?.number!;
+            const creditNoteNumber = XeroEntities.getExpenseNumber(expenseId);
 
             testEnv.setupCreditNoteNotFoundResponse(creditNoteNumber);
             testEnv.setupCreateCreditNoteResponse(
@@ -71,7 +73,7 @@ describe('Credit notes export module tests', () => {
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
 
             const amountWithDeductedTransactionFees = 14;
-            const creditNoteNumber = expense.document?.number!;
+            const creditNoteNumber = XeroEntities.getExpenseNumber(expenseId);
 
             testEnv.setupCreditNoteNotFoundResponse(creditNoteNumber);
             testEnv.setupCreateCreditNoteResponse();
