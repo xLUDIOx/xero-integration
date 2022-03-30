@@ -462,8 +462,8 @@ export class Manager implements IManager {
             const expenseNumber = XeroEntities.getExpenseNumber(expense.id);
             const documentNumber = expense.document?.number;
             if (documentNumber) {
-                if (/%?/g.test(documentNumber)) {
-                    throw new ExportError('Export into Xero failed. The document number contains invalid characters');
+                if (/[%,?]/g.test(documentNumber)) {
+                    throw new ExportError(`Export into Xero failed. The document number contains invalid characters`);
                 }
             }
 
