@@ -460,6 +460,13 @@ export class Manager implements IManager {
 
         if (isCredit) {
             const expenseNumber = XeroEntities.getExpenseNumber(expense.id);
+            const documentNumber = expense.document?.number;
+            if (documentNumber) {
+                if (/%?/g.test(documentNumber)) {
+                    throw new ExportError('Export into Xero failed. The document number contains invalid characters');
+                }
+            }
+
             const newCreditNote: XeroEntities.INewCreditNote = {
                 payments,
                 totalAmount,
@@ -470,7 +477,7 @@ export class Manager implements IManager {
                 accountCode,
                 taxType: expense.taxRate?.code,
                 number: expenseNumber,
-                reference: expense.document?.number || expenseNumber,
+                reference: documentNumber || expenseNumber,
                 files,
                 lineItems,
             };
