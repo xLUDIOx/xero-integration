@@ -55,6 +55,7 @@ describe('Credit notes export module tests', () => {
             const creditNoteNumber = XeroEntities.getExpenseNumber(expenseId);
 
             testEnv.setupCreditNoteNotFoundResponse(creditNoteNumber);
+            testEnv.setupCreditNoteNotFoundResponse(expense.document?.number!);
             testEnv.setupCreateCreditNoteResponse(
                 (notes = []) => verifyCreditNoteLineItemAmount(notes, amount),
             );
@@ -76,6 +77,7 @@ describe('Credit notes export module tests', () => {
             const creditNoteNumber = XeroEntities.getExpenseNumber(expenseId);
 
             testEnv.setupCreditNoteNotFoundResponse(creditNoteNumber);
+            testEnv.setupCreditNoteNotFoundResponse(expense.document?.number!);
             testEnv.setupCreateCreditNoteResponse();
             testEnv.setupCreateCreditNotePaymentResponse(p => verifyCreditNotePaymentAmount(p, amountWithDeductedTransactionFees));
 

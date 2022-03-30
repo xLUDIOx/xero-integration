@@ -351,12 +351,8 @@ export class Manager implements IManager {
         logger.info('Bill payment deleted');
     }
 
-    async getCreditNoteByNumber(creditNoteNumber: string): Promise<Xero.ICreditNote | undefined> {
-        return await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
-    }
-
     async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
-        const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.number);
+        const creditNote = await this.getCreditNote(newCreditNote);
 
         const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
 
@@ -551,6 +547,11 @@ export class Manager implements IManager {
         }
 
         return [generalExpenseAccount, feesExpenseAccount];
+    }
+
+    private async getCreditNote(newCreditNote: INewCreditNoteEntity): Promise<Xero.ICreditNote | undefined> {
+        return await this.xeroClient.getCreditNoteByNumber(newCreditNote.number) ||
+            await this.xeroClient.getCreditNoteByNumber(newCreditNote.reference); // for backwards compatibility
     }
 
     private async tryFallbackItemData<TData extends Pick<Xero.IAccountingItemData, 'accountCode' | 'taxType'>>(error: Error, data: TData, defaultAccountCode: string, taxExemptCode: string, logger: ILogger): Promise<TData> {
