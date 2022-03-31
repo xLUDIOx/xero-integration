@@ -351,8 +351,12 @@ export class Manager implements IManager {
         logger.info('Bill payment deleted');
     }
 
+    async getCreditNoteByNumber(creditNoteNumber: string): Promise<Xero.ICreditNote | undefined> {
+        return await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
+    }
+
     async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
-        const creditNote = await this.getCreditNote(newCreditNote);
+        const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.creditNoteNumber);
 
         const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
 
@@ -549,11 +553,6 @@ export class Manager implements IManager {
         return [generalExpenseAccount, feesExpenseAccount];
     }
 
-    private async getCreditNote(newCreditNote: INewCreditNoteEntity): Promise<Xero.ICreditNote | undefined> {
-        return await this.xeroClient.getCreditNoteByNumber(newCreditNote.number) ||
-            await this.xeroClient.getCreditNoteByNumber(newCreditNote.reference); // for backwards compatibility
-    }
-
     private async tryFallbackItemData<TData extends Pick<Xero.IAccountingItemData, 'accountCode' | 'taxType'>>(error: Error, data: TData, defaultAccountCode: string, taxExemptCode: string, logger: ILogger): Promise<TData> {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             logger.info(`Invalid account code for this item, falling back to default account code ${defaultAccountCode}`);
@@ -667,8 +666,7 @@ export class Manager implements IManager {
         description = DEFAULT_DESCRIPTION,
         totalAmount,
         currency,
-        number: creditNoteNumber,
-        reference,
+        creditNoteNumber,
         accountCode,
         taxType,
         lineItems = [],
@@ -686,7 +684,7 @@ export class Manager implements IManager {
             accountCode: accountCode || defaultAccount.code,
             taxType,
             description,
-            reference,
+            reference: creditNoteNumber,
             amount: totalAmount,
             bankFees: 0,
             fxFees: 0,

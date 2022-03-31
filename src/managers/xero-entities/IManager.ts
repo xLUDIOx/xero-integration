@@ -23,6 +23,7 @@ export interface IManager {
     getBankTransactionByUrl(url: string): Promise<Xero.IBankTransaction | undefined>;
     deleteAccountTransaction(transactionUrl: string): Promise<void>;
 
+    getCreditNoteByNumber(creditNoteNumber: string): Promise<Xero.ICreditNote | undefined>;
     createOrUpdateCreditNote(input: INewCreditNote): Promise<string>;
     deleteCreditNote(creditNoteNumber: string): Promise<void>;
 

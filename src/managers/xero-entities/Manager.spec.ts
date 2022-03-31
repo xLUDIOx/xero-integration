@@ -1453,12 +1453,11 @@ describe('XeroEntities.Manager', () => {
                 totalAmount: 10,
                 accountCode: '310',
                 files,
-                number: 'INV-1',
-                reference: 'INV-1',
+                creditNoteNumber: 'INV-1',
             };
 
             xeroClientMock
-                .setup(x => x.getCreditNoteByNumber(newCreditNote.number))
+                .setup(x => x.getCreditNoteByNumber(newCreditNote.creditNoteNumber))
                 .returns(async () => undefined);
 
             xeroClientMock
@@ -1473,8 +1472,8 @@ describe('XeroEntities.Manager', () => {
                     posFees: 0,
                     bankFees: 0,
                     feesAccountCode: FEES_ACCOUNT_CODE,
-                    reference: newCreditNote.number,
-                    creditNoteNumber: newCreditNote.number,
+                    reference: newCreditNote.creditNoteNumber,
+                    creditNoteNumber: newCreditNote.creditNoteNumber,
                     trackingCategories: newCreditNote.trackingCategories,
                     lineItems: [],
                 })))
