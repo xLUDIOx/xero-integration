@@ -5,7 +5,7 @@ import { AccountingApi, XeroClient } from 'xero-node';
 import { IntegrationsController } from '@controllers';
 import { IEnvironment } from '@environment';
 import { Integration, XeroConnection, XeroEntities } from '@managers';
-import { Payhawk, Xero } from '@services';
+import { FxRates, Payhawk, Xero } from '@services';
 import { PayhawkEvent } from '@shared';
 import { AccessTokens, ApiKeys, ISchemaStore } from '@stores';
 import { ExportError, IDocumentSanitizer, ILock, ILogger } from '@utils';
@@ -21,11 +21,13 @@ export abstract class XeroTestEnvironmentBase {
     protected readonly accountingXeroApiMock = TypeMoq.Mock.ofType<AccountingApi>();
     protected readonly httpClientMock = TypeMoq.Mock.ofType<Xero.IHttpClient>();
     protected readonly payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
+    protected readonly fxRatesMock = TypeMoq.Mock.ofType<FxRates.IService>();
     protected readonly controller: IntegrationsController;
 
     private readonly mocks: TypeMoq.IMock<any>[] = [
         this.httpClientMock,
         this.payhawkClientMock,
+        this.fxRatesMock,
     ];
 
     constructor() {
@@ -119,6 +121,12 @@ export abstract class XeroTestEnvironmentBase {
                     }],
                 },
             } as any));
+    }
+
+    setupFxRatesMock() {
+        this.fxRatesMock
+            .setup(x => x.getByDate(TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAny()))
+            .returns(async () => 1);
     }
 
     setupValidAccessToken() {
@@ -243,6 +251,7 @@ export abstract class XeroTestEnvironmentBase {
                 loggerMock.object
             ),
             this.payhawkClientMock.object,
+            this.fxRatesMock.object,
             async () => { /** */ },
             loggerMock.object
         );

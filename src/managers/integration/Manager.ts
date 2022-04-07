@@ -1,7 +1,21 @@
-import { Payhawk, Xero } from '@services';
+import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import {
+    ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX,
+    ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX,
+    DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
+    DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
+    EXPENSE_RECONCILED_ERROR_MESSAGE,
+    ExportError,
+    ILogger,
+    INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
+    isBeforeOrEqualToDate,
+    LOCK_PERIOD_ERROR_MESSAGE,
+    multiplyAmountByRate,
+    sumAmounts,
+    TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE,
+} from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -14,6 +28,7 @@ export class Manager implements IManager {
         private readonly store: ISchemaStore,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly payhawkClient: Payhawk.IClient,
+        private readonly fxRates: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly logger: ILogger,
     ) { }
@@ -456,7 +471,7 @@ export class Manager implements IManager {
             totalAmount = totalAmount - totalFees;
         }
 
-        const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, currency, accountCode, logger);
+        const lineItems: XeroEntities.ILineItem[] = await this.extractLineItems(expense, totalAmount, currency, new Date(date), accountCode, logger);
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
@@ -514,14 +529,23 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, [itemUrl]);
     }
 
-    private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, currency: string, accountCode: string | undefined, logger: ILogger) {
+    private async extractLineItems(expense: Payhawk.IExpense, expenseTotalAmount: number, paymentCurrency: string, expenseDate: Date, accountCode: string | undefined, logger: ILogger) {
         const lineItems: XeroEntities.ILineItem[] = [];
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
 
-        if (!expense.lineItems || expense.lineItems.length === 0 || expense.reconciliation.expenseCurrency !== currency) {
+        if (!expense.lineItems || expense.lineItems.length === 0 || expenseCurrency !== paymentCurrency) {
+            let taxAmount: number | undefined = Math.abs(expense.reconciliation.expenseTaxAmount);
+
+            // In case of different currencies convert the tax amount to payment currency
+            if (expenseCurrency && expenseCurrency !== paymentCurrency) {
+                const fxRate = await this.fxRates.getByDate(expenseCurrency, paymentCurrency, expenseDate);
+                taxAmount = fxRate ? multiplyAmountByRate(taxAmount, fxRate) : undefined;
+            }
+
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
-                amount: totalAmount,
-                taxAmount: Math.abs(expense.reconciliation.expenseTaxAmount),
+                amount: expenseTotalAmount,
+                taxAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
                 trackingCategories,
@@ -533,7 +557,7 @@ export class Manager implements IManager {
                 Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
                 0;
 
-            if (lineItemsSum !== 0 && lineItemsSum !== totalAmount) {
+            if (lineItemsSum !== 0 && lineItemsSum !== expenseTotalAmount) {
                 throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
             }
 
