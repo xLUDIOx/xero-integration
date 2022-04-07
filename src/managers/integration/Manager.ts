@@ -595,65 +595,51 @@ export class Manager implements IManager {
             await this.revertFailedPayment(expense, bill, fullPayment);
         }
 
-        if (settledPayment) {
-            const operationCurrencies = new Set([
-                expense.reconciliation.expenseCurrency,
-                organisation.baseCurrency,
-                settledPayment.currency,
-            ]);
+        if (!settledPayment) {
+            return;
+        }
 
-            if (operationCurrencies.size === 3) {
-                this.logger.error(Error('Failed to export into Xero. Bill, payment and organisation base currency are all different, which is currently not supported'));
+        const operationCurrencies = new Set([
+            expense.reconciliation.expenseCurrency,
+            organisation.baseCurrency,
+            settledPayment.currency,
+        ]);
 
-                // do not block export - user can do nothing but manually pay, let the bill be exported
-                return;
-            }
+        if (operationCurrencies.size === 3) {
+            // unsupported scenario
+            return;
+        }
 
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
-            if (bankAccount) {
-                if (settledPayment.currency === expense.reconciliation.expenseCurrency) {
-                    if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
-                        // should never happen
-                        throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
-                    }
+        if (settledPayment.currency !== expense.reconciliation.expenseCurrency) {
+            // leave the bill unpaid and let the accountant mark as paid via the bank reconciliation feature
+            return;
+        }
 
-                    // most common scenario - reimbursement in same currency
-                    if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
-                        paymentData = {
-                            bankAccountId: bankAccount.accountID,
-                            currency: settledPayment.currency,
-                            amount: settledPayment.amount,
-                            bankFees: settledPayment.fees,
-                            date: settledPayment.date,
-                        };
-                    } else {
-                        // bulk payment - single for several expenses in Payhawk
-                        // in Xero - multiple payments
-                        paymentData = {
-                            bankAccountId: bankAccount.accountID,
-                            currency: settledPayment.currency,
-                            amount: expense.reconciliation.expenseTotalAmount,
-                            bankFees: 0,
-                            date: settledPayment.date,
-                        };
-                    }
-                } else {
-                    // reimbursement in different currency, amounts also differ, we may have fee as well
-                    // The following is not a valid solution. We cannot pay a USD invoice with EUR without providing an fx.
-                    // But in the case of bulk payment we do not have all the related expenses to make a split payment
-                    // paymentData = {
-                    //     bankAccountId: bankAccount.accountID,
-                    //     currency: settledPayment.currency,
-                    //     amount: settledPayment.amount,
-                    //     bankFees: settledPayment.fees || 0,
-                    //     date: settledPayment.date,
-                    // };
+        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
+        if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
+            // should never happen
+            throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
+        }
 
-                    // Solution: Leave the bill unpaid and let the accountant mark them as paid via the bank reconciliation feature
-                    // which will automatically mark the bills paid in Xero
-                    paymentData = undefined;
-                }
-            }
+        // most common scenario - reimbursement in same currency
+        if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
+            paymentData = {
+                bankAccountId: bankAccount.accountID,
+                currency: settledPayment.currency,
+                amount: settledPayment.amount,
+                bankFees: settledPayment.fees,
+                date: settledPayment.date,
+            };
+        } else {
+            // bulk payment - single for several expenses in Payhawk
+            // in Xero - multiple payments
+            paymentData = {
+                bankAccountId: bankAccount.accountID,
+                currency: settledPayment.currency,
+                amount: expense.reconciliation.expenseTotalAmount,
+                bankFees: 0,
+                date: settledPayment.date,
+            };
         }
 
         return paymentData;
@@ -1029,7 +1015,7 @@ export class Manager implements IManager {
 
         // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
         this.logger.error(Error(`Export failed with an unexpected error`), {
-            exportError: err,
+            exportError: JSON.stringify(err),
         });
 
         throw new ExportError(genericErrorMessage, err);
