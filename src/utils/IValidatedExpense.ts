@@ -13,4 +13,4 @@ export interface IValidatedLineItem extends Payhawk.ILineItem {
     reconciliation: IValidatedReconciliation;
 }
 
-type IValidatedRecipient = RequiredBy<Payhawk.IRecipient, 'name'>;
+export type IValidatedRecipient = RequiredBy<Payhawk.IRecipient, 'name'>;

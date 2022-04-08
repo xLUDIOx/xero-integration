@@ -7,20 +7,19 @@ import {
     DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
     DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
     EXPENSE_RECONCILED_ERROR_MESSAGE,
+    ExpenseValidationError,
+    ExpenseValidator,
     ExportError,
     ILogger,
     INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
     isBeforeOrEqualToDate,
+    IValidatedExpense,
     LOCK_PERIOD_ERROR_MESSAGE,
-    multiplyAmountByRate,
-    sumAmounts,
-    TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE,
+    multiplyAmountByRate, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE,
 } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
-import { ExpenseValidationError, ExpenseValidator } from './ExpenseValidator';
 import { IManager, ISyncResult } from './IManager';
-import { IValidatedExpense } from './IValidatedExpense';
 
 export class Manager implements IManager {
     constructor(
@@ -193,43 +192,17 @@ export class Manager implements IManager {
     }
 
     async exportExpense(expenseId: string): Promise<void> {
-        const expense = await this.payhawkClient.getExpense(expenseId);
+        const expense = await this.getValidatedExpense(expenseId);
         if (!expense) {
-            this.logger.info('Expense not found');
             return;
         }
-
-        const expenseValidator = new ExpenseValidator(expense);
-        const expenseValidationResult = expenseValidator.validate();
-        if (expenseValidationResult.error) {
-            switch (expenseValidationResult.error.code) {
-                case ExpenseValidationError.ExpenseLocked:
-                    this.logger.info('Expense will not be exported because it is locked');
-                    return;
-                case ExpenseValidationError.ExpenseNotReady:
-                    this.logger.info('Expense will not be exported because it is not ready to be reconciled');
-                    return;
-                case ExpenseValidationError.MissingCurrency:
-                    throw new ExportError('Failed to export into Xero. Expense has no currency.');
-                case ExpenseValidationError.MissingSupplier:
-                    throw new ExportError('Failed to export into Xero. Expense has no supplier.');
-                case ExpenseValidationError.MissingTotalAmount:
-                    throw new ExportError('Failed to export into Xero. Expense has no total amount.');
-                case ExpenseValidationError.MissingCurrencyOnLineItems:
-                    throw new ExportError('Failed to export into Xero. Not all expense line items have currency.');
-                case ExpenseValidationError.MissingAmountOnLineItems:
-                    throw new ExportError('Failed to export into Xero. Not all expense line items have amount.');
-            }
-        }
-
-        const validatedExpense = expenseValidationResult.result;
 
         const files = await this.payhawkClient.downloadFiles(expense);
 
         const organisation = await this.getOrganisation();
 
         try {
-            await this._exportExpense(validatedExpense, files, organisation);
+            await this._exportExpense(expense, files, organisation);
         } catch (err: any) {
             this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
@@ -255,14 +228,8 @@ export class Manager implements IManager {
     async exportBankStatementForExpense(expenseId: string): Promise<void> {
         const logger = this.logger.child({ accountId: this.accountId, expenseId });
 
-        const expense = await this.payhawkClient.getExpense(expenseId);
+        const expense = await this.getValidatedExpense(expenseId);
         if (!expense) {
-            logger.info('Expense not found');
-            return;
-        }
-
-        if (expense.isLocked) {
-            logger.info('Expense is locked, bank statement will not be exported');
             return;
         }
 
@@ -427,12 +394,7 @@ export class Manager implements IManager {
         let totalAmount = expense.reconciliation.expenseTotalAmount;
         const accountCode = expense.reconciliation.accountCode;
 
-        let contactId: string;
-        if (expense.recipient) {
-            contactId = await this.xeroEntities.getContactForRecipient(expense.recipient);
-        } else {
-            contactId = await this.xeroEntities.getContactForRecipient({ name: expense.supplier.name, vat: expense.supplier.vat });
-        }
+        const contactId = await this.xeroEntities.getContactForRecipient(expense.recipient);
 
         let itemUrl: string;
         const payments: XeroEntities.IPayment[] = [];
@@ -616,7 +578,7 @@ export class Manager implements IManager {
         return lineItems;
     }
 
-    private async processBalancePayments(expense: Payhawk.IExpense, bill: Xero.IInvoice | undefined, organisation: XeroEntities.IOrganisation) {
+    private async processBalancePayments(expense: IValidatedExpense, bill: Xero.IInvoice | undefined, organisation: XeroEntities.IOrganisation) {
         let paymentData: XeroEntities.IPayment | undefined;
 
         const failedPayments = expense.balancePayments.filter(p => p.status === Payhawk.BalancePaymentStatus.Rejected);
@@ -885,7 +847,7 @@ export class Manager implements IManager {
         });
     }
 
-    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, logger: ILogger): Promise<void> {
+    private async _exportBankStatementForExpense(expense: IValidatedExpense, organisation: XeroEntities.IOrganisation, logger: ILogger): Promise<void> {
         const hasTransactions = expense.transactions.length > 0;
         const isPaidWithBalancePayment = expense.isPaid && expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance;
         if (!hasTransactions && !isPaidWithBalancePayment) {
@@ -1101,6 +1063,39 @@ export class Manager implements IManager {
         }
 
         return 'accountId';
+    }
+
+    private async getValidatedExpense(expenseId: string): Promise<Optional<IValidatedExpense>> {
+        const expense = await this.payhawkClient.getExpense(expenseId);
+        if (!expense) {
+            this.logger.info('Expense not found');
+            return;
+        }
+
+        const expenseValidator = new ExpenseValidator(expense);
+        const expenseValidationResult = expenseValidator.validate();
+        if (expenseValidationResult.error) {
+            switch (expenseValidationResult.error.code) {
+                case ExpenseValidationError.ExpenseLocked:
+                    this.logger.info('Expense will not be exported because it is locked');
+                    return;
+                case ExpenseValidationError.ExpenseNotReady:
+                    this.logger.info('Expense will not be exported because it is not ready to be reconciled');
+                    return;
+                case ExpenseValidationError.MissingCurrency:
+                    throw new ExportError('Failed to export into Xero. Expense has no currency.');
+                case ExpenseValidationError.MissingSupplier:
+                    throw new ExportError('Failed to export into Xero. Expense has no supplier.');
+                case ExpenseValidationError.MissingTotalAmount:
+                    throw new ExportError('Failed to export into Xero. Expense has no total amount.');
+                case ExpenseValidationError.MissingCurrencyOnLineItems:
+                    throw new ExportError('Failed to export into Xero. Not all expense line items have currency.');
+                case ExpenseValidationError.MissingAmountOnLineItems:
+                    throw new ExportError('Failed to export into Xero. Not all expense line items have amount.');
+            }
+        }
+
+        return expenseValidationResult.result;
     }
 }
 

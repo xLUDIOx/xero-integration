@@ -1,6 +1,6 @@
-import { Payhawk, Xero } from '@services';
+import { Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, IValidatedRecipient, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -46,7 +46,7 @@ export class Manager implements IManager {
         return this.xeroClient.accounting.getTrackingCategories();
     }
 
-    async getContactForRecipient(recipient: Payhawk.IRecipient): Promise<string> {
+    async getContactForRecipient(recipient: IValidatedRecipient): Promise<string> {
         const hasRecipient = recipient.name !== undefined && recipient.name.length > 0;
         const contactName = hasRecipient ? recipient.name : DEFAULT_SUPPLIER_NAME;
         const contact = await this.xeroClient.getOrCreateContact(

@@ -9,6 +9,8 @@ export * from './Base64Converter';
 export * from './NumberConversion';
 export * from './DateFormatter';
 
+export * from './ExpenseValidator';
+export * from './IValidatedExpense';
 export * from './ResultUtils';
 
 export async function sleep(timeout: number) {

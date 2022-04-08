@@ -3,7 +3,7 @@ import * as TypeMoq from 'typemoq';
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxRateStatus, TaxType } from '@shared';
 import { typeIsEqualSkipUndefined } from '@test-utils';
-import { ILogger } from '@utils';
+import { ILogger, IValidatedRecipient } from '@utils';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -145,7 +145,7 @@ describe('XeroEntities.Manager', () => {
     describe.skip('getContactForRecipient', () => {
         test('gets contact id based on supplier name, VAT and email', async () => {
             const contactId = 'contact-id';
-            const recipient: Payhawk.IRecipient = {
+            const recipient: IValidatedRecipient = {
                 name: 'Supplier Inc',
                 vat: 'UK12331123',
                 email: 'email@test.com',
@@ -162,7 +162,7 @@ describe('XeroEntities.Manager', () => {
 
         test('gets contact id based on supplier name and VAT', async () => {
             const contactId = 'contact-id';
-            const recipient: Payhawk.IRecipient = {
+            const recipient: IValidatedRecipient = {
                 name: 'Supplier Inc',
                 vat: 'UK12331123',
             };
@@ -178,7 +178,7 @@ describe('XeroEntities.Manager', () => {
 
         test('creates new contact if not found', async () => {
             const contactId = 'contact-id';
-            const recipient: Payhawk.IRecipient = {
+            const recipient: IValidatedRecipient = {
                 name: 'Supplier Inc',
                 vat: 'UK12331123',
             };

@@ -4,7 +4,7 @@ import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
 import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { typeIsEqualSkipUndefined } from '@test-utils';
-import { ILogger } from '@utils';
+import { ILogger, IValidatedReconciliation } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { getTransactionTotalAmount, Manager } from './Manager';
@@ -192,7 +192,7 @@ describe('integrations/Manager', () => {
     });
 
     describe('export expense', () => {
-        const reconciliation: Payhawk.IReconciliation = {
+        const reconciliation: IValidatedReconciliation = {
             accountCode: '420',
             baseCurrency: 'EUR',
             expenseCurrency: 'USD',
@@ -243,7 +243,7 @@ describe('integrations/Manager', () => {
             it('should not export expense which is not ready for reconciliation', async () => {
                 payhawkClientMock
                     .setup(p => p.getExpense(expenseId))
-                    .returns(async () => ({ isLocked: false, isReadyForReconciliation: false } as any));
+                    .returns(async () => ({ isLocked: false, isReadyForReconciliation: false, reconciliation, recipient: supplier } as any));
 
                 payhawkClientMock
                     .setup(p => p.downloadFiles(TypeMoq.It.isAny()))

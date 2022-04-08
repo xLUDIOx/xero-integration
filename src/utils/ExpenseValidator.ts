@@ -16,7 +16,7 @@ export class ExpenseValidator {
         }
 
         if (!this.expense.isReadyForReconciliation) {
-            createErrorResult(ExpenseValidationError.ExpenseNotReady);
+            return createErrorResult(ExpenseValidationError.ExpenseNotReady);
         }
 
         if (!this.expense.reconciliation.expenseCurrency) {

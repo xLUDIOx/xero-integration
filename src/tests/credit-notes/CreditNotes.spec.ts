@@ -1,5 +1,7 @@
 import { CreditNote, Payment } from 'xero-node';
 
+import { assertIsDefined } from '@test-utils';
+
 import { CreditNotesTestEnvironment } from './CreditNotesTestEnvironment';
 
 describe('Credit notes export module tests', () => {
@@ -45,7 +47,10 @@ describe('Credit notes export module tests', () => {
             const expense = testEnv.setupRefundExpenseResponseMock(expenseId);
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
-            testEnv.setupContactsByNameResponseMock(expense.recipient.name);
+            const recipientName = expense.recipient.name;
+            assertIsDefined(recipientName);
+
+            testEnv.setupContactsByNameResponseMock(recipientName);
             testEnv.setupExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
@@ -66,7 +71,10 @@ describe('Credit notes export module tests', () => {
             const expense = testEnv.setupRefundExpenseWithFeesResponseMock(expenseId);
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
-            testEnv.setupContactsByNameResponseMock(expense.recipient.name);
+            const recipientName = expense.recipient.name;
+            assertIsDefined(recipientName);
+
+            testEnv.setupContactsByNameResponseMock(recipientName);
             testEnv.setupExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
