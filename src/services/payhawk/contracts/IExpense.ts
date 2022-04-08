@@ -54,7 +54,7 @@ export interface IExternalLink {
 }
 
 export interface ISupplier {
-    name: string;
+    name?: string;
     countryCode: string;
     address?: string;
     vat?: string;
@@ -62,7 +62,7 @@ export interface ISupplier {
 }
 
 export interface IRecipient {
-    name: string;
+    name?: string;
     vat?: string;
     email?: string;
 }
@@ -79,12 +79,13 @@ export interface IFile {
 }
 
 export interface IReconciliation {
-    expenseTotalAmount: number;
-    expenseTaxAmount: number;
-    expenseCurrency?: string;
-    baseTotalAmount: number;
-    baseTaxAmount: number;
     baseCurrency: string;
+
+    expenseTotalAmount?: number;
+    expenseTaxAmount?: number;
+    expenseCurrency?: string;
+    baseTotalAmount?: number;
+    baseTaxAmount?: number;
     customFields2?: ICustomFields;
     accountCode?: string;
 }

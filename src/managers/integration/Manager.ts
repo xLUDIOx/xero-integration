@@ -18,7 +18,9 @@ import {
 } from '@utils';
 
 import * as XeroEntities from '../xero-entities';
+import { ExpenseValidationError, ExpenseValidator } from './ExpenseValidator';
 import { IManager, ISyncResult } from './IManager';
+import { IValidatedExpense } from './IValidatedExpense';
 
 export class Manager implements IManager {
     constructor(
@@ -197,22 +199,37 @@ export class Manager implements IManager {
             return;
         }
 
-        if (expense.isLocked) {
-            this.logger.info('Expense will not be exported because it is locked');
-            return;
+        const expenseValidator = new ExpenseValidator(expense);
+        const expenseValidationResult = expenseValidator.validate();
+        if (expenseValidationResult.error) {
+            switch (expenseValidationResult.error.code) {
+                case ExpenseValidationError.ExpenseLocked:
+                    this.logger.info('Expense will not be exported because it is locked');
+                    return;
+                case ExpenseValidationError.ExpenseNotReady:
+                    this.logger.info('Expense will not be exported because it is not ready to be reconciled');
+                    return;
+                case ExpenseValidationError.MissingCurrency:
+                    throw new ExportError('Failed to export into Xero. Expense has no currency.');
+                case ExpenseValidationError.MissingSupplier:
+                    throw new ExportError('Failed to export into Xero. Expense has no supplier.');
+                case ExpenseValidationError.MissingTotalAmount:
+                    throw new ExportError('Failed to export into Xero. Expense has no total amount.');
+                case ExpenseValidationError.MissingCurrencyOnLineItems:
+                    throw new ExportError('Failed to export into Xero. Not all expense line items have currency.');
+                case ExpenseValidationError.MissingAmountOnLineItems:
+                    throw new ExportError('Failed to export into Xero. Not all expense line items have amount.');
+            }
         }
 
-        if (!expense.isReadyForReconciliation) {
-            this.logger.info('Expense is not ready to be reconciled and will not be exported');
-            return;
-        }
+        const validatedExpense = expenseValidationResult.result;
 
         const files = await this.payhawkClient.downloadFiles(expense);
 
         const organisation = await this.getOrganisation();
 
         try {
-            await this._exportExpense(expense, files, organisation);
+            await this._exportExpense(validatedExpense, files, organisation);
         } catch (err: any) {
             this.handleExportError(err, expense.category, GENERIC_EXPENSE_EXPORT_ERROR_MESSAGE);
         } finally {
@@ -398,15 +415,12 @@ export class Manager implements IManager {
         return `Bank wire ${transfer.amount > 0 ? 'received' : 'sent'} on ${new Date(transfer.date).toUTCString()}`;
     }
 
-    private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
+    private async _exportExpense(expense: IValidatedExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
         const date = getExportDate(expense);
 
         this.validateExportDate(organisation, date, this.logger);
 
         let currency = expense.reconciliation.expenseCurrency;
-        if (!currency) {
-            throw new ExportError('Failed to export into Xero. Expense has no currency.');
-        }
 
         const hasTransactions = expense.transactions.length > 0;
         const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
@@ -552,7 +566,7 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, [itemUrl]);
     }
 
-    private async extractLineItems(expense: Payhawk.IExpense, expenseTotalAmount: number, paymentCurrency: string, expenseDate: Date, accountCode: string | undefined, logger: ILogger) {
+    private async extractLineItems(expense: IValidatedExpense, expenseTotalAmount: number, paymentCurrency: string, expenseDate: Date, accountCode: string | undefined, logger: ILogger) {
         const lineItems: XeroEntities.ILineItem[] = [];
         const expenseCurrency = expense.reconciliation.expenseCurrency;
 
