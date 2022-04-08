@@ -423,7 +423,6 @@ export class Manager implements IManager {
 
         let itemUrl: string;
         const payments: XeroEntities.IPayment[] = [];
-        const description = formatDescription(expense.ownerName, expense.note);
 
         const logger = this.logger.child({ expenseId: expense.id });
 
@@ -433,30 +432,53 @@ export class Manager implements IManager {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
 
+            const transactionsAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
+
             currency = transactionCurrencies[0];
-            totalAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
+            totalAmount = transactionsAmount;
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
+            const areAllTransactionsSameType = expense.transactions.every(tx =>
+                expense.transactions[0].cardAmount > 0 ?
+                    tx.cardAmount > 0 :
+                    tx.cardAmount < 0
+            );
+
             if (!areAllTransactionsSettled) {
                 this.logger.info('Expense transactions are not settled, payments will not be exported');
             } else {
                 const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
 
-                for (const expenseTransaction of expense.transactions) {
-                    if (!expenseTransaction.settlementDate) {
-                        throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
-                    }
+                if (!areAllTransactionsSameType) {
+                    const transactionFxFeesAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.fees.fx)));
+                    const transactionPosFeesAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.fees.pos)));
 
-                    this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
-
+                    const expenseTransaction = expense.transactions[0];
                     payments.push({
                         bankAccountId: bankAccount.accountID,
-                        amount: expenseTransaction.cardAmount,
+                        amount: transactionsAmount,
                         currency: expenseTransaction.cardCurrency,
-                        date: expenseTransaction.settlementDate,
-                        fxFees: expenseTransaction.fees.fx,
-                        posFees: expenseTransaction.fees.pos,
+                        date: expenseTransaction.settlementDate!,
+                        fxFees: transactionFxFeesAmount,
+                        posFees: transactionPosFeesAmount,
                     });
+                } else {
+                    for (const expenseTransaction of expense.transactions) {
+                        if (!expenseTransaction.settlementDate) {
+                            throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
+                        }
+
+                        this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
+
+                        payments.push({
+                            bankAccountId: bankAccount.accountID,
+                            amount: expenseTransaction.cardAmount,
+                            currency: expenseTransaction.cardCurrency,
+                            date: expenseTransaction.settlementDate,
+                            fxFees: expenseTransaction.fees.fx,
+                            posFees: expenseTransaction.fees.pos,
+                        });
+                    }
                 }
             }
         }
@@ -472,6 +494,7 @@ export class Manager implements IManager {
         }
 
         const lineItems: XeroEntities.ILineItem[] = await this.extractLineItems(expense, totalAmount, currency, new Date(date), accountCode, logger);
+        const description = formatDescription(expense.ownerName, expense.note);
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
