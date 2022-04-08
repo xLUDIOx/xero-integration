@@ -1123,7 +1123,7 @@ describe('integrations/Manager', () => {
                     reconciliation: {
                         ...reconciliation,
                         expenseTotalAmount: -reconciliation.expenseTotalAmount,
-                        expenseTaxAmount: -reconciliation.expenseTaxAmount,
+                        expenseTaxAmount: -reconciliation.expenseTaxAmount!,
                     },
                     supplier,
                     recipient: supplier,
@@ -1213,7 +1213,7 @@ describe('integrations/Manager', () => {
                         files,
                         lineItems: [{
                             amount: 4,
-                            taxAmount: Math.abs(reconciliation.expenseTaxAmount),
+                            taxAmount: Math.abs(reconciliation.expenseTaxAmount!),
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
@@ -1386,6 +1386,127 @@ describe('integrations/Manager', () => {
                             baseTaxAmount: 3,
                             baseTotalAmount: 30,
                             expenseTaxAmount: 15,
+                            expenseTotalAmount: 150,
+                        },
+                        supplier,
+                        recipient: supplier,
+                        paymentData: {},
+                        title: txDescription,
+                        isReadyForReconciliation: true,
+                        transactions: [
+                            {
+                                id: 'tx1',
+                                cardAmount: 30,
+                                cardCurrency: 'GBP',
+                                cardName: 'Card 1',
+                                cardHolderName: 'John Smith',
+                                cardLastDigits: '9999',
+                                description: txDescription,
+                                paidAmount: 150,
+                                paidCurrency: 'ZAR',
+                                date: new Date(2019, 2, 3).toISOString(),
+                                settlementDate: new Date(2019, 2, 3).toISOString(),
+                                fees: {
+                                    fx: 1,
+                                    pos: 2,
+                                },
+                            },
+                        ],
+                        balancePayments: [],
+                        externalLinks: [],
+                        taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
+                    };
+
+                    const bankAccountId = 'bank-account-id';
+                    const contactId = 'contact-id';
+                    payhawkClientMock
+                        .setup(p => p.getExpense(expenseId))
+                        .returns(async () => expense);
+
+                    payhawkClientMock
+                        .setup(p => p.downloadFiles(expense))
+                        .returns(async () => files);
+
+                    bankAccountsManagerMock
+                        .setup(x => x.getOrCreateByCurrency(expense.transactions[0].cardCurrency))
+                        .returns(async () => ({ accountID: bankAccountId } as Xero.IBankAccount));
+
+                    xeroEntitiesMock
+                        .setup(x => x.getContactForRecipient(supplier))
+                        .returns(async () => contactId);
+
+                    xeroEntitiesMock
+                        .setup(x => x.createOrUpdateBill(typeIsEqualSkipUndefined({
+                            date: expense.createdAt,
+                            dueDate: expense.paymentData.dueDate || expense.createdAt,
+                            paymentDate: undefined,
+                            isPaid: expense.isPaid,
+                            accountCode: reconciliation.accountCode,
+                            taxType: 'TAX001',
+                            currency: 'GBP',
+                            fxRate: undefined,
+                            contactId,
+                            reference: `expense-${expenseId}`,
+                            description: `${expense.ownerName} | ${expense.note}`,
+                            payments: expense.transactions.map<XeroEntities.IPayment>(t => ({
+                                amount: t.cardAmount,
+                                bankAccountId,
+                                currency: t.cardCurrency,
+                                date: t.settlementDate!,
+                                fxFees: t.fees.fx,
+                                posFees: t.fees.pos,
+                            })),
+                            totalAmount: 30,
+                            files,
+                            url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
+                            lineItems: [{
+                                amount: 30,
+                                taxAmount: undefined,
+                                accountCode: reconciliation.accountCode,
+                                taxType: expense.taxRate?.code,
+                            }],
+                        })))
+                        .returns(() => Promise.resolve('1'))
+                        .verifiable(TypeMoq.Times.once());
+
+                    deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                    deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                    const shortCode = '!ef94Az';
+                    xeroEntitiesMock
+                        .setup(e => e.getOrganisation())
+                        .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                        .verifiable(TypeMoq.Times.once());
+
+                    payhawkClientMock
+                        .setup(x => x.updateExpense(
+                            expenseId,
+                            {
+                                externalLinks: [{
+                                    title: 'Xero',
+                                    url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/Edit.aspx?InvoiceID=1`,
+                                }],
+                            }));
+
+                    await manager.exportExpense(expenseId);
+                });
+
+                test('exports no tax amount if tax amount is not defined', async () => {
+                    const expenseId = 'expenseId';
+                    // cspell:disable-next-line
+                    const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
+                    const expense: Payhawk.IExpense = {
+                        id: expenseId,
+                        createdAt: new Date(2019, 2, 2).toISOString(),
+                        note: 'Expense Note',
+                        ownerName: 'John Smith',
+                        reconciliation: {
+                            accountCode: '420',
+                            baseCurrency: 'GBP',
+                            expenseCurrency: 'ZAR',
+                            baseTaxAmount: 3,
+                            baseTotalAmount: 30,
+                            expenseTaxAmount: undefined,
                             expenseTotalAmount: 150,
                         },
                         supplier,

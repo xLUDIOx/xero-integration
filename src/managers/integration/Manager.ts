@@ -423,7 +423,6 @@ export class Manager implements IManager {
         let currency = expense.reconciliation.expenseCurrency;
 
         const hasTransactions = expense.transactions.length > 0;
-        const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
 
         let totalAmount = expense.reconciliation.expenseTotalAmount;
         const accountCode = expense.reconciliation.accountCode;
@@ -503,6 +502,7 @@ export class Manager implements IManager {
             ...payments.map(d => d.bankFees || 0),
         );
 
+        const isCredit = expense.reconciliation.expenseTotalAmount < 0;
         if (isCredit) {
             totalAmount = totalAmount - totalFees;
         }
@@ -571,10 +571,12 @@ export class Manager implements IManager {
         const expenseCurrency = expense.reconciliation.expenseCurrency;
 
         if (!expense.lineItems || expense.lineItems.length === 0 || expenseCurrency !== paymentCurrency) {
-            let taxAmount: number | undefined = Math.abs(expense.reconciliation.expenseTaxAmount);
+            let taxAmount = expense.reconciliation.expenseTaxAmount ?
+                Math.abs(expense.reconciliation.expenseTaxAmount) :
+                undefined;
 
             // In case of different currencies convert the tax amount to payment currency
-            if (expenseCurrency && expenseCurrency !== paymentCurrency) {
+            if (taxAmount && expenseCurrency && expenseCurrency !== paymentCurrency) {
                 const fxRate = await this.fxRates.getByDate(expenseCurrency, paymentCurrency, expenseDate);
                 taxAmount = fxRate ? multiplyAmountByRate(taxAmount, fxRate) : undefined;
             }
@@ -601,7 +603,7 @@ export class Manager implements IManager {
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
                     amount: Math.abs(item.reconciliation.expenseTotalAmount),
-                    taxAmount: Math.abs(item.reconciliation.expenseTaxAmount),
+                    taxAmount: Math.abs(item.reconciliation.expenseTaxAmount || 0),
                     accountCode: expense.isReadyForReconciliation ? item.reconciliation.accountCode : undefined,
                     taxType: item.taxRate?.code,
                     trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),
@@ -1051,8 +1053,12 @@ export class Manager implements IManager {
         }
 
         // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
-        this.logger.error(Error(`Export failed with an unexpected error`), {
-            exportError: JSON.stringify(err),
+        this.logger.error(Error(errorMessage || `Export failed with an unexpected error`), {
+            originalError: {
+                name: err.name,
+                message: err.message,
+                stack: err.stack,
+            },
         });
 
         throw new ExportError(genericErrorMessage, err);
