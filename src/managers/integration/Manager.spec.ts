@@ -727,6 +727,7 @@ describe('integrations/Manager', () => {
                     ownerName: 'John Smith',
                     reconciliation: {
                         ...reconciliation,
+                        expenseTotalAmount: 10,
                         accountCode: undefined,
                     },
                     supplier,

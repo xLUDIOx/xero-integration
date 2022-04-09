@@ -3,9 +3,10 @@ import {
     createErrorResult,
     createSuccessResult,
     IResult,
+    sumAmounts,
 } from '@utils';
 
-import { IValidatedExpense } from './IValidatedExpense';
+import { IValidatedExpense, IValidatedLineItem } from './IValidatedExpense';
 
 export class ExpenseValidator {
     constructor(private readonly expense: Payhawk.IExpense) { }
@@ -23,7 +24,11 @@ export class ExpenseValidator {
             return createErrorResult(ExpenseValidationError.MissingCurrency);
         }
 
-        if (!this.expense.reconciliation.expenseTotalAmount && this.expense.transactions.length === 0) {
+        if (this.expense.reconciliation.expenseTotalAmount === undefined) {
+            return createErrorResult(ExpenseValidationError.MissingTotalAmount);
+        }
+
+        if (this.expense.reconciliation.expenseTotalAmount === 0 && this.expense.transactions.length === 0) {
             return createErrorResult(ExpenseValidationError.MissingTotalAmount);
         }
 
@@ -31,6 +36,25 @@ export class ExpenseValidator {
             return createErrorResult(ExpenseValidationError.MissingSupplier);
         }
 
+        const validateLineItemsResult = this.validateLineItemProperties();
+        if (validateLineItemsResult.error) {
+            return validateLineItemsResult;
+        }
+
+        const validatedLineItems = validateLineItemsResult.result;
+
+        const lineItemsSum = validatedLineItems.length > 0 ?
+            sumAmounts(...validatedLineItems.map(x => x.reconciliation.expenseTotalAmount)) :
+            0;
+
+        if (lineItemsSum > 0 && lineItemsSum !== this.expense.reconciliation.expenseTotalAmount) {
+            return createErrorResult(ExpenseValidationError.LineItemsSumDoesNotMatchTotalAmount);
+        }
+
+        return createSuccessResult(this.expense as IValidatedExpense);
+    }
+
+    private validateLineItemProperties(): IResult<IValidatedLineItem[], ExpenseValidationError.MissingAmountOnLineItems | ExpenseValidationError.MissingCurrencyOnLineItems> {
         const hasMissingCurrencyInLineItems = this.expense.lineItems?.some(l => !l.reconciliation.expenseCurrency);
         if (hasMissingCurrencyInLineItems) {
             return createErrorResult(ExpenseValidationError.MissingCurrencyOnLineItems);
@@ -41,16 +65,18 @@ export class ExpenseValidator {
             return createErrorResult(ExpenseValidationError.MissingAmountOnLineItems);
         }
 
-        return createSuccessResult(this.expense as IValidatedExpense);
+        return createSuccessResult((this.expense.lineItems || []) as IValidatedLineItem[]);
     }
 }
 
 export enum ExpenseValidationError {
     ExpenseLocked = 'expense-locked',
     ExpenseNotReady = 'expense-not-ready',
+
     MissingCurrency = 'missing-currency',
     MissingTotalAmount = 'missing-total-amount',
     MissingSupplier = 'missing-supplier',
     MissingCurrencyOnLineItems = 'missing-currency-line-items',
     MissingAmountOnLineItems = 'missing-amount-line-items',
+    LineItemsSumDoesNotMatchTotalAmount = 'line-items-sum-does-not-match-amount',
 }

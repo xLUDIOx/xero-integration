@@ -554,14 +554,6 @@ export class Manager implements IManager {
 
             lineItems.push(lineItem);
         } else {
-            const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ?
-                Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
-                0;
-
-            if (lineItemsSum !== 0 && lineItemsSum !== expenseTotalAmount) {
-                throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
-            }
-
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
                     amount: Math.abs(item.reconciliation.expenseTotalAmount),
