@@ -8,6 +8,7 @@ import {
     DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
     EXPENSE_RECONCILED_ERROR_MESSAGE,
     ExportError,
+    ForbiddenError,
     ILogger,
     INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
     isBeforeOrEqualToDate,
@@ -1036,9 +1037,12 @@ export class Manager implements IManager {
             throw new ExportError(`The default account code 'Fees' has been archived or deleted in Xero. Please activate it or use a different account code.`);
         } else if (errorMessage === TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE) {
             throw new ExportError('A tracking category was not found in Xero. Please sync your tracking categories and update your expense.');
+        } else if (err.name === ForbiddenError.name) {
+            throw new ExportError(genericErrorMessage, err);
         }
 
-        // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
+        // at this point we would like to have insights on what actually happened
+        // generic message isn't enough for debugging purposes
         this.logger.error(Error(errorMessage || `Export failed with an unexpected error`), {
             originalError: {
                 name: err.name,
