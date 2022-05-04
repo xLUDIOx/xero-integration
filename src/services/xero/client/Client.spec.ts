@@ -293,7 +293,7 @@ describe('Xero client', () => {
                 fail('Request did not error');
             }
 
-            expect(error.message).toEqual('Error: Xero Error 1');
+            expect(error.message).toEqual('Xero Error 1');
         });
     });
 
@@ -400,7 +400,7 @@ describe('Xero client', () => {
                 fail('Request did not error');
             }
 
-            expect(error.message).toEqual('Error: Xero Error 1');
+            expect(error.message).toEqual('Xero Error 1');
         });
     });
 

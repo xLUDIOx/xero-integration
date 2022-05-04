@@ -90,6 +90,7 @@ export class XeroHttpClient implements IXeroHttpClient {
         const errorResponseData = err as IApiResponse;
         if (errorResponseData.response) {
             const statusCode = errorResponseData.response.statusCode;
+            const errorMessage = errorResponseData.response ? (errorResponseData.response as IErrorResponse).body.Message : errorResponseData.body;
             switch (statusCode) {
                 case 400:
                     if (!responseType) {
@@ -97,8 +98,6 @@ export class XeroHttpClient implements IXeroHttpClient {
                     }
 
                     const errorBody = (errorResponseData.response as IErrorResponse).body;
-
-                    const errorObj = errorBody;
                     if (errorBody.Type === ResponseErrorType.Validation) {
                         const validationErrors = errorBody.Elements.flatMap(e => e.ValidationErrors ?? []);
                         if (validationErrors.length > 0) {
@@ -108,12 +107,9 @@ export class XeroHttpClient implements IXeroHttpClient {
                         }
                     }
 
-                    throw new Error(errorObj.Message);
+                    throw new Error(errorMessage);
                 case 403:
-                    const errBody = errorResponseData.response ?
-                        (errorResponseData.response as IErrorResponse).body.Message :
-                        errorResponseData.body;
-                    throw new ForbiddenError(errBody);
+                    throw new ForbiddenError(errorMessage);
                 case 404:
                     return undefined;
                 case 429:
@@ -153,11 +149,11 @@ export class XeroHttpClient implements IXeroHttpClient {
                         setTimeout(handledRetry, millisecondsToRetryAfter);
                     });
                 default:
-                    throw new Error(err);
+                    throw new Error(errorMessage);
             }
         }
 
-        throw new Error(err);
+        throw new Error(err.message || err);
     }
 }
 
