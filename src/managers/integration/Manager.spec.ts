@@ -1111,6 +1111,95 @@ describe('integrations/Manager', () => {
                 await manager.exportExpense(expenseId);
             });
 
+            test('creates credit note absolute value of amount, when expense amount is negative and there are no transactions', async () => {
+                const expenseId = 'expenseId';
+                // cspell:disable-next-line
+                const txDescription = 'ALLGATE GMBH \Am Flughafen 35 \MEMMINGERBERG\ 87766 DEUDEU';
+                const expense: Payhawk.IExpense = {
+                    id: expenseId,
+                    createdAt: new Date(2019, 2, 2).toISOString(),
+                    note: 'Expense Note',
+                    ownerName: 'John Smith',
+                    reconciliation: {
+                        ...reconciliation,
+                        expenseTotalAmount: -reconciliation.expenseTotalAmount,
+                        expenseTaxAmount: -reconciliation.expenseTaxAmount!,
+                    },
+                    supplier,
+                    recipient: supplier,
+                    paymentData: {},
+                    title: txDescription,
+                    isReadyForReconciliation: true,
+                    transactions: [],
+                    balancePayments: [],
+                    externalLinks: [],
+                    taxRate: { code: 'TAX001' } as Payhawk.ITaxRate,
+                    document: {
+                        number: 'INV-1',
+                        files: [],
+                    },
+                };
+
+                const contactId = 'contact-id';
+                payhawkClientMock
+                    .setup(p => p.getExpense(expenseId))
+                    .returns(async () => expense);
+
+                payhawkClientMock
+                    .setup(p => p.downloadFiles(expense))
+                    .returns(async () => files);
+
+                xeroEntitiesMock
+                    .setup(x => x.getContactForRecipient(supplier))
+                    .returns(async () => contactId);
+
+                xeroEntitiesMock
+                    .setup(x => x.createOrUpdateCreditNote(TypeMoq.It.is((data: XeroEntities.INewCreditNote) => {
+                        expect(data).toEqual({
+                            creditNoteNumber: expense.document!.number!,
+                            date: expense.createdAt,
+                            accountCode: reconciliation.accountCode,
+                            taxType: 'TAX001',
+                            currency: reconciliation.expenseCurrency!,
+                            contactId,
+                            description: `${expense.ownerName} | ${expense.note}`,
+                            payments: [],
+                            totalAmount: -reconciliation.expenseTotalAmount!,
+                            files,
+                            lineItems: [{
+                                amount: Math.abs(reconciliation.expenseTotalAmount!),
+                                taxAmount: Math.abs(reconciliation.expenseTaxAmount!),
+                                accountCode: reconciliation.accountCode,
+                                taxType: expense.taxRate?.code,
+                            }],
+                        });
+                        return true;
+                    })))
+                    .returns(() => Promise.resolve('1'))
+                    .verifiable(TypeMoq.Times.once());
+
+                deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
+                deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
+
+                const shortCode = '!ef94Az';
+                xeroEntitiesMock
+                    .setup(e => e.getOrganisation())
+                    .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
+                    .verifiable(TypeMoq.Times.once());
+
+                payhawkClientMock
+                    .setup(x => x.updateExpense(
+                        expenseId,
+                        {
+                            externalLinks: [{
+                                title: 'Xero',
+                                url: `https://go.xero.com/organisationlogin/default.aspx?shortcode=${shortCode}&redirecturl=/AccountsPayable/ViewCreditNote.aspx?creditNoteId=1`,
+                            }],
+                        }));
+
+                await manager.exportExpense(expenseId);
+            });
+
             test('creates credit note with payments when expense is refund', async () => {
                 const expenseId = 'expenseId';
                 // cspell:disable-next-line

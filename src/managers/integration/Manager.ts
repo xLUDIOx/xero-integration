@@ -569,7 +569,7 @@ export class Manager implements IManager {
 
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
-                amount: expenseTotalAmount,
+                amount: Math.abs(expenseTotalAmount),
                 taxAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
