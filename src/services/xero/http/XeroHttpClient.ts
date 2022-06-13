@@ -90,7 +90,8 @@ export class XeroHttpClient implements IXeroHttpClient {
         const errorResponseData = err as IApiResponse;
         if (errorResponseData.response) {
             const statusCode = errorResponseData.response.statusCode;
-            const errorMessage = errorResponseData.response ? (errorResponseData.response as IErrorResponse).body?.Message || 'Unknown Error Occurred' : errorResponseData.body;
+            const explicitErrorMessage = (errorResponseData.response as IErrorResponse).body?.Message;
+            const errorMessage = explicitErrorMessage ?? JSON.stringify(errorResponseData.body) ?? 'Unknown Error Occurred';
             switch (statusCode) {
                 case 400:
                     if (!responseType) {
