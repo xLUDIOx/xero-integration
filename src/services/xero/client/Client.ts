@@ -855,6 +855,7 @@ const ALLOWED_CURRENCIES: string[] = [
     CurrencyCode.USD.toString(),
     CurrencyCode.EUR.toString(),
     CurrencyCode.GBP.toString(),
+    CurrencyCode.RON.toString(),
 ];
 
 type LineItemSelectedFields = 'description' | 'accountCode' | 'quantity' | 'unitAmount' | 'taxAmount' | 'taxType' | 'tracking';
