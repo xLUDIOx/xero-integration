@@ -87,11 +87,22 @@ export class XeroHttpClient implements IXeroHttpClient {
     private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: XeroEntityResponseType): Promise<TResult | undefined> {
         const logger = this.logger.child({ action: action.toString() });
 
+        if (err instanceof Error) {
+            throw err;
+        }
+
         const errorResponseData = err as IApiResponse;
         if (errorResponseData.response) {
             const statusCode = errorResponseData.response.statusCode;
             const explicitErrorMessage = (errorResponseData.response as IErrorResponse).body?.Message;
-            const errorMessage = explicitErrorMessage ?? JSON.stringify(errorResponseData.body) ?? 'Unknown Error Occurred';
+            const errorMessage = explicitErrorMessage ??
+                (
+                    errorResponseData.body ?
+                        JSON.stringify(errorResponseData.body) :
+                        undefined
+                ) ??
+                'Unknown Error Occurred';
+
             switch (statusCode) {
                 case 400:
                     if (!responseType) {
