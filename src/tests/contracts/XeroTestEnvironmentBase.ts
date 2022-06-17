@@ -5,12 +5,12 @@ import { AccountingApi, XeroClient } from 'xero-node';
 import { IntegrationsController } from '@controllers';
 import { IEnvironment } from '@environment';
 import { Integration, XeroConnection, XeroEntities } from '@managers';
-import { Payhawk, Xero } from '@services';
+import { FxRates, Payhawk, Xero } from '@services';
 import { PayhawkEvent } from '@shared';
 import { AccessTokens, ApiKeys, ISchemaStore } from '@stores';
 import { ExportError, IDocumentSanitizer, ILock, ILogger } from '@utils';
 
-import { AccountingClient, AuthClient, BankFeedsClient } from '../../services/xero';
+import { AccountingClient, AuthClient, BankFeedsClient, IClientOptions } from '../../services/xero';
 
 export abstract class XeroTestEnvironmentBase {
     private readonly accessTokensStore = TypeMoq.Mock.ofType<AccessTokens.IStore>();
@@ -21,11 +21,13 @@ export abstract class XeroTestEnvironmentBase {
     protected readonly accountingXeroApiMock = TypeMoq.Mock.ofType<AccountingApi>();
     protected readonly httpClientMock = TypeMoq.Mock.ofType<Xero.IHttpClient>();
     protected readonly payhawkClientMock = TypeMoq.Mock.ofType<Payhawk.IClient>();
+    protected readonly fxRatesMock = TypeMoq.Mock.ofType<FxRates.IService>();
     protected readonly controller: IntegrationsController;
 
     private readonly mocks: TypeMoq.IMock<any>[] = [
         this.httpClientMock,
         this.payhawkClientMock,
+        this.fxRatesMock,
     ];
 
     constructor() {
@@ -49,10 +51,35 @@ export abstract class XeroTestEnvironmentBase {
             .verifiable(TypeMoq.Times.once());
     }
 
+    setupExpenseAccountsResponseMock() {
+        this.setupDefaultExpenseAccountsResponseMock();
+        this.setupAssetAccountsResponseMock();
+    }
+
     setupDefaultExpenseAccountsResponseMock() {
         this.httpClientMock
             .setup(x => x.request(TypeMoq.It.isObjectWith({
                 url: 'http://xero-api/api.xro/2.0/Accounts?where=Class%3D%3D%22EXPENSE%22',
+                method: 'GET',
+            })))
+            .returns(async () => ({
+                Accounts: [{
+                    name: 'Payhawk General',
+                    code: '999999',
+                    status: 'ACTIVE',
+                }, {
+                    name: 'Fees',
+                    code: '888888',
+                    status: 'ACTIVE',
+                }],
+            }))
+            .verifiable(TypeMoq.Times.once());
+    }
+
+    setupAssetAccountsResponseMock() {
+        this.httpClientMock
+            .setup(x => x.request(TypeMoq.It.isObjectWith({
+                url: 'http://xero-api/api.xro/2.0/Accounts?where=Type%3D%3D%22FIXED%22',
                 method: 'GET',
             })))
             .returns(async () => ({
@@ -94,6 +121,12 @@ export abstract class XeroTestEnvironmentBase {
                     }],
                 },
             } as any));
+    }
+
+    setupFxRatesMock() {
+        this.fxRatesMock
+            .setup(x => x.getByDate(TypeMoq.It.isAnyString(), TypeMoq.It.isAnyString(), TypeMoq.It.isAny()))
+            .returns(async () => 1);
     }
 
     setupValidAccessToken() {
@@ -165,6 +198,10 @@ export abstract class XeroTestEnvironmentBase {
             fxRatesApiUrl: 'http://fx-api',
         };
 
+        const xeroClientOptions: IClientOptions = {
+            setTrackingCategoriesOnFees: false,
+        };
+
         const schemaStoreMock = TypeMoq.Mock.ofType<ISchemaStore>();
         const xeroClientMock = TypeMoq.Mock.ofType<XeroClient>();
         const documentSanitizerMock = TypeMoq.Mock.ofType<IDocumentSanitizer>();
@@ -208,11 +245,13 @@ export abstract class XeroTestEnvironmentBase {
                     Xero.createXeroHttpClient(xeroClientMock.object, lockMock.object, loggerMock.object),
                     this.xeroTenantId,
                     documentSanitizerMock.object,
-                    loggerMock.object
+                    loggerMock.object,
+                    xeroClientOptions
                 ),
                 loggerMock.object
             ),
             this.payhawkClientMock.object,
+            this.fxRatesMock.object,
             async () => { /** */ },
             loggerMock.object
         );

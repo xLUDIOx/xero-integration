@@ -87,9 +87,22 @@ export class XeroHttpClient implements IXeroHttpClient {
     private async handleFailedRequest<TResult>(err: any, action: (client: XeroClient) => Promise<any>, retryCount: number, responseType?: XeroEntityResponseType): Promise<TResult | undefined> {
         const logger = this.logger.child({ action: action.toString() });
 
+        if (err instanceof Error) {
+            throw err;
+        }
+
         const errorResponseData = err as IApiResponse;
         if (errorResponseData.response) {
             const statusCode = errorResponseData.response.statusCode;
+            const explicitErrorMessage = (errorResponseData.response as IErrorResponse).body?.Message;
+            const errorMessage = explicitErrorMessage ??
+                (
+                    errorResponseData.body ?
+                        JSON.stringify(errorResponseData.body) :
+                        undefined
+                ) ??
+                'Unknown Error Occurred';
+
             switch (statusCode) {
                 case 400:
                     if (!responseType) {
@@ -97,8 +110,6 @@ export class XeroHttpClient implements IXeroHttpClient {
                     }
 
                     const errorBody = (errorResponseData.response as IErrorResponse).body;
-
-                    const errorObj = errorBody;
                     if (errorBody.Type === ResponseErrorType.Validation) {
                         const validationErrors = errorBody.Elements.flatMap(e => e.ValidationErrors ?? []);
                         if (validationErrors.length > 0) {
@@ -108,12 +119,9 @@ export class XeroHttpClient implements IXeroHttpClient {
                         }
                     }
 
-                    throw new Error(errorObj.Message);
+                    throw new Error(errorMessage);
                 case 403:
-                    const errBody = errorResponseData.response ?
-                        (errorResponseData.response as IErrorResponse).body.Message :
-                        errorResponseData.body;
-                    throw new ForbiddenError(errBody);
+                    throw new ForbiddenError(errorMessage);
                 case 404:
                     return undefined;
                 case 429:
@@ -153,11 +161,11 @@ export class XeroHttpClient implements IXeroHttpClient {
                         setTimeout(handledRetry, millisecondsToRetryAfter);
                     });
                 default:
-                    throw new Error(err);
+                    throw new Error(errorMessage);
             }
         }
 
-        throw new Error(err);
+        throw new Error(err.message || err);
     }
 }
 

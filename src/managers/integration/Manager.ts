@@ -1,7 +1,21 @@
-import { Payhawk, Xero } from '@services';
+import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import { ISchemaStore } from '@stores';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX, DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE, EXPENSE_RECONCILED_ERROR_MESSAGE, ExportError, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sumAmounts, TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE } from '@utils';
+import {
+    ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX,
+    ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX,
+    DEFAULT_FEES_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
+    DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE,
+    EXPENSE_RECONCILED_ERROR_MESSAGE,
+    ExportError,
+    ILogger,
+    INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
+    isBeforeOrEqualToDate,
+    LOCK_PERIOD_ERROR_MESSAGE,
+    multiplyAmountByRate,
+    sumAmounts,
+    TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE,
+} from '@utils';
 
 import * as XeroEntities from '../xero-entities';
 import { IManager, ISyncResult } from './IManager';
@@ -14,6 +28,7 @@ export class Manager implements IManager {
         private readonly store: ISchemaStore,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly payhawkClient: Payhawk.IClient,
+        private readonly fxRates: FxRates.IService,
         private readonly deleteFile: (filePath: string) => Promise<void>,
         private readonly logger: ILogger,
     ) { }
@@ -177,6 +192,11 @@ export class Manager implements IManager {
 
     async exportExpense(expenseId: string): Promise<void> {
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (!expense) {
+            this.logger.info('Expense not found');
+            return;
+        }
+
         if (expense.isLocked) {
             this.logger.info('Expense will not be exported because it is locked');
             return;
@@ -219,6 +239,11 @@ export class Manager implements IManager {
         const logger = this.logger.child({ accountId: this.accountId, expenseId });
 
         const expense = await this.payhawkClient.getExpense(expenseId);
+        if (!expense) {
+            logger.info('Expense not found');
+            return;
+        }
+
         if (expense.isLocked) {
             logger.info('Expense is locked, bank statement will not be exported');
             return;
@@ -375,13 +400,12 @@ export class Manager implements IManager {
 
         this.checkExpenseAgainstLockDate(organisation, date, this.logger);
 
-        let expenseCurrency = expense.reconciliation.expenseCurrency;
-        if (!expenseCurrency) {
+        let currency = expense.reconciliation.expenseCurrency;
+        if (!currency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
         }
 
         const hasTransactions = expense.transactions.length > 0;
-        const isCredit = hasTransactions && expense.transactions.every(t => t.cardAmount < 0);
 
         let totalAmount = expense.reconciliation.expenseTotalAmount;
         const accountCode = expense.reconciliation.accountCode;
@@ -395,7 +419,6 @@ export class Manager implements IManager {
 
         let itemUrl: string;
         const payments: XeroEntities.IPayment[] = [];
-        const description = formatDescription(expense.ownerName, expense.note);
 
         const logger = this.logger.child({ expenseId: expense.id });
 
@@ -405,28 +428,53 @@ export class Manager implements IManager {
                 throw new ExportError('Failed to export into Xero. Expense transactions are not of same currency');
             }
 
-            expenseCurrency = transactionCurrencies[0];
-            totalAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
+            const transactionsAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.cardAmount)));
+
+            currency = transactionCurrencies[0];
+            totalAmount = transactionsAmount;
 
             const areAllTransactionsSettled = expense.transactions.every(tx => tx.settlementDate !== undefined);
+            const areAllTransactionsSameType = expense.transactions.every(tx =>
+                expense.transactions[0].cardAmount > 0 ?
+                    tx.cardAmount > 0 :
+                    tx.cardAmount < 0
+            );
+
             if (!areAllTransactionsSettled) {
                 this.logger.info('Expense transactions are not settled, payments will not be exported');
             } else {
-                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(expenseCurrency);
+                const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(currency);
 
-                for (const expenseTransaction of expense.transactions) {
-                    if (!expenseTransaction.settlementDate) {
-                        throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
-                    }
+                if (!areAllTransactionsSameType) {
+                    const transactionFxFeesAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.fees.fx)));
+                    const transactionPosFeesAmount = Math.abs(sumAmounts(...expense.transactions.map(t => t.fees.pos)));
 
+                    const expenseTransaction = expense.transactions[0];
                     payments.push({
                         bankAccountId: bankAccount.accountID,
-                        amount: expenseTransaction.cardAmount,
+                        amount: transactionsAmount,
                         currency: expenseTransaction.cardCurrency,
-                        date: expenseTransaction.settlementDate,
-                        fxFees: expenseTransaction.fees.fx,
-                        posFees: expenseTransaction.fees.pos,
+                        date: expenseTransaction.settlementDate!,
+                        fxFees: transactionFxFeesAmount,
+                        posFees: transactionPosFeesAmount,
                     });
+                } else {
+                    for (const expenseTransaction of expense.transactions) {
+                        if (!expenseTransaction.settlementDate) {
+                            throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
+                        }
+
+                        this.checkExpenseAgainstLockDate(organisation, expenseTransaction.settlementDate, logger);
+
+                        payments.push({
+                            bankAccountId: bankAccount.accountID,
+                            amount: expenseTransaction.cardAmount,
+                            currency: expenseTransaction.cardCurrency,
+                            date: expenseTransaction.settlementDate,
+                            fxFees: expenseTransaction.fees.fx,
+                            posFees: expenseTransaction.fees.pos,
+                        });
+                    }
                 }
             }
         }
@@ -437,17 +485,19 @@ export class Manager implements IManager {
             ...payments.map(d => d.bankFees || 0),
         );
 
+        const isCredit = expense.reconciliation.expenseTotalAmount < 0;
         if (isCredit) {
             totalAmount = totalAmount - totalFees;
         }
 
-        const lineItems: XeroEntities.ILineItem[] = this.extractLineItems(expense, totalAmount, accountCode, logger);
+        const lineItems: XeroEntities.ILineItem[] = await this.extractLineItems(expense, totalAmount, currency, new Date(date), accountCode, logger);
+        const description = formatDescription(expense.ownerName, expense.note);
 
         if (isCredit) {
             const newCreditNote: XeroEntities.INewCreditNote = {
                 payments,
                 totalAmount,
-                currency: expenseCurrency,
+                currency,
                 contactId,
                 description,
                 date,
@@ -483,7 +533,7 @@ export class Manager implements IManager {
                 contactId,
                 description,
                 reference: expense.document?.number || XeroEntities.getExpenseNumber(expense.id),
-                currency: expenseCurrency,
+                currency,
                 totalAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
@@ -499,19 +549,25 @@ export class Manager implements IManager {
         await this.updateExpenseLinks(expense.id, [itemUrl]);
     }
 
-    private extractLineItems(expense: Payhawk.IExpense, totalAmount: number, accountCode: string | undefined, logger: ILogger) {
-        const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ? sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount)) : 0;
-        if (lineItemsSum > 0 && lineItemsSum !== totalAmount) {
-            throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
-        }
-
+    private async extractLineItems(expense: Payhawk.IExpense, expenseTotalAmount: number, paymentCurrency: string, expenseDate: Date, accountCode: string | undefined, logger: ILogger) {
         const lineItems: XeroEntities.ILineItem[] = [];
+        const expenseCurrency = expense.reconciliation.expenseCurrency;
 
-        if (!expense.lineItems || expense.lineItems.length === 0) {
+        if (!expense.lineItems || expense.lineItems.length === 0 || expenseCurrency !== paymentCurrency) {
+            let taxAmount = expense.reconciliation.expenseTaxAmount ?
+                Math.abs(expense.reconciliation.expenseTaxAmount) :
+                undefined;
+
+            // In case of different currencies convert the tax amount to payment currency
+            if (taxAmount && expenseCurrency && expenseCurrency !== paymentCurrency) {
+                const fxRate = await this.fxRates.getByDate(expenseCurrency, paymentCurrency, expenseDate);
+                taxAmount = fxRate ? multiplyAmountByRate(taxAmount, fxRate) : undefined;
+            }
+
             const trackingCategories = this.extractTrackingCategories(expense.reconciliation.customFields2, logger);
             const lineItem: XeroEntities.ILineItem = {
-                amount: totalAmount,
-                taxAmount: expense.reconciliation.expenseTaxAmount,
+                amount: Math.abs(expenseTotalAmount),
+                taxAmount,
                 accountCode,
                 taxType: expense.taxRate?.code,
                 trackingCategories,
@@ -519,10 +575,18 @@ export class Manager implements IManager {
 
             lineItems.push(lineItem);
         } else {
+            const lineItemsSum = expense.lineItems && expense.lineItems.length > 0 ?
+                Math.abs(sumAmounts(...expense.lineItems.map(x => x.reconciliation.expenseTotalAmount))) :
+                0;
+
+            if (lineItemsSum !== 0 && lineItemsSum !== expenseTotalAmount) {
+                throw new ExportError('Failed to export expense. Sum of line items amount does not match expense total amount');
+            }
+
             for (const item of expense.lineItems) {
                 const lineItem: XeroEntities.ILineItem = {
-                    amount: item.reconciliation.expenseTotalAmount,
-                    taxAmount: item.reconciliation.expenseTaxAmount,
+                    amount: Math.abs(item.reconciliation.expenseTotalAmount),
+                    taxAmount: Math.abs(item.reconciliation.expenseTaxAmount || 0),
                     accountCode: expense.isReadyForReconciliation ? item.reconciliation.accountCode : undefined,
                     taxType: item.taxRate?.code,
                     trackingCategories: this.extractTrackingCategories(item.reconciliation.customFields2, logger),
@@ -553,59 +617,51 @@ export class Manager implements IManager {
             await this.revertFailedPayment(expense, bill, fullPayment);
         }
 
-        if (settledPayment) {
-            const operationCurrencies = new Set([
-                expense.reconciliation.expenseCurrency,
-                organisation.baseCurrency,
-                settledPayment.currency,
-            ]);
+        if (!settledPayment) {
+            return;
+        }
 
-            if (operationCurrencies.size === 3) {
-                this.logger.error(Error('Failed to export into Xero. Bill, payment and organisation base currency are all different, which is currently not supported'));
+        const operationCurrencies = new Set([
+            expense.reconciliation.expenseCurrency,
+            organisation.baseCurrency,
+            settledPayment.currency,
+        ]);
 
-                // do not block export - user can do nothing but manually pay, let the bill be exported
-                return;
-            }
+        if (operationCurrencies.size === 3) {
+            // unsupported scenario
+            return;
+        }
 
-            const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
-            if (bankAccount) {
-                if (settledPayment.currency === expense.reconciliation.expenseCurrency) {
-                    if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
-                        // should never happen
-                        throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
-                    }
+        if (settledPayment.currency !== expense.reconciliation.expenseCurrency) {
+            // leave the bill unpaid and let the accountant mark as paid via the bank reconciliation feature
+            return;
+        }
 
-                    // most common scenario - reimbursement in same currency
-                    if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
-                        paymentData = {
-                            bankAccountId: bankAccount.accountID,
-                            currency: settledPayment.currency,
-                            amount: settledPayment.amount,
-                            bankFees: settledPayment.fees,
-                            date: settledPayment.date,
-                        };
-                    } else {
-                        // bulk payment - single for several expenses in Payhawk
-                        // in Xero - multiple payments
-                        paymentData = {
-                            bankAccountId: bankAccount.accountID,
-                            currency: settledPayment.currency,
-                            amount: expense.reconciliation.expenseTotalAmount,
-                            bankFees: 0,
-                            date: settledPayment.date,
-                        };
-                    }
-                } else {
-                    // reimbursement in different currency, amounts also differ, we may have fee as well
-                    paymentData = {
-                        bankAccountId: bankAccount.accountID,
-                        currency: settledPayment.currency,
-                        amount: settledPayment.amount,
-                        bankFees: settledPayment.fees || 0,
-                        date: settledPayment.date,
-                    };
-                }
-            }
+        const bankAccount = await this.xeroEntities.bankAccounts.getOrCreateByCurrency(settledPayment.currency);
+        if (settledPayment.amount < expense.reconciliation.expenseTotalAmount) {
+            // should never happen
+            throw new ExportError('Failed to export into Xero. Payment total amount does not cover expense total amount');
+        }
+
+        // most common scenario - reimbursement in same currency
+        if (settledPayment.amount === expense.reconciliation.expenseTotalAmount) {
+            paymentData = {
+                bankAccountId: bankAccount.accountID,
+                currency: settledPayment.currency,
+                amount: settledPayment.amount,
+                bankFees: settledPayment.fees,
+                date: settledPayment.date,
+            };
+        } else {
+            // bulk payment - single for several expenses in Payhawk
+            // in Xero - multiple payments
+            paymentData = {
+                bankAccountId: bankAccount.accountID,
+                currency: settledPayment.currency,
+                amount: expense.reconciliation.expenseTotalAmount,
+                bankFees: 0,
+                date: settledPayment.date,
+            };
         }
 
         return paymentData;
@@ -976,7 +1032,13 @@ export class Manager implements IManager {
         }
 
         // at this point we would like to have insights on what actually happened, generic message isn't enough for debugging purposes
-        this.logger.info(`Export failed with an unexpected ${['err', err]}`);
+        this.logger.error(Error(errorMessage || `Export failed with an unexpected error`), {
+            originalError: {
+                name: err.name,
+                message: err.message,
+                stack: err.stack,
+            },
+        });
 
         throw new ExportError(genericErrorMessage, err);
     }

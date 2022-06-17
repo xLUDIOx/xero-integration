@@ -49,6 +49,10 @@ export interface IClient {
     createPayment(data: IPaymentData): Promise<void>;
 }
 
+export interface IClientOptions {
+    setTrackingCategoriesOnFees: boolean;
+}
+
 export interface IAccountingItemData {
     date: string;
     contactId: string;

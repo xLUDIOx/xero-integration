@@ -37,7 +37,7 @@ describe('Synchronize Account Codes', () => {
     });
 
     it('pushes account codes to Payhawk', async () => {
-        const accountCode: IAccountCode = {
+        const expenseAccountCode: IAccountCode = {
             accountId: '1',
             name: 'General',
             code: '100',
@@ -46,12 +46,24 @@ describe('Synchronize Account Codes', () => {
             status: AccountStatus.Active,
             addToWatchlist: true,
         };
+        const assetAccountCode: IAccountCode = {
+            accountId: '2',
+            name: 'Asset',
+            code: '101',
+            description: '',
+            taxType: TaxType.None,
+            status: AccountStatus.Active,
+            addToWatchlist: true,
+        };
 
         // cspell: disable
         xeroClientMock.addRequestListener(async (req, res) => {
             switch (req.url) {
                 case `${XERO_API_PREFIX}/Accounts?where=Class%3D%3D%22EXPENSE%22%26%26Status%3D%3D%22ACTIVE%22`:
-                    sendResponse(res, { Accounts: [accountCode] });
+                    sendResponse(res, { Accounts: [expenseAccountCode] });
+                    break;
+                case `${XERO_API_PREFIX}/Accounts?where=Type%3D%3D%22FIXED%22%26%26Status%3D%3D%22ACTIVE%22`:
+                    sendResponse(res, { Accounts: [assetAccountCode] });
                     break;
                 default:
                     res.writeHead(500);
@@ -81,13 +93,13 @@ describe('Synchronize Account Codes', () => {
 
         expect(response.status).to.eq(204);
 
-        expect(xeroClientMock.requests).to.have.lengthOf(1);
+        expect(xeroClientMock.requests).to.have.lengthOf(2);
         expect(payhawkClientMock.requests).to.have.lengthOf(1);
 
         const payhawkRequest = payhawkClientMock.requests[0];
         const payhawkRequestBody = payhawkRequest.body;
         expect(payhawkRequestBody).to.deep.eq(
-            [accountCode].map(x => ({ name: x.name, defaultTaxCode: x.taxType, code: x.code }))
+            [expenseAccountCode, assetAccountCode].map(x => ({ name: x.name, defaultTaxCode: x.taxType, code: x.code }))
         );
 
         const payhawkRequestHeaders = payhawkRequest.headers;

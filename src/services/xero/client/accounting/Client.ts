@@ -1,5 +1,5 @@
 import { IEnvironment } from '@environment';
-import { AccountType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
+import { AccountStatus, AccountType, ClassType, IAccountCode, INewAccountCode, IOrganisation, ITaxRate, ITrackingCategory, PaymentStatus, TaxRateStatus, TrackingCategoryStatus } from '@shared';
 import { ExportError, ILogger, ObjectSerializer } from '@utils';
 
 import { EntityResponseType, IHttpClient } from '../../http';
@@ -72,10 +72,14 @@ export class Client implements IClient {
     }
 
     async getExpenseAccounts({ status }: IExpenseAccountsFilter = {}): Promise<IAccountCode[]> {
-        const whereFilters = [
-            DEFAULT_EXPENSE_ACCOUNT_FILTER,
-        ];
+        const [expenses, assets] = await Promise.all([this.loadExpenseAccount([DEFAULT_EXPENSE_ACCOUNT_FILTER], status), this.loadExpenseAccount([FIXED_ASSET_ACCOUNT_FILTER], status)]);
 
+        const responseItems = [...expenses[EntityResponseType.Accounts], ...assets[EntityResponseType.Accounts]];
+        const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
+        return expenseAccounts;
+    }
+
+    async loadExpenseAccount(whereFilters: string[], status?: AccountStatus) {
         if (status) {
             whereFilters.push(`Status=="${status}"`);
         }
@@ -88,14 +92,10 @@ export class Client implements IClient {
             }
         );
 
-        const response = await this.httpClient.request({
+        return await this.httpClient.request({
             url,
             method: 'GET',
         });
-
-        const responseItems = response[EntityResponseType.Accounts];
-        const expenseAccounts = ObjectSerializer.deserialize<IAccountCode[]>(responseItems);
-        return expenseAccounts;
     }
 
     async createExpenseAccount({ name, code, description, taxType, addToWatchlist }: INewAccountCode): Promise<IAccountCode> {
@@ -186,6 +186,7 @@ export class Client implements IClient {
     }
 }
 
-const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${AccountType.Expense}"`;
+const DEFAULT_EXPENSE_ACCOUNT_FILTER = `Class=="${ClassType.Expense}"`;
+const FIXED_ASSET_ACCOUNT_FILTER = `Type=="${AccountType.FixedAsset}"`;
 
 const API_PREFIX = '/api.xro/2.0';

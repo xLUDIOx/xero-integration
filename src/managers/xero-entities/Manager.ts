@@ -547,7 +547,7 @@ export class Manager implements IManager {
         if (INVALID_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message) || ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX.test(error.message)) {
             logger.info(`Invalid account code for this item, falling back to default account code ${defaultAccountCode}`);
             data.accountCode = defaultAccountCode;
-        } else if (error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
+        } else if (error.message && error.message.includes(TAX_TYPE_IS_MANDATORY_MESSAGE)) {
             data.taxType = taxExemptCode;
         } else {
             throw error;

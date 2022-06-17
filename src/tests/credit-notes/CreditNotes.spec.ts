@@ -9,6 +9,7 @@ describe('Credit notes export module tests', () => {
         testEnv = new CreditNotesTestEnvironment();
 
         testEnv.setupOrganisationResponseMock();
+        testEnv.setupFxRatesMock();
         testEnv.setupValidAccessToken();
         testEnv.setupApiKey();
     });
@@ -24,7 +25,7 @@ describe('Credit notes export module tests', () => {
             const expense = testEnv.setupRefundExpenseResponseMock(expenseId, { isReadyForReconciliation: false });
 
             testEnv.setupContactsByNameResponseMock(expense.recipient.vat!);
-            testEnv.setupDefaultExpenseAccountsResponseMock();
+            testEnv.setupExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expense.transactions[0].cardCurrency);
 
             const amount = 16;
@@ -45,7 +46,7 @@ describe('Credit notes export module tests', () => {
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
             testEnv.setupContactsByNameResponseMock(expense.recipient.name);
-            testEnv.setupDefaultExpenseAccountsResponseMock();
+            testEnv.setupExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
 
@@ -66,7 +67,7 @@ describe('Credit notes export module tests', () => {
             const expenseCurrency = expense.transactions[0].cardCurrency;
 
             testEnv.setupContactsByNameResponseMock(expense.recipient.name);
-            testEnv.setupDefaultExpenseAccountsResponseMock();
+            testEnv.setupExpenseAccountsResponseMock();
             testEnv.setupCurrencyResponseMock(expenseCurrency);
             testEnv.setupBankAccountsResponseMock(expenseCurrency);
 
