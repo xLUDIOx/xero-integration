@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCK_PERIOD_ERROR_MESSAGE, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -176,6 +176,7 @@ export class Manager implements IManager {
 
     async createOrUpdateBill(newBill: INewBill): Promise<string> {
         const bill = await this.xeroClient.getBillByUrl(newBill.url);
+        const isInLockedPeriod = await this.isInLockedPeriod(new Date(newBill.date));
 
         const logger = this.logger.child({ billId: bill ? bill.invoiceID : undefined });
 
@@ -192,6 +193,10 @@ export class Manager implements IManager {
         );
 
         if (!bill) {
+            if (isInLockedPeriod) {
+                throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
+            }
+
             logger.info('Bill will be created');
 
             try {
@@ -241,38 +246,42 @@ export class Manager implements IManager {
                 }
             }
 
-            try {
-                await this.xeroClient.updateBill(updateData);
-            } catch (err: any) {
-                const updateDataFallback = await this.tryFallbackItemData(
-                    err,
-                    updateData,
-                    generalExpenseAccount.code,
-                    generalExpenseAccount.taxType,
-                    logger,
-                );
+            if (!isInLockedPeriod) {
+                try {
+                    await this.xeroClient.updateBill(updateData);
+                } catch (err: any) {
+                    const updateDataFallback = await this.tryFallbackItemData(
+                        err,
+                        updateData,
+                        generalExpenseAccount.code,
+                        generalExpenseAccount.taxType,
+                        logger,
+                    );
 
-                await this.xeroClient.updateBill(updateDataFallback);
-            }
+                    await this.xeroClient.updateBill(updateDataFallback);
+                }
 
-            if (filesToUpload.length > 0) {
-                const existingFiles = await this.xeroClient.getBillAttachments(billId);
-                existingFileNames = existingFiles.map(f => f.fileName);
+                if (filesToUpload.length > 0) {
+                    const existingFiles = await this.xeroClient.getBillAttachments(billId);
+                    existingFileNames = existingFiles.map(f => f.fileName);
 
-                filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+                    filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+                }
             }
         }
 
-        if (filesToUpload.length > 0) {
-            const totalAttachments = filesToUpload.length + existingFileNames.length;
-            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-                throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
-            }
+        if (!isInLockedPeriod) {
+            if (filesToUpload.length > 0) {
+                const totalAttachments = filesToUpload.length + existingFileNames.length;
+                if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+                    throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+                }
 
-            // Files should be uploaded in the right order so Promise.all is no good
-            for (const f of filesToUpload) {
-                const fileName = f.fileName;
-                await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
+                // Files should be uploaded in the right order so Promise.all is no good
+                for (const f of filesToUpload) {
+                    const fileName = f.fileName;
+                    await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
+                }
             }
         }
 
@@ -297,6 +306,13 @@ export class Manager implements IManager {
         }
 
         return billId;
+    }
+
+    private async isInLockedPeriod(date: Date) {
+        const organisation = await this.getOrganisation();
+        const endOfYearLockDate = organisation.endOfYearLockDate;
+        const lockedForAll = endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate);
+        return lockedForAll;
     }
 
     async getBillPayment(paymentId: string): Promise<Xero.IPayment | undefined> {

@@ -10,7 +10,6 @@ import {
     ExportError,
     ILogger,
     INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
-    isBeforeOrEqualToDate,
     LOCK_PERIOD_ERROR_MESSAGE,
     multiplyAmountByRate,
     sumAmounts,
@@ -398,8 +397,6 @@ export class Manager implements IManager {
     private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
         const date = getExportDate(expense);
 
-        this.checkExpenseAgainstLockDate(organisation, date, this.logger);
-
         let currency = expense.reconciliation.expenseCurrency;
         if (!currency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
@@ -463,8 +460,6 @@ export class Manager implements IManager {
                         if (!expenseTransaction.settlementDate) {
                             throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                         }
-
-                        this.checkExpenseAgainstLockDate(organisation, expenseTransaction.settlementDate, logger);
 
                         payments.push({
                             bankAccountId: bankAccount.accountID,
@@ -715,24 +710,6 @@ export class Manager implements IManager {
         }
 
         await this.xeroEntities.deletePayment(paymentId);
-    }
-
-    private checkExpenseAgainstLockDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
-        const endOfYearLockDate = organisation.endOfYearLockDate;
-        const periodLockDate = organisation.periodLockDate;
-
-        const logger = baseLogger.child({
-            organisationName: organisation.name,
-            expenseExportDate: date,
-            organisationPeriodLockDate: periodLockDate,
-            organisationEndOfYearLockDate: endOfYearLockDate,
-        });
-
-        const lockedForAll = endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate);
-        if (lockedForAll) {
-            logger.info(LOCK_PERIOD_ERROR_MESSAGE);
-            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
-        }
     }
 
     private async deleteBillIfExists(expenseId: string, logger: ILogger): Promise<void> {
