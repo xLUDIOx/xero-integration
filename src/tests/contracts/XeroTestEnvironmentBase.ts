@@ -2,11 +2,11 @@ import { Request, Response } from 'restify';
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, XeroClient } from 'xero-node';
 
+import { AccessTokens, ApiKeys, ISchemaStore } from '@data-access';
 import { IEnvironment } from '@environment';
 import { Integration, XeroConnection, XeroEntities } from '@managers';
 import { FxRates, Payhawk, Xero } from '@services';
 import { PayhawkEvent } from '@shared';
-import { AccessTokens, ApiKeys, ISchemaStore } from '@stores';
 import { ExportError, IDocumentSanitizer, ILock, ILogger } from '@utils';
 
 import { AccountingClient, AuthClient, BankFeedsClient, IClientOptions } from '../../services/xero';

@@ -1,6 +1,6 @@
+import { ISchemaStore } from '@data-access';
 import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
-import { ISchemaStore } from '@stores';
 import {
     ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX,
     ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX,

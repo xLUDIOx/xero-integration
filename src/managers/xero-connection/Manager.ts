@@ -1,6 +1,7 @@
+import { AccessTokens, ISchemaStore } from '@data-access';
+
 import { Xero } from '@services';
 import { ITokenSet } from '@shared';
-import { AccessTokens, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';

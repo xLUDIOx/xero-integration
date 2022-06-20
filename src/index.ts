@@ -5,12 +5,12 @@ require('module-alias').addAliases({
     '@managers': `${__dirname}/managers`,
     '@services': `${__dirname}/services`,
     '@shared': `${__dirname}/shared`,
-    '@stores': `${__dirname}/stores`,
+    '@data-access': `${__dirname}/stores`,
     '@utils': `${__dirname}/utils`,
     '@test-utils': `${__dirname}/test-utils`,
 });
 
-import * as Schema from '@stores';
+import * as Schema from '@data-access';
 
 import { createServer } from './Server';
 import * as Controllers from './web-api';

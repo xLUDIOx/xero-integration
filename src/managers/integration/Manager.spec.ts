@@ -1,8 +1,8 @@
 import * as TypeMoq from 'typemoq';
 
+import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@data-access';
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
-import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@stores';
 import { typeIsEqualSkipUndefined } from '@test-utils';
 import { ILogger } from '@utils';
 

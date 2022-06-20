@@ -33,8 +33,8 @@
             "@services": [
                 "src/services/index"
             ],
-            "@stores": [
-                "src/stores/index"
+            "@data-access": [
+                "src/data-access/index"
             ],
             "@shared": [
                 "src/shared/index"

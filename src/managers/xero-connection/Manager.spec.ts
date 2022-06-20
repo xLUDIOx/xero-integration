@@ -1,9 +1,9 @@
 import { TokenSet } from 'openid-client';
+import { AccessTokens, Accounts, ISchemaStore } from '@data-access';
 import * as TypeMoq from 'typemoq';
 
 import { Xero } from '@services';
 import { ITokenSet, IUserTokenSetRecord } from '@shared';
-import { AccessTokens, Accounts, ISchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { isAccessTokenExpired, Manager } from './Manager';

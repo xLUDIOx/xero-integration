@@ -42,7 +42,7 @@ module.exports = {
         "@managers": "<rootDir>/src/managers",
         "@services": "<rootDir>/src/services",
         "@shared": "<rootDir>/src/shared",
-        "@stores": "<rootDir>/src/stores",
+        "@data-access": "<rootDir>/src/stores",
         "@utils": "<rootDir>/src/utils",
         "@test-utils": "<rootDir>/src/test-utils",
     },

@@ -1,5 +1,6 @@
+import { createSchemaStore } from '@data-access';
+
 import { Xero } from '@services';
-import { createSchemaStore } from '@stores';
 import { ILogger } from '@utils';
 
 import { IManager } from './IManager';
