@@ -1,6 +1,6 @@
 // tslint:disable-next-line: no-var-requires
 require('module-alias').addAliases({
-    '@controllers': `${__dirname}/controllers`,
+    '@web-api': `${__dirname}/web-api`,
     '@environment': `${__dirname}/environment`,
     '@managers': `${__dirname}/managers`,
     '@services': `${__dirname}/services`,
@@ -10,10 +10,10 @@ require('module-alias').addAliases({
     '@test-utils': `${__dirname}/test-utils`,
 });
 
-import * as Controllers from '@controllers';
 import * as Schema from '@stores';
 
 import { createServer } from './Server';
+import * as Controllers from './web-api';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install();

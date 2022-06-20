@@ -21,8 +21,8 @@
         "outDir": "build",
         "baseUrl": ".",
         "paths": {
-            "@controllers": [
-                "src/controllers/index"
+            "@web-api": [
+                "src/web-api/index"
             ],
             "@environment": [
                 "src/environment/index"

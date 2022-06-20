@@ -37,7 +37,7 @@ module.exports = {
         "node",
     ],
     "moduleNameMapper": {
-        "@controllers": "<rootDir>/src/controllers",
+        "@web-api": "<rootDir>/src/controllers",
         "@environment": "<rootDir>/src/environment",
         "@managers": "<rootDir>/src/managers",
         "@services": "<rootDir>/src/services",

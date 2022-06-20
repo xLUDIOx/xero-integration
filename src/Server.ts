@@ -1,9 +1,9 @@
 import * as restify from 'restify';
 
-import { AuthController, IntegrationsController } from '@controllers';
 import { requestHandler } from '@utils';
 
 import { config } from './Config';
+import { AuthController, IntegrationsController } from './web-api';
 
 function securityHeadersMiddleware(): restify.RequestHandler {
     return (request: restify.Request, response: restify.Response, next: restify.Next) => {

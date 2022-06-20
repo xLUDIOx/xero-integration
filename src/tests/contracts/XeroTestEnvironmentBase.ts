@@ -2,7 +2,6 @@ import { Request, Response } from 'restify';
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, XeroClient } from 'xero-node';
 
-import { IntegrationsController } from '@controllers';
 import { IEnvironment } from '@environment';
 import { Integration, XeroConnection, XeroEntities } from '@managers';
 import { FxRates, Payhawk, Xero } from '@services';
@@ -11,6 +10,7 @@ import { AccessTokens, ApiKeys, ISchemaStore } from '@stores';
 import { ExportError, IDocumentSanitizer, ILock, ILogger } from '@utils';
 
 import { AccountingClient, AuthClient, BankFeedsClient, IClientOptions } from '../../services/xero';
+import { IntegrationsController } from '../../web-api';
 
 export abstract class XeroTestEnvironmentBase {
     private readonly accessTokensStore = TypeMoq.Mock.ofType<AccessTokens.IStore>();
