@@ -1,8 +1,9 @@
 import { decode } from 'jsonwebtoken';
 
-import { IDbClient, ITokenSet } from '@shared';
+import { ITokenSet } from '@shared';
 import { ILogger } from '@utils';
 
+import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 import { PgStore } from './PgStore';
 

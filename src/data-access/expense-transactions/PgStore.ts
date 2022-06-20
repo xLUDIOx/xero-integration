@@ -1,5 +1,6 @@
-import { ExpenseTransactionRecordKeys, IDbClient, IExpenseTransactionRecord, SCHEMA } from '@shared';
+import { ExpenseTransactionRecordKeys, IExpenseTransactionRecord, SCHEMA } from '@shared';
 
+import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 
 export class PgStore implements IStore {

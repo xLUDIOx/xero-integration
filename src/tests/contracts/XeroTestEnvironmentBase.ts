@@ -2,7 +2,7 @@ import { Request, Response } from 'restify';
 import * as TypeMoq from 'typemoq';
 import { AccountingApi, XeroClient } from 'xero-node';
 
-import { AccessTokens, ApiKeys, ISchemaStore } from '@data-access';
+import { AccessTokens, ApiKeys, ISchemaUnitOfWork } from '@data-access';
 import { IEnvironment } from '@environment';
 import { Integration, XeroConnection, XeroEntities } from '@managers';
 import { FxRates, Payhawk, Xero } from '@services';
@@ -202,7 +202,7 @@ export abstract class XeroTestEnvironmentBase {
             setTrackingCategoriesOnFees: false,
         };
 
-        const schemaStoreMock = TypeMoq.Mock.ofType<ISchemaStore>();
+        const schemaStoreMock = TypeMoq.Mock.ofType<ISchemaUnitOfWork>();
         const xeroClientMock = TypeMoq.Mock.ofType<XeroClient>();
         const documentSanitizerMock = TypeMoq.Mock.ofType<IDocumentSanitizer>();
         const lockMock = TypeMoq.Mock.ofType<ILock>();

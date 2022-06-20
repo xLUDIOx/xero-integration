@@ -1,5 +1,4 @@
-import { AccessTokens, ISchemaStore } from '@data-access';
-
+import { AccessTokens, ISchemaUnitOfWork } from '@data-access';
 import { Xero } from '@services';
 import { ITokenSet } from '@shared';
 import { ILogger } from '@utils';
@@ -8,7 +7,7 @@ import { IManager } from './IManager';
 
 export class Manager implements IManager {
     constructor(
-        private readonly store: ISchemaStore,
+        private readonly store: ISchemaUnitOfWork,
         private readonly authClient: Xero.IAuth,
         private readonly accountId: string,
         private readonly logger: ILogger,

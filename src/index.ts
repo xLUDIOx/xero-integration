@@ -13,20 +13,22 @@ require('module-alias').addAliases({
 import * as Schema from '@data-access';
 
 import { createServer } from './Server';
+import { createLogger } from './utils';
 import * as Controllers from './web-api';
 
 // tslint:disable-next-line:no-var-requires
 require('source-map-support').install();
 
 (async () => {
-    await Schema.initialize();
+    const schema = Schema.createSchemaStore(createLogger());
+    await schema.initSchema();
 
     const authController = Controllers.createAuth();
     const integrationsController = Controllers.createIntegrations();
     const server = createServer(authController, integrationsController);
 
     server.post('/migrate', async (req, res) => {
-        await Schema.ensureVersion();
+        await schema.ensureSchemaVersion();
         res.send(200);
     });
 

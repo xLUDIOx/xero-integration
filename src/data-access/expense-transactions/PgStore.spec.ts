@@ -1,7 +1,6 @@
 import { It, Mock } from 'typemoq';
 
-import { IDbClient } from '@shared';
-
+import { IDbClient } from '../db-client';
 import { PgStore } from './PgStore';
 
 describe('Expense Transactions store', () => {

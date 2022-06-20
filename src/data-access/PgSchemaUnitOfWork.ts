@@ -1,16 +1,16 @@
 import * as fs from 'fs';
 
-import { IDbClient } from '@shared';
 import { ILogger } from '@utils';
 
 import { create as createAccessTokensStore, IStore as IAccessTokensStore } from './access-tokens';
 import { create as createAccountsStore, IStore as IAccountsStore } from './accounts';
 import { create as createApiKeysStore, IStore as IApiKeysStore } from './api-keys';
 import { create as createBankFeedsStore, IStore as IBankFeedsStore } from './bank-feeds';
+import { IDbClient } from './db-client';
 import { create as createExpenseTransactionsStore, IStore as IExpenseTransactionsStore } from './expense-transactions';
-import { ISchemaStore } from './ISchemaStore';
+import { ISchemaUnitOfWork } from './ISchemaUnitOfWork';
 
-export class PgSchemaStore implements ISchemaStore {
+export class PgSchemaUnitOfWork implements ISchemaUnitOfWork {
     accounts: IAccountsStore;
     accessTokens: IAccessTokensStore;
     apiKeys: IApiKeysStore;
@@ -31,6 +31,13 @@ export class PgSchemaStore implements ISchemaStore {
 
     async ensureSchemaVersion(): Promise<void> {
         await this.applyMigration();
+    }
+
+    async transaction<T>(action: (store: ISchemaUnitOfWork) => Promise<T>, logger?: ILogger): Promise<T> {
+        return await this.dbClient.transaction<T>(async (client: IDbClient) => {
+            const uow = new PgSchemaUnitOfWork(client, logger || this.logger);
+            return await action(uow);
+        });
     }
 
     private async applyMigration(): Promise<void> {

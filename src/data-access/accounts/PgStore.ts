@@ -1,5 +1,6 @@
-import { AccountRecordKeys, IAccountRecord, IDbClient, SCHEMA } from '@shared';
+import { AccountRecordKeys, IAccountRecord, SCHEMA } from '@shared';
 
+import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 
 export class PgStore implements IStore {

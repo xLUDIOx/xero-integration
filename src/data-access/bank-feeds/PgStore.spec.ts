@@ -1,7 +1,8 @@
 import { It, Mock } from 'typemoq';
 
-import { EntityType, IDbClient } from '@shared';
+import { EntityType } from '@shared';
 
+import { IDbClient } from '../db-client';
 import { PgStore } from './PgStore';
 
 describe('Bank feeds store', () => {

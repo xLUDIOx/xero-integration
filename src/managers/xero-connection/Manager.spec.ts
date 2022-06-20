@@ -1,7 +1,7 @@
 import { TokenSet } from 'openid-client';
-import { AccessTokens, Accounts, ISchemaStore } from '@data-access';
 import * as TypeMoq from 'typemoq';
 
+import { AccessTokens, Accounts, ISchemaUnitOfWork } from '@data-access';
 import { Xero } from '@services';
 import { ITokenSet, IUserTokenSetRecord } from '@shared';
 import { ILogger } from '@utils';
@@ -22,7 +22,7 @@ describe('xero-connection/Manager', () => {
         authMock = TypeMoq.Mock.ofType<Xero.IAuth>();
         loggerMock = TypeMoq.Mock.ofType<ILogger>();
 
-        manager = new Manager({ accessTokens: accessTokensStoreMock.object, accounts: accountsStoreMock.object } as ISchemaStore, authMock.object, accountId, loggerMock.object);
+        manager = new Manager({ accessTokens: accessTokensStoreMock.object, accounts: accountsStoreMock.object } as ISchemaUnitOfWork, authMock.object, accountId, loggerMock.object);
     });
 
     afterEach(() => {

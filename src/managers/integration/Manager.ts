@@ -1,4 +1,4 @@
-import { ISchemaStore } from '@data-access';
+import { ISchemaUnitOfWork } from '@data-access';
 import { FxRates, Payhawk, Xero } from '@services';
 import { BankFeedConnectionErrorType, BankStatementErrorType, DEFAULT_ACCOUNT_NAME, EntityType, FEES_ACCOUNT_NAME, IFeedConnectionError, IRejectedBankStatement, Optional } from '@shared';
 import {
@@ -25,7 +25,7 @@ export class Manager implements IManager {
         private readonly accountId: string,
         private readonly tenantId: string,
         private readonly portalUrl: string,
-        private readonly store: ISchemaStore,
+        private readonly store: ISchemaUnitOfWork,
         private readonly xeroEntities: XeroEntities.IManager,
         private readonly payhawkClient: Payhawk.IClient,
         private readonly fxRates: FxRates.IService,

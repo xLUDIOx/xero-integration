@@ -1,5 +1,6 @@
-import { IDbClient, INewPayhawkApiKeyRecord, PayhawkApiKeyRecordKeys, SCHEMA } from '@shared';
+import { INewPayhawkApiKeyRecord, PayhawkApiKeyRecordKeys, SCHEMA } from '@shared';
 
+import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 
 export class PgStore implements IStore {

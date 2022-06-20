@@ -1,5 +1,3 @@
-import { Pool } from 'pg';
-
 export * from './CommonTypes';
 export * from './db-contracts';
 export * from './client-contracts';
@@ -18,5 +16,3 @@ export namespace SCHEMA {
         PAYHAWK_API_KEYS = 'payhawk_api_keys',
     }
 }
-
-export type IDbClient = Pick<Pool, 'query'>;

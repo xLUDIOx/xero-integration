@@ -1,6 +1,6 @@
 import * as TypeMoq from 'typemoq';
 
-import { Accounts, BankFeeds, ExpenseTransactions, ISchemaStore } from '@data-access';
+import { Accounts, BankFeeds, ExpenseTransactions, ISchemaUnitOfWork } from '@data-access';
 import { FxRates, Payhawk, Xero } from '@services';
 import { AccountStatus, TaxType } from '@shared';
 import { typeIsEqualSkipUndefined } from '@test-utils';
@@ -58,7 +58,7 @@ describe('integrations/Manager', () => {
                 accounts: accountsStoreMock.object,
                 expenseTransactions: expenseTransactionsStoreMock.object,
                 bankFeeds: bankFeedsStoreMock.object,
-            } as ISchemaStore,
+            } as ISchemaUnitOfWork,
             xeroEntitiesMock.object,
             payhawkClientMock.object,
             fxRatesMock.object,

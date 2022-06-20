@@ -8,6 +8,7 @@ export * from './request';
 export * from './Base64Converter';
 export * from './NumberConversion';
 export * from './DateFormatter';
+export * from './Result';
 
 export async function sleep(timeout: number) {
     return new Promise<void>(resolve => {

@@ -1,5 +1,6 @@
-import { BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, IBankFeedConnectionRecord, IBankFeedStatementRecord, IDbClient, SCHEMA } from '@shared';
+import { BankFeedConnectionRecordKeys, BankFeedStatementRecordKeys, IBankFeedConnectionRecord, IBankFeedStatementRecord, SCHEMA } from '@shared';
 
+import { IDbClient } from '../db-client';
 import { IStatementExistsFilter, IStatementFilter, IStore } from './IStore';
 
 export class PgStore implements IStore {

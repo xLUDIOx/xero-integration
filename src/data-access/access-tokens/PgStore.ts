@@ -1,8 +1,9 @@
 import { TokenSet } from 'openid-client';
 
-import { IDbClient, INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord, SCHEMA, UserTokenSetRecordKeys } from '@shared';
+import { INewUserTokenSetRecord, ITokenSet, IUserTokenSetRecord, SCHEMA, UserTokenSetRecordKeys } from '@shared';
 import { ILogger, TenantConflictError } from '@utils';
 
+import { IDbClient } from '../db-client';
 import { IStore } from './IStore';
 export class PgStore implements IStore {
     private readonly tableName: string = SCHEMA.TABLE_NAMES.ACCESS_TOKENS;
