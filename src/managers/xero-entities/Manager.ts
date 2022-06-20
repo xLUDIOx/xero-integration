@@ -174,9 +174,9 @@ export class Manager implements IManager {
         await this.xeroClient.deleteTransaction(transaction.bankTransactionID);
     }
 
-    async createOrUpdateBill(newBill: INewBill): Promise<string> {
+    async createOrUpdateBill(newBill: INewBill, organisation: IOrganisation): Promise<string> {
         const bill = await this.xeroClient.getBillByUrl(newBill.url);
-        const isInLockedPeriod = await this.isInLockedPeriod(new Date(newBill.date));
+        const isInLockedPeriod = await this.isInLockedPeriod(new Date(newBill.date), organisation);
 
         const logger = this.logger.child({ billId: bill ? bill.invoiceID : undefined });
 
@@ -308,9 +308,8 @@ export class Manager implements IManager {
         return billId;
     }
 
-    private async isInLockedPeriod(date: Date) {
-        const organisation = await this.getOrganisation();
-        const endOfYearLockDate = organisation.endOfYearLockDate;
+    private isInLockedPeriod(date: Date, org: IOrganisation) {
+        const endOfYearLockDate = org.endOfYearLockDate;
         const lockedForAll = endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate);
         return lockedForAll;
     }
@@ -364,7 +363,8 @@ export class Manager implements IManager {
         return await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
     }
 
-    async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
+    async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity, organisation: IOrganisation): Promise<string> {
+        const isInLockedPeriod = this.isInLockedPeriod(new Date(newCreditNote.date), organisation);
         const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.creditNoteNumber);
 
         const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
@@ -382,6 +382,10 @@ export class Manager implements IManager {
         );
 
         if (!creditNote) {
+            if (isInLockedPeriod) {
+                throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
+            }
+
             logger.info('Credit note will be created');
 
             try {
@@ -417,38 +421,43 @@ export class Manager implements IManager {
                 }
             }
 
-            try {
-                await this.xeroClient.updateCreditNote(updateData);
-            } catch (err: any) {
-                const updateDataFallback = await this.tryFallbackItemData(
-                    err,
-                    updateData,
-                    generalExpenseAccount.code,
-                    generalExpenseAccount.taxType,
-                    logger,
-                );
+            if (!isInLockedPeriod) {
+                try {
+                    await this.xeroClient.updateCreditNote(updateData);
+                } catch (err: any) {
+                    const updateDataFallback = await this.tryFallbackItemData(
+                        err,
+                        updateData,
+                        generalExpenseAccount.code,
+                        generalExpenseAccount.taxType,
+                        logger,
+                    );
 
-                await this.xeroClient.updateCreditNote(updateDataFallback);
-            }
+                    await this.xeroClient.updateCreditNote(updateDataFallback);
+                }
 
-            if (filesToUpload.length > 0) {
-                const existingFiles = await this.xeroClient.getCreditNoteAttachments(creditNoteId);
-                existingFileNames = existingFiles.map(f => f.fileName);
+                if (filesToUpload.length > 0) {
+                    const existingFiles = await this.xeroClient.getCreditNoteAttachments(creditNoteId);
+                    existingFileNames = existingFiles.map(f => f.fileName);
 
-                filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+                    filesToUpload = filesToUpload.filter(f => !existingFileNames.includes(f.fileName));
+                }
             }
         }
 
-        if (filesToUpload.length > 0) {
-            const totalAttachments = filesToUpload.length + existingFileNames.length;
-            if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
-                throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
-            }
+        if (!isInLockedPeriod) {
 
-            // Files should be uploaded in the right order so Promise.all is no good
-            for (const f of filesToUpload) {
-                const fileName = f.fileName;
-                await this.xeroClient.uploadCreditNoteAttachment(creditNoteId, fileName, f.path, f.contentType);
+            if (filesToUpload.length > 0) {
+                const totalAttachments = filesToUpload.length + existingFileNames.length;
+                if (totalAttachments > MAX_ATTACHMENTS_PER_DOCUMENT) {
+                    throw new ExportError(`Failed to export expense into Xero. You are trying to upload a total of ${totalAttachments} file attachments which exceeds the maximum allowed of ${MAX_ATTACHMENTS_PER_DOCUMENT}.`);
+                }
+
+                // Files should be uploaded in the right order so Promise.all is no good
+                for (const f of filesToUpload) {
+                    const fileName = f.fileName;
+                    await this.xeroClient.uploadCreditNoteAttachment(creditNoteId, fileName, f.path, f.contentType);
+                }
             }
         }
 

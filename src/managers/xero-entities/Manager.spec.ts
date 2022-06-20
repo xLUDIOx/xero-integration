@@ -10,6 +10,7 @@ import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
 import { INewCreditNote } from './INewCreditNote';
+import { IOrganisation } from './IOrganisation';
 import { DEFAULT_REFERENCE, Manager } from './Manager';
 
 const DEFAULT_SUPPLIER_NAME = 'Payhawk Transaction';
@@ -20,6 +21,8 @@ describe('XeroEntities.Manager', () => {
     let loggerMock: TypeMoq.IMock<ILogger>;
 
     let manager: IManager;
+
+    const organisation = {} as IOrganisation;
 
     const files: (Payhawk.IDownloadedFile & { name: string })[] = [
         {
@@ -606,7 +609,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.once());
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('updates bill and pays it', async () => {
@@ -710,7 +713,7 @@ describe('XeroEntities.Manager', () => {
                 }
             }
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('updates bill and pays it, deletes payment if it is paid', async () => {
@@ -819,7 +822,7 @@ describe('XeroEntities.Manager', () => {
                 }
             }
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('does nothing if bill is paid with a batch payment manually', async () => {
@@ -888,7 +891,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createPayment(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.never());
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('updates bill and uploads missing files', async () => {
@@ -987,7 +990,7 @@ describe('XeroEntities.Manager', () => {
                 ))
                 .verifiable(TypeMoq.Times.once());
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('creates a bill', async () => {
@@ -1046,7 +1049,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(files.length));
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('creates a bill and pays it', async () => {
@@ -1128,7 +1131,7 @@ describe('XeroEntities.Manager', () => {
                 }
             }
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('creates a bill and does not pay it if there is no bank account id', async () => {
@@ -1190,7 +1193,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.createPayment(TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.never());
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         test('creates a bill with default description and account code', async () => {
@@ -1245,7 +1248,7 @@ describe('XeroEntities.Manager', () => {
                 .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
                 .verifiable(TypeMoq.Times.exactly(files.length));
 
-            await manager.createOrUpdateBill(newBill);
+            await manager.createOrUpdateBill(newBill, organisation);
         });
 
         describe('creates a bill with fallback to default account code', () => {
@@ -1371,8 +1374,8 @@ describe('XeroEntities.Manager', () => {
                         .verifiable(TypeMoq.Times.exactly(files.length * 2));
 
                     // test 2 consecutive failures
-                    await manager.createOrUpdateBill(newBill);
-                    await manager.createOrUpdateBill(newBill);
+                    await manager.createOrUpdateBill(newBill, organisation);
+                    await manager.createOrUpdateBill(newBill, organisation);
                 });
             });
         });
@@ -1448,7 +1451,7 @@ describe('XeroEntities.Manager', () => {
                 }
             }
 
-            await manager.createOrUpdateCreditNote(newCreditNote);
+            await manager.createOrUpdateCreditNote(newCreditNote, organisation);
         });
     });
 });

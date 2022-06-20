@@ -13,6 +13,9 @@ describe('integrations/Manager', () => {
     const accountId = 'account_id';
     const tenantId = 'tenant_id';
     const portalUrl = 'https://portal.payhawk.io';
+
+    const shortCode = '!ef94Az';
+
     let payhawkClientMock: TypeMoq.IMock<Payhawk.IClient>;
     let xeroEntitiesMock: TypeMoq.IMock<XeroEntities.IManager>;
     let bankAccountsManagerMock: TypeMoq.IMock<XeroEntities.BankAccounts.IManager>;
@@ -340,14 +343,13 @@ describe('integrations/Manager', () => {
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -448,14 +450,13 @@ describe('integrations/Manager', () => {
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode, baseCurrency: 'GBP' } as XeroEntities.IOrganisation))
@@ -579,14 +580,13 @@ describe('integrations/Manager', () => {
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -690,14 +690,13 @@ describe('integrations/Manager', () => {
                             posFees: 4,
                         }]);
                         return true;
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -834,14 +833,13 @@ describe('integrations/Manager', () => {
                             accountCode: expense.lineItems![0].reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -969,14 +967,13 @@ describe('integrations/Manager', () => {
                             accountCode: undefined,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1085,14 +1082,13 @@ describe('integrations/Manager', () => {
                             amount: 10,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1174,14 +1170,13 @@ describe('integrations/Manager', () => {
                             }],
                         });
                         return true;
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1306,14 +1301,13 @@ describe('integrations/Manager', () => {
                             accountCode: reconciliation.accountCode,
                             taxType: expense.taxRate?.code,
                         }],
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1428,14 +1422,13 @@ describe('integrations/Manager', () => {
                                 accountCode: reconciliation.accountCode,
                                 taxType: expense.taxRate?.code,
                             }],
-                        })))
+                        }), { shortCode } as XeroEntities.IOrganisation))
                         .returns(() => Promise.resolve('1'))
                         .verifiable(TypeMoq.Times.once());
 
                     deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                     deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                    const shortCode = '!ef94Az';
                     xeroEntitiesMock
                         .setup(e => e.getOrganisation())
                         .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1554,14 +1547,13 @@ describe('integrations/Manager', () => {
                                 accountCode: reconciliation.accountCode,
                                 taxType: expense.taxRate?.code,
                             }],
-                        })))
+                        }), { shortCode } as XeroEntities.IOrganisation))
                         .returns(() => Promise.resolve('1'))
                         .verifiable(TypeMoq.Times.once());
 
                     deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                     deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                    const shortCode = '!ef94Az';
                     xeroEntitiesMock
                         .setup(e => e.getOrganisation())
                         .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1675,14 +1667,13 @@ describe('integrations/Manager', () => {
                                 accountCode: reconciliation.accountCode,
                                 taxType: expense.taxRate?.code,
                             }],
-                        })))
+                        }), { shortCode } as XeroEntities.IOrganisation))
                         .returns(() => Promise.resolve('1'))
                         .verifiable(TypeMoq.Times.once());
 
                     deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                     deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                    const shortCode = '!ef94Az';
                     xeroEntitiesMock
                         .setup(e => e.getOrganisation())
                         .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1760,14 +1751,13 @@ describe('integrations/Manager', () => {
                             taxType: expense.taxRate?.code,
                         }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1838,14 +1828,13 @@ describe('integrations/Manager', () => {
                             taxType: expense.taxRate?.code,
                         }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    })))
+                    }), { shortCode } as XeroEntities.IOrganisation))
                     .returns(() => Promise.resolve('1'))
                     .verifiable(TypeMoq.Times.once());
 
                 deleteFilesMock.setup(d => d(files[0].path)).verifiable(TypeMoq.Times.once());
                 deleteFilesMock.setup(d => d(files[1].path)).verifiable(TypeMoq.Times.once());
 
-                const shortCode = '!ef94Az';
                 xeroEntitiesMock
                     .setup(e => e.getOrganisation())
                     .returns(async () => ({ shortCode } as XeroEntities.IOrganisation))
@@ -1922,7 +1911,7 @@ describe('integrations/Manager', () => {
                             taxType: expense.taxRate?.code,
                         }],
                         url: `${portalUrl}/expenses/${encodeURIComponent(expenseId)}?accountId=${encodeURIComponent(accountId)}`,
-                    })))
+                    }), {} as XeroEntities.IOrganisation))
                     .returns(() => Promise.reject())
                     .verifiable(TypeMoq.Times.once());
 

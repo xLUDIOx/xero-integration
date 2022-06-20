@@ -24,11 +24,11 @@ export interface IManager {
     deleteAccountTransaction(transactionUrl: string): Promise<void>;
 
     getCreditNoteByNumber(creditNoteNumber: string): Promise<Xero.ICreditNote | undefined>;
-    createOrUpdateCreditNote(input: INewCreditNote): Promise<string>;
+    createOrUpdateCreditNote(input: INewCreditNote, organisation: IOrganisation): Promise<string>;
     deleteCreditNote(creditNoteNumber: string): Promise<void>;
 
     getBillByUrl(url: string): Promise<Xero.IInvoice | undefined>;
-    createOrUpdateBill(input: INewBill): Promise<string>;
+    createOrUpdateBill(input: INewBill, organisation: IOrganisation): Promise<string>;
     deleteBill(billUrl: string): Promise<void>;
 
     deletePayment(paymentId: string): Promise<void>;

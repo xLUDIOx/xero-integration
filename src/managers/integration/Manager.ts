@@ -503,7 +503,7 @@ export class Manager implements IManager {
                 lineItems,
             };
 
-            const creditNoteId = await this.xeroEntities.createOrUpdateCreditNote(newCreditNote);
+            const creditNoteId = await this.xeroEntities.createOrUpdateCreditNote(newCreditNote, organisation);
             itemUrl = XeroEntities.getCreditNoteExternalUrl(organisation.shortCode, creditNoteId);
         } else {
             const billUrl = this.buildExpenseUrl(expense.id, new Date(date));
@@ -537,7 +537,7 @@ export class Manager implements IManager {
                 lineItems,
             };
 
-            const billId = await this.xeroEntities.createOrUpdateBill(newBill);
+            const billId = await this.xeroEntities.createOrUpdateBill(newBill, organisation);
             itemUrl = XeroEntities.getBillExternalUrl(organisation.shortCode, billId);
         }
 
