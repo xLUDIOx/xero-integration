@@ -41,14 +41,14 @@ export abstract class XeroTestEnvironmentBase {
             .verifiable(TypeMoq.Times.once());
     }
 
-    setupOrganisationResponseMock() {
+    setupOrganisationResponseMock(times = 1) {
         this.httpClientMock
             .setup(x => x.request(TypeMoq.It.isObjectWith({
                 url: 'http://xero-api/api.xro/2.0/Organisations',
                 method: 'GET',
             })))
             .returns(async () => getOrganisationResponse())
-            .verifiable(TypeMoq.Times.once());
+            .verifiable(TypeMoq.Times.exactly(times));
     }
 
     setupExpenseAccountsResponseMock() {

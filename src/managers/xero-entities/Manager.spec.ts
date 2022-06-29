@@ -3,7 +3,7 @@ import * as TypeMoq from 'typemoq';
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, TaxRateStatus, TaxType } from '@shared';
 import { typeIsEqualSkipUndefined } from '@test-utils';
-import { ILogger } from '@utils';
+import { ILogger, LOCKED_PERIOD_ERROR_MESSAGE } from '@utils';
 
 import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
@@ -548,6 +548,10 @@ describe('XeroEntities.Manager', () => {
 
             const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
                 .returns(async () => existingBill)
@@ -635,6 +639,10 @@ describe('XeroEntities.Manager', () => {
             const id = 'bId';
 
             const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
@@ -741,6 +749,10 @@ describe('XeroEntities.Manager', () => {
 
             const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
                 .returns(async () => existingBill)
@@ -822,6 +834,86 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateBill(newBill);
         });
 
+        test('updates bill and pays it, deletes payment if it is paid', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 12).toISOString(),
+                isPaid: true,
+                payments: [{
+                    amount: 12.05,
+                    bankAccountId: 'bank_id',
+                    date: new Date(2012, 10, 11).toISOString(),
+                    currency: 'EUR',
+                    bankFees: 0,
+                }],
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+                lineItems: [],
+            };
+
+            const id = 'bId';
+            const paymentId = 'payment-id';
+
+            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({
+                    periodLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                    endOfYearLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                } as any));
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(newBill.url))
+                .returns(async () => existingBill)
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillByUrl(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
+                ))
+                .verifiable(TypeMoq.Times.never());
+
+            accountingClientMock
+                .setup(x => x.deletePayment(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.updateBill(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(id))
+                .returns(async () => files.map(f => {
+                    const att = {
+                        fileName: f.name,
+                    };
+
+                    return att as Xero.IAttachment;
+                }))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.getBillAttachments(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.once());
+
+            xeroClientMock
+                .setup(x => x.createPayment(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await manager.createOrUpdateBill(newBill);
+        });
+
         test('does nothing if bill is paid from another xero bank account', async () => {
             const newBill: INewBill = {
                 date: new Date(2012, 10, 10).toISOString(),
@@ -843,6 +935,10 @@ describe('XeroEntities.Manager', () => {
             const paymentId = 'payment-id';
 
             const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.PAID, payments: [{ paymentID: paymentId }] } as Xero.IInvoice;
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
@@ -913,6 +1009,10 @@ describe('XeroEntities.Manager', () => {
                 }],
             } as Xero.IInvoice;
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
                 .returns(async () => existingBill)
@@ -963,7 +1063,9 @@ describe('XeroEntities.Manager', () => {
 
             const id = 'bId';
 
-            const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any)); const existingBill = { invoiceID: id, status: Xero.InvoiceStatus.DRAFT } as Xero.IInvoice;
 
             xeroClientMock
                 .setup(x => x.getBillByUrl(newBill.url))
@@ -1062,6 +1164,10 @@ describe('XeroEntities.Manager', () => {
                 lineItems: [],
             };
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
@@ -1105,6 +1211,45 @@ describe('XeroEntities.Manager', () => {
             await manager.createOrUpdateBill(newBill);
         });
 
+        test('does not create a bill if in locked period', async () => {
+            const newBill: INewBill = {
+                date: new Date(2012, 10, 10).toISOString(),
+                dueDate: new Date(2012, 10, 10).toISOString(),
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 12.05,
+                accountCode: '310',
+                taxType: 'TAX001',
+                files,
+                url: 'expense url',
+                lineItems: [],
+            };
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({
+                    periodLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                    endOfYearLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                } as any));
+
+            xeroClientMock
+                .setup(x => x.createBill(
+                    TypeMoq.It.isAny(),
+                ))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.uploadBillAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.createPayment(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await expect(manager.createOrUpdateBill(newBill)).rejects.toThrow(LOCKED_PERIOD_ERROR_MESSAGE);
+        });
+
         test('creates a bill and pays it', async () => {
             const newBillId = 'new-bill-id';
             const newBill: INewBill = {
@@ -1127,6 +1272,10 @@ describe('XeroEntities.Manager', () => {
                 url: 'expense url',
                 lineItems: [],
             };
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
 
             xeroClientMock
                 .setup(x => x.createBill(typeIsEqualSkipUndefined({
@@ -1202,6 +1351,10 @@ describe('XeroEntities.Manager', () => {
                 url: 'expense url',
             };
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.createBill(typeIsEqualSkipUndefined({
                     date: newBill.date,
@@ -1260,6 +1413,10 @@ describe('XeroEntities.Manager', () => {
                 files,
                 url: 'expense url',
             };
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
 
             xeroClientMock
                 .setup(x => x.createBill(typeIsEqualSkipUndefined({
@@ -1321,6 +1478,10 @@ describe('XeroEntities.Manager', () => {
                         url: 'expense url',
                         accountCode: '42945235343232',
                     };
+
+                    accountingClientMock
+                        .setup(x => x.getOrganisation())
+                        .returns(async () => ({} as any));
 
                     xeroClientMock
                         .setup(x => x.createBill(typeIsEqualSkipUndefined({
@@ -1456,6 +1617,10 @@ describe('XeroEntities.Manager', () => {
                 creditNoteNumber: 'INV-1',
             };
 
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({} as any));
+
             xeroClientMock
                 .setup(x => x.getCreditNoteByNumber(newCreditNote.creditNoteNumber))
                 .returns(async () => undefined);
@@ -1505,6 +1670,52 @@ describe('XeroEntities.Manager', () => {
             }
 
             await manager.createOrUpdateCreditNote(newCreditNote);
+        });
+
+        test('does not create a credit note if in locked period', async () => {
+            const newCreditNote: INewCreditNote = {
+                date: new Date(2012, 10, 10).toISOString(),
+                payments: [{
+                    amount: 10,
+                    bankAccountId: 'bank_id',
+                    date: new Date(2012, 10, 11).toISOString(),
+                    currency: 'EUR',
+                    fxFees: 0,
+                    posFees: 0,
+                }],
+                currency: 'EUR',
+                contactId: 'contact-id',
+                description: 'expense note',
+                totalAmount: 10,
+                accountCode: '310',
+                files,
+                creditNoteNumber: 'INV-1',
+            };
+
+            accountingClientMock
+                .setup(x => x.getOrganisation())
+                .returns(async () => ({
+                    periodLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                    endOfYearLockDate: `/Date(${new Date(2012, 10, 10).getTime()})/`,
+                } as any));
+
+            xeroClientMock
+                .setup(x => x.getCreditNoteByNumber(newCreditNote.creditNoteNumber))
+                .returns(async () => undefined);
+
+            xeroClientMock
+                .setup(x => x.createCreditNote(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.uploadCreditNoteAttachment(TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny(), TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            xeroClientMock
+                .setup(x => x.createPayment(TypeMoq.It.isAny()))
+                .verifiable(TypeMoq.Times.never());
+
+            await expect(manager.createOrUpdateCreditNote(newCreditNote)).rejects.toThrow(LOCKED_PERIOD_ERROR_MESSAGE);
         });
     });
 });

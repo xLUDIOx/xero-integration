@@ -1,6 +1,6 @@
 import { Payhawk, Xero } from '@services';
 import { AccountStatus, DEFAULT_ACCOUNT_CODE, DEFAULT_ACCOUNT_NAME, FEES_ACCOUNT_CODE, FEES_ACCOUNT_NAME, ITaxRate, ITrackingCategory, TaxType } from '@shared';
-import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
+import { ARCHIVED_ACCOUNT_CODE_MESSAGE_REGEX, DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE, ExportError, fromDateTicks, ILogger, INVALID_ACCOUNT_CODE_MESSAGE_REGEX, isBeforeOrEqualToDate, LOCKED_PERIOD_ERROR_MESSAGE, sumAmounts, TAX_TYPE_IS_MANDATORY_MESSAGE } from '@utils';
 
 import { create as createBankAccountsManager, IManager as IBankAccountsManager } from './bank-accounts';
 import { create as createBankFeedsManager, IManager as IBankFeedsManager } from './bank-feeds';
@@ -8,7 +8,7 @@ import { IAccountCode } from './IAccountCode';
 import { IManager } from './IManager';
 import { INewAccountTransaction } from './INewAccountTransaction';
 import { INewBill } from './INewBill';
-import { INewCreditNote as INewCreditNoteEntity } from './INewCreditNote';
+import { INewCreditNote } from './INewCreditNote';
 import { IOrganisation } from './IOrganisation';
 
 export class Manager implements IManager {
@@ -176,6 +176,7 @@ export class Manager implements IManager {
 
     async createOrUpdateBill(newBill: INewBill): Promise<string> {
         const bill = await this.xeroClient.getBillByUrl(newBill.url);
+        const isInLockedPeriod = await this.isInLockedPeriod(newBill.date, this.logger);
 
         const logger = this.logger.child({ billId: bill ? bill.invoiceID : undefined });
 
@@ -193,6 +194,10 @@ export class Manager implements IManager {
 
         if (!bill) {
             logger.info('Bill will be created');
+
+            if (isInLockedPeriod) {
+                throw new ExportError(LOCKED_PERIOD_ERROR_MESSAGE);
+            }
 
             try {
                 billId = await this.xeroClient.createBill(billData);
@@ -212,53 +217,55 @@ export class Manager implements IManager {
 
             billId = bill.invoiceID;
 
-            const updateData: Xero.IUpdateBillData = {
-                billId,
-                ...billData,
-            };
+            if (!isInLockedPeriod) {
+                const updateData: Xero.IUpdateBillData = {
+                    billId,
+                    ...billData,
+                };
 
-            if (bill.status === Xero.InvoiceStatus.VOIDED || bill.status === Xero.InvoiceStatus.DELETED) {
-                this.logger.warn('Bill is deleted and cannot be updated');
-                return bill.invoiceID;
-            }
-
-            if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
-                const canDeleteExistingPayments = newBill.payments && newBill.payments.length === bill.payments.length;
-                if (!canDeleteExistingPayments) {
-                    logger.warn('Existing bill payments cannot be deleted, not paid with Payhawk');
+                if (bill.status === Xero.InvoiceStatus.VOIDED || bill.status === Xero.InvoiceStatus.DELETED) {
+                    this.logger.warn('Bill is deleted and cannot be updated');
                     return bill.invoiceID;
                 }
 
-                const hasReconciledPayment = bill.payments.some(p => p.isReconciled);
-                if (hasReconciledPayment) {
-                    throw new ExportError('Failed to export expense into Xero. Payments have been reconciled');
+                if (bill.status === Xero.InvoiceStatus.PAID && bill.payments && bill.payments.length > 0) {
+                    const canDeleteExistingPayments = newBill.payments && newBill.payments.length === bill.payments.length;
+                    if (!canDeleteExistingPayments) {
+                        logger.warn('Existing bill payments cannot be deleted, not paid with Payhawk');
+                        return bill.invoiceID;
+                    }
+
+                    const hasReconciledPayment = bill.payments.some(p => p.isReconciled);
+                    if (hasReconciledPayment) {
+                        throw new ExportError('Failed to export expense into Xero. Payments have been reconciled');
+                    }
+
+                    const anyPaymentIsBatch = bill.payments.some(p => p.batchPaymentID !== undefined);
+                    if (anyPaymentIsBatch) {
+                        logger.info('Payment is part of a batch payment, no updates will be performed');
+                        return bill.invoiceID;
+                    }
+
+                    for (const payment of bill.payments) {
+                        await this.deletePayment(payment.paymentID);
+                    }
                 }
 
-                const anyPaymentIsBatch = bill.payments.some(p => p.batchPaymentID !== undefined);
-                if (anyPaymentIsBatch) {
-                    logger.info('Payment is part of a batch payment, no updates will be performed');
-                    return bill.invoiceID;
-                }
+                try {
+                    await this.xeroClient.updateBill(updateData);
+                } catch (err: any) {
+                    const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
+                    if (!skipUpdates) {
+                        const updateDataFallback = await this.tryFallbackItemData(
+                            err,
+                            updateData,
+                            generalExpenseAccount.code,
+                            generalExpenseAccount.taxType,
+                            logger,
+                        );
 
-                for (const payment of bill.payments) {
-                    await this.deletePayment(payment.paymentID);
-                }
-            }
-
-            try {
-                await this.xeroClient.updateBill(updateData);
-            } catch (err: any) {
-                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
-                if (!skipUpdates) {
-                    const updateDataFallback = await this.tryFallbackItemData(
-                        err,
-                        updateData,
-                        generalExpenseAccount.code,
-                        generalExpenseAccount.taxType,
-                        logger,
-                    );
-
-                    await this.xeroClient.updateBill(updateDataFallback);
+                        await this.xeroClient.updateBill(updateDataFallback);
+                    }
                 }
             }
 
@@ -281,6 +288,10 @@ export class Manager implements IManager {
                 const fileName = f.fileName;
                 await this.xeroClient.uploadBillAttachment(billId, fileName, f.path, f.contentType);
             }
+        }
+
+        if (isInLockedPeriod && bill?.payments !== undefined && bill.payments.length > 0) {
+            return billId;
         }
 
         if (newBill.isPaid && newBill.payments !== undefined && newBill.payments.length > 0) {
@@ -355,9 +366,9 @@ export class Manager implements IManager {
         return await this.xeroClient.getCreditNoteByNumber(creditNoteNumber);
     }
 
-    async createOrUpdateCreditNote(newCreditNote: INewCreditNoteEntity): Promise<string> {
+    async createOrUpdateCreditNote(newCreditNote: INewCreditNote): Promise<string> {
         const creditNote = await this.xeroClient.getCreditNoteByNumber(newCreditNote.creditNoteNumber);
-
+        const isInLockedPeriod = await this.isInLockedPeriod(newCreditNote.date, this.logger);
         const logger = this.logger.child({ creditNoteNumber: creditNote ? creditNote.creditNoteNumber : undefined });
 
         const [generalExpenseAccount, feesExpenseAccount] = await this.ensureDefaultExpenseAccountsExist();
@@ -374,6 +385,9 @@ export class Manager implements IManager {
 
         if (!creditNote) {
             logger.info('Credit note will be created');
+            if (isInLockedPeriod) {
+                throw new ExportError(LOCKED_PERIOD_ERROR_MESSAGE);
+            }
 
             try {
                 creditNoteId = await this.xeroClient.createCreditNote(creditNoteData);
@@ -393,35 +407,37 @@ export class Manager implements IManager {
 
             creditNoteId = creditNote.creditNoteID;
 
-            const updateData: Xero.ICreditNoteData = {
-                ...creditNoteData,
-            };
+            if (!isInLockedPeriod) {
+                const updateData: Xero.ICreditNoteData = {
+                    ...creditNoteData,
+                };
 
-            if (creditNote.status === Xero.CreditNoteStatus.VOIDED || creditNote.status === Xero.CreditNoteStatus.DELETED) {
-                this.logger.warn('Credit note is deleted and cannot be updated');
-                return creditNote.creditNoteID;
-            }
-
-            if (creditNote.status === Xero.CreditNoteStatus.PAID && creditNote.payments && creditNote.payments.length > 0) {
-                for (const payment of creditNote.payments) {
-                    await this.deletePayment(payment.paymentID);
+                if (creditNote.status === Xero.CreditNoteStatus.VOIDED || creditNote.status === Xero.CreditNoteStatus.DELETED) {
+                    this.logger.warn('Credit note is deleted and cannot be updated');
+                    return creditNote.creditNoteID;
                 }
-            }
 
-            try {
-                await this.xeroClient.updateCreditNote(updateData);
-            } catch (err: any) {
-                const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
-                if (!skipUpdates) {
-                    const updateDataFallback = await this.tryFallbackItemData(
-                        err,
-                        updateData,
-                        generalExpenseAccount.code,
-                        generalExpenseAccount.taxType,
-                        logger,
-                    );
+                if (creditNote.status === Xero.CreditNoteStatus.PAID && creditNote.payments && creditNote.payments.length > 0) {
+                    for (const payment of creditNote.payments) {
+                        await this.deletePayment(payment.paymentID);
+                    }
+                }
 
-                    await this.xeroClient.updateCreditNote(updateDataFallback);
+                try {
+                    await this.xeroClient.updateCreditNote(updateData);
+                } catch (err: any) {
+                    const skipUpdates = err.message.includes(DOCUMENT_DATE_IN_LOCKED_PERIOD_MESSAGE);
+                    if (!skipUpdates) {
+                        const updateDataFallback = await this.tryFallbackItemData(
+                            err,
+                            updateData,
+                            generalExpenseAccount.code,
+                            generalExpenseAccount.taxType,
+                            logger,
+                        );
+
+                        await this.xeroClient.updateCreditNote(updateDataFallback);
+                    }
                 }
             }
 
@@ -444,6 +460,10 @@ export class Manager implements IManager {
                 const fileName = f.fileName;
                 await this.xeroClient.uploadCreditNoteAttachment(creditNoteId, fileName, f.path, f.contentType);
             }
+        }
+
+        if (isInLockedPeriod && creditNote?.payments !== undefined && creditNote.payments.length > 0) {
+            return creditNoteId;
         }
 
         if (newCreditNote.payments !== undefined && newCreditNote.payments.length > 0) {
@@ -671,7 +691,7 @@ export class Manager implements IManager {
         taxType,
         lineItems = [],
         trackingCategories,
-    }: INewCreditNoteEntity,
+    }: INewCreditNote,
 
         defaultAccount: IAccountCode,
         taxExemptAccount: IAccountCode,
@@ -699,6 +719,28 @@ export class Manager implements IManager {
             })),
             trackingCategories,
         };
+    }
+
+    private async isInLockedPeriod(date: string | Date, baseLogger: ILogger) {
+        const organisation = await this.getOrganisation();
+        const endOfYearLockDate = organisation.endOfYearLockDate;
+        const periodLockDate = organisation.periodLockDate;
+
+        const logger = baseLogger.child({
+            organisationName: organisation.name,
+            expenseExportDate: date,
+            organisationPeriodLockDate: periodLockDate,
+            organisationEndOfYearLockDate: endOfYearLockDate,
+        });
+
+        if ((endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate)) ||
+            (periodLockDate && isBeforeOrEqualToDate(date, periodLockDate))
+        ) {
+            logger.info(LOCKED_PERIOD_ERROR_MESSAGE);
+            return true;
+        }
+
+        return false;
     }
 }
 

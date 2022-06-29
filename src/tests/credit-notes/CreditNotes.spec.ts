@@ -8,7 +8,7 @@ describe('Credit notes export module tests', () => {
     beforeEach(() => {
         testEnv = new CreditNotesTestEnvironment();
 
-        testEnv.setupOrganisationResponseMock();
+        testEnv.setupOrganisationResponseMock(2);
         testEnv.setupFxRatesMock();
         testEnv.setupValidAccessToken();
         testEnv.setupApiKey();

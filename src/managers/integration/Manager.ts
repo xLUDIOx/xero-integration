@@ -10,8 +10,7 @@ import {
     ExportError,
     ILogger,
     INVALID_ACCOUNT_CODE_MESSAGE_REGEX,
-    isBeforeOrEqualToDate,
-    LOCK_PERIOD_ERROR_MESSAGE,
+    LOCKED_PERIOD_ERROR_MESSAGE,
     multiplyAmountByRate,
     sumAmounts,
     TRACKING_CATEGORIES_MISMATCH_ERROR_MESSAGE,
@@ -249,10 +248,8 @@ export class Manager implements IManager {
             return;
         }
 
-        const organisation = await this.getOrganisation();
-
         try {
-            await this._exportBankStatementForExpense(expense, organisation, logger);
+            await this._exportBankStatementForExpense(expense, logger);
         } catch (err: any) {
             this.handleExportError(err, expense.category, GENERIC_BANK_STATEMENT_EXPORT_ERROR_MESSAGE);
         }
@@ -265,9 +262,6 @@ export class Manager implements IManager {
         if (!transfer) {
             throw logger.error(Error('Transfer not found'));
         }
-
-        const organisation = await this.getOrganisation();
-        this.validateExportDate(organisation, transfer.date, logger);
 
         logger = logger.child({ currency: transfer.currency });
 
@@ -401,8 +395,6 @@ export class Manager implements IManager {
     private async _exportExpense(expense: Payhawk.IExpense, files: Payhawk.IDownloadedFile[], organisation: XeroEntities.IOrganisation) {
         const date = getExportDate(expense);
 
-        this.validateExportDate(organisation, date, this.logger);
-
         let currency = expense.reconciliation.expenseCurrency;
         if (!currency) {
             throw new ExportError('Failed to export into Xero. Expense has no currency.');
@@ -466,8 +458,6 @@ export class Manager implements IManager {
                         if (!expenseTransaction.settlementDate) {
                             throw new ExportError('Failed to export into Xero. Expense transaction is not settled');
                         }
-
-                        this.validateExportDate(organisation, expenseTransaction.settlementDate, logger);
 
                         payments.push({
                             bankAccountId: bankAccount.accountID,
@@ -720,25 +710,6 @@ export class Manager implements IManager {
         await this.xeroEntities.deletePayment(paymentId);
     }
 
-    private validateExportDate(organisation: XeroEntities.IOrganisation, date: string | Date, baseLogger: ILogger) {
-        const endOfYearLockDate = organisation.endOfYearLockDate;
-        const periodLockDate = organisation.periodLockDate;
-
-        const logger = baseLogger.child({
-            organisationName: organisation.name,
-            expenseExportDate: date,
-            organisationPeriodLockDate: periodLockDate,
-            organisationEndOfYearLockDate: endOfYearLockDate,
-        });
-
-        if ((endOfYearLockDate && isBeforeOrEqualToDate(date, endOfYearLockDate)) ||
-            (periodLockDate && isBeforeOrEqualToDate(date, periodLockDate))
-        ) {
-            logger.info(LOCK_PERIOD_ERROR_MESSAGE);
-            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
-        }
-    }
-
     private async deleteBillIfExists(expenseId: string, logger: ILogger): Promise<void> {
         const billUrl = this.buildExpenseUrl(expenseId);
 
@@ -871,7 +842,7 @@ export class Manager implements IManager {
         });
     }
 
-    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, organisation: XeroEntities.IOrganisation, logger: ILogger): Promise<void> {
+    private async _exportBankStatementForExpense(expense: Payhawk.IExpense, logger: ILogger): Promise<void> {
         const hasTransactions = expense.transactions.length > 0;
         const isPaidWithBalancePayment = expense.isPaid && expense.paymentData.sourceType === Payhawk.PaymentSourceType.Balance;
         if (!hasTransactions && !isPaidWithBalancePayment) {
@@ -899,9 +870,6 @@ export class Manager implements IManager {
 
         const contactName = expense.recipient.name;
         const reference = expense.document?.number;
-
-        const date = getExportDate(expense);
-        this.validateExportDate(organisation, date, logger);
 
         // backwards compatibility for no statement duplication
         const statementExists = await this.store.bankFeeds.existsStatement({
@@ -1026,8 +994,8 @@ export class Manager implements IManager {
             throw new ExportError(`The Xero account code for category "${categoryName}" cannot be used. Please use a different one.`);
         } else if (ARCHIVED_BANK_ACCOUNT_MESSAGE_REGEX.test(errorMessage)) {
             throw new ExportError(`${errorMessage}. Please activate it.`);
-        } else if (errorMessage === LOCK_PERIOD_ERROR_MESSAGE) {
-            throw new ExportError(LOCK_PERIOD_ERROR_MESSAGE);
+        } else if (errorMessage === LOCKED_PERIOD_ERROR_MESSAGE) {
+            throw new ExportError(LOCKED_PERIOD_ERROR_MESSAGE);
         } else if (errorMessage === EXPENSE_RECONCILED_ERROR_MESSAGE) {
             throw new ExportError(EXPENSE_RECONCILED_ERROR_MESSAGE);
         } else if (errorMessage === DEFAULT_GENERAL_ACCOUNT_CODE_ARCHIVED_ERROR_MESSAGE) {
